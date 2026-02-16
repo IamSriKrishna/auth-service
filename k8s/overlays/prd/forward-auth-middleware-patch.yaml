@@ -1,3 +1,0 @@
-- op: replace
-  path: /spec/forwardAuth/address
-  value: http://auth-service.bbapp-prod.svc.cluster.local:80/forward-auth
