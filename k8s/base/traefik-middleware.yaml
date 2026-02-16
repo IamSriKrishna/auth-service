@@ -1,0 +1,83 @@
+# Universal forward auth middleware for all authenticated endpoints
+# Handles /partners/*, /admin/* - auth service determines access based on path + JWT claims
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: forward-auth
+  labels:
+    app: edge-auth
+    component: forward-auth-middleware
+spec:
+  forwardAuth:
+    address: http://auth-service.bbapp-prod.svc.cluster.local:80/forward-auth
+    authRequestHeaders:
+      - "Authorization"
+      - "X-Forwarded-Uri"
+      - "X-Forwarded-Method" 
+      - "X-Forwarded-Host"
+      - "X-Real-IP"
+      - "X-Forwarded-For"
+    authResponseHeaders:
+      - "X-User-Id"
+      - "X-Customer-Id"
+      - "X-User-Type"
+      - "X-User-Role"
+      - "X-User-Email"
+      - "X-Identity-Type"
+      - "X-Partner-Id"
+    trustForwardHeader: true
+---
+# Security headers middleware
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: cors-headers
+spec:
+  headers:
+    accessControlAllowMethods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+      - "PATCH"
+      - "OPTIONS"
+    accessControlAllowOriginList:
+      - "http://localhost:3000"
+      - "http://localhost:3001"
+      - "http://localhost:8080"
+      - "https://admin.bbapp.in"
+      - "https://app.bbapp.in"
+    accessControlAllowHeaders:
+      - "Authorization"
+      - "Content-Type"
+      - "X-Requested-With"
+      - "Accept"
+      - "Origin"
+      - "Cache-Control"
+      - "X-File-Name"
+    accessControlExposeHeaders:
+      - "X-User-Id"
+      - "X-Customer-Id"
+      - "X-User-Type"
+      - "X-User-Role"
+      - "X-Partner-Id"
+    accessControlMaxAge: 3600
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+spec:
+  headers:
+    customResponseHeaders:
+      X-Frame-Options: "DENY"
+      X-Content-Type-Options: "nosniff"
+      X-XSS-Protection: "1; mode=block"
+      Referrer-Policy: "strict-origin-when-cross-origin"
+      Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+    contentTypeNosniff: true
+    frameDeny: true
+    sslRedirect: true
+    stsSeconds: 31536000
+    stsIncludeSubdomains: true
+    stsPreload: true

@@ -1,0 +1,1020 @@
+basePath: /
+definitions:
+  input.ChangePasswordRequest:
+    properties:
+      current_password:
+        type: string
+      new_password:
+        minLength: 8
+        type: string
+    required:
+    - current_password
+    - new_password
+    type: object
+  input.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      role_name:
+        enum:
+        - admin
+        - partner
+        type: string
+      user_type:
+        enum:
+        - admin
+        - partner
+        type: string
+      username:
+        type: string
+    required:
+    - email
+    - password
+    - role_name
+    - user_type
+    type: object
+  input.LoginEmailRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  input.LoginGoogleRequest:
+    properties:
+      google_token:
+        type: string
+    required:
+    - google_token
+    type: object
+  input.LoginPasswordRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  input.LoginPhoneRequest:
+    properties:
+      phone:
+        maxLength: 15
+        minLength: 10
+        type: string
+    required:
+    - phone
+    type: object
+  input.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  input.RegisterEmailRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  input.RegisterGoogleRequest:
+    properties:
+      google_token:
+        type: string
+    required:
+    - google_token
+    type: object
+  input.RegisterPhoneRequest:
+    properties:
+      phone:
+        maxLength: 15
+        minLength: 10
+        type: string
+    required:
+    - phone
+    type: object
+  input.ResetPasswordRequest:
+    properties:
+      new_password:
+        minLength: 8
+        type: string
+      user_id:
+        type: integer
+    required:
+    - new_password
+    - user_id
+    type: object
+  input.TokenValidationRequest:
+    properties:
+      token:
+        type: string
+    required:
+    - token
+    type: object
+  input.UpdateUserRequest:
+    properties:
+      email:
+        type: string
+      role_name:
+        enum:
+        - admin
+        - partner
+        - mobile_user
+        type: string
+      status:
+        enum:
+        - active
+        - inactive
+        - pending
+        type: string
+      username:
+        type: string
+    type: object
+  input.VerifyOTPRequest:
+    properties:
+      email:
+        type: string
+      otp:
+        type: string
+      phone:
+        type: string
+    required:
+    - otp
+    type: object
+  output.AuthResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      refresh_token:
+        type: string
+      token_type:
+        type: string
+      user:
+        $ref: '#/definitions/output.UserInfo'
+    type: object
+  output.Claims:
+    properties:
+      email:
+        type: string
+      google_id:
+        type: string
+      identity_type:
+        type: string
+      phone:
+        type: string
+      role:
+        type: string
+      user_id:
+        type: integer
+      user_type:
+        type: string
+    type: object
+  output.ErrorResponse:
+    properties:
+      code:
+        type: integer
+      error:
+        type: boolean
+      message:
+        type: string
+    type: object
+  output.OTPResponse:
+    properties:
+      expires_in:
+        type: integer
+      message:
+        type: string
+    type: object
+  output.PaginatedResponse:
+    properties:
+      data: {}
+      meta:
+        $ref: '#/definitions/output.PaginationMeta'
+      success:
+        type: boolean
+    type: object
+  output.PaginationMeta:
+    properties:
+      current_page:
+        type: integer
+      per_page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  output.SuccessResponse:
+    properties:
+      data: {}
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  output.TokenValidationResponse:
+    properties:
+      claims:
+        $ref: '#/definitions/output.Claims'
+      role:
+        type: string
+      user_id:
+        type: integer
+      user_type:
+        type: string
+      valid:
+        type: boolean
+    type: object
+  output.UserInfo:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      last_login_at:
+        type: string
+      phone:
+        type: string
+      role:
+        type: string
+      status:
+        type: string
+      user_type:
+        type: string
+      username:
+        type: string
+    type: object
+host: auth.api.bbapp.in
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: Authentication and Authorization Service API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Auth Service API
+  version: "1.0"
+paths:
+  /auth/admin/create-user:
+    post:
+      consumes:
+      - application/json
+      description: Create a new admin or partner user
+      parameters:
+      - description: Create user request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.UserInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Create user
+      tags:
+      - Admin
+  /auth/admin/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: Reset user password (super admin only)
+      parameters:
+      - description: Reset password request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Reset password
+      tags:
+      - Admin
+  /auth/admin/users:
+    get:
+      consumes:
+      - application/json
+      description: Get list of users with pagination
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.PaginatedResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Get users
+      tags:
+      - Admin
+  /auth/admin/users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete user account
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Delete user
+      tags:
+      - Admin
+    get:
+      consumes:
+      - application/json
+      description: Get specific user details
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.UserInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Get user
+      tags:
+      - Admin
+    put:
+      consumes:
+      - application/json
+      description: Update user information
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update user request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.UserInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Update user
+      tags:
+      - Admin
+  /auth/admin/users/{id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Update user role
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Role update
+        in: body
+        name: role
+        required: true
+        schema:
+          properties:
+            role_name:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Update user role
+      tags:
+      - Admin
+  /auth/admin/users/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: Update user status
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Status update
+        in: body
+        name: status
+        required: true
+        schema:
+          properties:
+            status:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Update user status
+      tags:
+      - Admin
+  /auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change user password
+      parameters:
+      - description: Change password request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Change password
+      tags:
+      - Authentication
+  /auth/login/email:
+    post:
+      consumes:
+      - application/json
+      description: Login mobile user with email (OTP)
+      parameters:
+      - description: Login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.LoginEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      summary: Login with email
+      tags:
+      - Authentication
+  /auth/login/google:
+    post:
+      consumes:
+      - application/json
+      description: Login mobile user with Google OIDC
+      parameters:
+      - description: Login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.LoginGoogleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      summary: Login with Google
+      tags:
+      - Authentication
+  /auth/login/password:
+    post:
+      consumes:
+      - application/json
+      description: Login admin/partner user with password
+      parameters:
+      - description: Login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.LoginPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      summary: Login with password
+      tags:
+      - Authentication
+  /auth/login/phone:
+    post:
+      consumes:
+      - application/json
+      description: Login mobile user with phone (OTP)
+      parameters:
+      - description: Login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.LoginPhoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      summary: Login with phone
+      tags:
+      - Authentication
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Logout user and invalidate tokens
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Logout
+      tags:
+      - Authentication
+  /auth/refresh-token:
+    post:
+      consumes:
+      - application/json
+      description: Refresh access token using refresh token
+      parameters:
+      - description: Refresh token request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Refresh token
+      tags:
+      - Authentication
+  /auth/register/email:
+    post:
+      consumes:
+      - application/json
+      description: Register a new mobile user with email
+      parameters:
+      - description: Registration request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.RegisterEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      summary: Register with email
+      tags:
+      - Authentication
+  /auth/register/google:
+    post:
+      consumes:
+      - application/json
+      description: Register a new mobile user with Google OIDC
+      parameters:
+      - description: Registration request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.RegisterGoogleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      summary: Register with Google
+      tags:
+      - Authentication
+  /auth/register/phone:
+    post:
+      consumes:
+      - application/json
+      description: Register a new mobile user with phone
+      parameters:
+      - description: Registration request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.RegisterPhoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.OTPResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      summary: Register with phone
+      tags:
+      - Authentication
+  /auth/user-info:
+    get:
+      consumes:
+      - application/json
+      description: Get authenticated user information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.UserInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      security:
+      - Bearer: []
+      summary: Get user info
+      tags:
+      - Authentication
+  /auth/validate-token:
+    post:
+      consumes:
+      - application/json
+      description: Validate JWT token (internal use)
+      parameters:
+      - description: Token validation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.TokenValidationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.TokenValidationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      summary: Validate token
+      tags:
+      - Authentication
+  /auth/verify-otp:
+    post:
+      consumes:
+      - application/json
+      description: Verify OTP and complete authentication
+      parameters:
+      - description: OTP verification request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/input.VerifyOTPRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/output.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/output.ErrorResponse'
+      summary: Verify OTP
+      tags:
+      - Authentication
+  /forward-auth:
+    get:
+      consumes:
+      - application/json
+      description: Validates JWT tokens for Traefik forward auth middleware
+      parameters:
+      - description: Bearer JWT token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Original request URI
+        in: header
+        name: X-Forwarded-Uri
+        required: true
+        type: string
+      - description: Original request method
+        in: header
+        name: X-Forwarded-Method
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Authentication successful
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Forward authentication for Traefik
+      tags:
+      - Forward Auth
+  /forward-auth/customer:
+    get:
+      consumes:
+      - application/json
+      description: Validates JWT tokens specifically for customer service endpoints
+        with enhanced RBAC logging
+      parameters:
+      - description: Bearer JWT token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Original request URI
+        in: header
+        name: X-Forwarded-Uri
+        required: true
+        type: string
+      - description: Original request method
+        in: header
+        name: X-Forwarded-Method
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Authentication successful
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Customer service forward authentication
+      tags:
+      - Forward Auth
+  /forward-auth/product:
+    get:
+      consumes:
+      - application/json
+      description: Validates JWT tokens specifically for product service endpoints
+      parameters:
+      - description: Bearer JWT token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Original request URI
+        in: header
+        name: X-Forwarded-Uri
+        required: true
+        type: string
+      - description: Original request method
+        in: header
+        name: X-Forwarded-Method
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Authentication successful
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Product service forward authentication
+      tags:
+      - Forward Auth
+swagger: "2.0"

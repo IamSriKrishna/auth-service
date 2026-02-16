@@ -1,0 +1,36 @@
+{
+  "customer_id": 5,
+  "reference_no": "PO-20260206-0004",
+  "sales_order_date": "2026-02-06T00:00:00Z",
+  "expected_shipment_date": "2026-02-10T00:00:00Z",
+  "payment_terms": "due_on_receipt",
+  "delivery_method": "Standard Shipping",
+  "salesperson_id": 1,
+  "line_items": [
+    {
+      "item_id": "item_c9a210a0",
+      "variant_id": 1,
+      "quantity": 10,
+      "rate": 4500,
+      "variant_details": {
+        "color": "black",
+        "size": "8"
+      }
+    },
+    {
+      "item_id": "item_cf79b4c8",
+      "quantity": 20,
+      "rate": 450,
+      "variant_details": {
+        "color": "blue"
+      }
+    }
+  ],
+  "shipping_charges": 500,
+  "tax_type": "tcs",
+  "tax_id": 2,
+  "adjustment": 0,
+  "customer_notes": "Linked to Purchase Order PO-20260206-0004",
+  "terms_and_conditions": "Standard sales terms",
+  "attachments": []
+}

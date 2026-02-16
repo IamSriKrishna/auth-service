@@ -1,0 +1,4 @@
+- op: remove
+  path: /data/DB_USER
+- op: remove
+  path: /data/DB_READ_REPLICA_USER

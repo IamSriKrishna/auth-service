@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service-config
+data:
+  APP_ENV: "development"
+  DB_HOST: "mysql-0.mysql"
+  DB_PORT: "3306"
+  DB_NAME: "auth_service"
+  REDIS_ADDR: "redis-service:6379"
+  PORT: "3001"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:80"
+  FIREBASE_PROJECT_ID: "bb-app-461714-76b5a"
+  GOOGLE_OAUTH_CLIENT_ID: "998738324533-6cqkbb70fdkrq8254d7j7sfaei8f6125.apps.googleusercontent.com"
+  GOOGLE_OAUTH_IOS_CLIENT_ID: "998738324533-29d9adaotbipqnbas1e47kciaec081bp.apps.googleusercontent.com"
+  GOOGLE_OAUTH_ANDROID_CLIENT_ID: "998738324533-7bgafuu86g456od7jlm31clsoq8d50of.apps.googleusercontent.com"
