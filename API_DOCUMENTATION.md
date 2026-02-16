@@ -7,20 +7,23 @@
 4. [Vendors](#vendors)
 5. [Customers](#customers)
 6. [Items & Inventory](#items--inventory)
-7. [Manufacturers & Brands](#manufacturers--brands)
-8. [Companies](#companies)
-9. [Invoices](#invoices)
-10. [Bills](#bills)
-11. [Payments](#payments)
-12. [Tax Configuration](#tax-configuration)
-13. [Salespersons](#salespersons)
-14. [Purchase Orders](#purchase-orders)
-15. [Sales Orders](#sales-orders)
-16. [Packages](#packages)
-17. [Shipments](#shipments)
-18. [Helper/Lookup Routes](#helperlookup-routes)
-19. [Forward Auth Routes](#forward-auth-routes)
-20. [Support](#support)
+7. [Item Groups (BOM)](#item-groups-bom)
+8. [Production Orders (Manufacturing)](#production-orders-manufacturing)
+9. [Inventory Tracking](#inventory-tracking)
+10. [Manufacturers & Brands](#manufacturers--brands)
+11. [Companies](#companies)
+12. [Invoices](#invoices)
+13. [Bills](#bills)
+14. [Payments](#payments)
+15. [Tax Configuration](#tax-configuration)
+16. [Salespersons](#salespersons)
+17. [Purchase Orders](#purchase-orders)
+18. [Sales Orders](#sales-orders)
+19. [Packages](#packages)
+20. [Shipments](#shipments)
+21. [Helper/Lookup Routes](#helperlookup-routes)
+22. [Forward Auth Routes](#forward-auth-routes)
+23. [Support](#support)
 
 ---
 
@@ -607,6 +610,449 @@
 - **Method:** `GET`
 - **Endpoint:** `/items/:id/stock-summary`
 - **Authentication:** Bearer Token + Admin Role (Required)
+
+---
+
+## Item Groups (BOM)
+
+Item Groups represent Bill of Materials (BOM) - combinations of items that form finished products.
+**Example:** "300ml Water Bottle" = 1 × Bottle (300ml) + 1 × Cap (20mm)
+
+### 1. Create Item Group
+- **Method:** `POST`
+- **Endpoint:** `/api/item-groups`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "name": "300ml Water Bottle",
+  "description": "300ml plastic water bottle with cap",
+  "is_active": true,
+  "components": [
+    {
+      "item_id": "item_bottle_001",
+      "variant_id": 1,
+      "quantity": 1,
+      "variant_details": {
+        "capacity": "300ml",
+        "material": "plastic"
+      }
+    },
+    {
+      "item_id": "item_cap_001",
+      "variant_id": 2,
+      "quantity": 1,
+      "variant_details": {
+        "size": "20mm"
+      }
+    }
+  ]
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "grp_300ml_bottle",
+    "name": "300ml Water Bottle",
+    "description": "300ml plastic water bottle with cap",
+    "is_active": true,
+    "components": [
+      {
+        "id": 1,
+        "item_group_id": "grp_300ml_bottle",
+        "item_id": "item_bottle_001",
+        "variant_id": 1,
+        "quantity": 1,
+        "variant_details": {
+          "capacity": "300ml",
+          "material": "plastic"
+        },
+        "created_at": "2026-02-16T10:00:00Z",
+        "updated_at": "2026-02-16T10:00:00Z"
+      }
+    ],
+    "created_at": "2026-02-16T10:00:00Z",
+    "updated_at": "2026-02-16T10:00:00Z"
+  },
+  "message": "Item Group created successfully"
+}
+```
+
+### 2. List Item Groups
+- **Method:** `GET`
+- **Endpoint:** `/api/item-groups?page=1&page_size=10&search=water&is_active=true`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Query Parameters:**
+  - `page` - Page number (default: 1)
+  - `page_size` - Items per page (default: 10, max: 100)
+  - `search` - Search by name
+  - `is_active` - Filter by active status (true/false)
+  - `sort` - Sort field (name, created_at)
+
+- **Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "data": [
+      {
+        "id": "grp_300ml_bottle",
+        "name": "300ml Water Bottle",
+        "description": "300ml plastic water bottle with cap",
+        "is_active": true,
+        "components": [...],
+        "created_at": "2026-02-16T10:00:00Z",
+        "updated_at": "2026-02-16T10:00:00Z"
+      }
+    ],
+    "total": 5,
+    "page": 1,
+    "page_size": 10,
+    "total_page": 1
+  }
+}
+```
+
+### 3. Get Item Group by ID
+- **Method:** `GET`
+- **Endpoint:** `/api/item-groups/:id`
+- **Authentication:** Bearer Token + Admin Role (Required)
+
+- **Response (200 OK):** Same as Create response
+
+### 4. Update Item Group
+- **Method:** `PUT`
+- **Endpoint:** `/api/item-groups/:id`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "name": "300ml Water Bottle Premium",
+  "description": "Updated description",
+  "is_active": true,
+  "components": [...]
+}
+```
+
+### 5. Delete Item Group
+- **Method:** `DELETE`
+- **Endpoint:** `/api/item-groups/:id`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Response (204 No Content)**
+
+---
+
+## Production Orders (Manufacturing)
+
+Production Orders track the manufacturing of Item Groups from component inventory.
+
+### 1. Create Production Order
+- **Method:** `POST`
+- **Endpoint:** `/api/production-orders`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "item_group_id": "grp_300ml_bottle",
+  "quantity_to_manufacture": 100,
+  "planned_start_date": "2026-02-20T00:00:00Z",
+  "planned_end_date": "2026-02-25T00:00:00Z",
+  "notes": "Standard production run"
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "po_mfg_001",
+    "production_order_no": "PO-MFG-001",
+    "item_group_id": "grp_300ml_bottle",
+    "item_group": {
+      "id": "grp_300ml_bottle",
+      "name": "300ml Water Bottle",
+      "components": [...]
+    },
+    "quantity_to_manufacture": 100,
+    "quantity_manufactured": 0,
+    "status": "planned",
+    "planned_start_date": "2026-02-20T00:00:00Z",
+    "planned_end_date": "2026-02-25T00:00:00Z",
+    "actual_start_date": null,
+    "actual_end_date": null,
+    "notes": "Standard production run",
+    "production_order_items": [
+      {
+        "id": 1,
+        "production_order_id": "po_mfg_001",
+        "item_group_component_id": 1,
+        "quantity_required": 100,
+        "quantity_consumed": 0,
+        "created_at": "2026-02-16T10:00:00Z",
+        "updated_at": "2026-02-16T10:00:00Z"
+      }
+    ],
+    "created_at": "2026-02-16T10:00:00Z",
+    "updated_at": "2026-02-16T10:00:00Z",
+    "created_by": "user_123",
+    "updated_by": "user_123"
+  },
+  "message": "Production Order created successfully"
+}
+```
+
+### 2. List Production Orders
+- **Method:** `GET`
+- **Endpoint:** `/api/production-orders?page=1&page_size=10&status=in_progress&item_group_id=grp_300ml_bottle`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Query Parameters:**
+  - `page` - Page number (default: 1)
+  - `page_size` - Items per page (default: 10)
+  - `status` - Filter by status (planned, in_progress, completed, cancelled)
+  - `item_group_id` - Filter by ItemGroup
+  - `start_date` - Filter from date
+  - `end_date` - Filter to date
+  - `sort` - Sort field
+
+- **Response (200 OK):** List of Production Orders
+
+### 3. Get Production Order by ID
+- **Method:** `GET`
+- **Endpoint:** `/api/production-orders/:id`
+- **Authentication:** Bearer Token + Admin Role (Required)
+
+### 4. Update Production Order Status
+- **Method:** `PUT`
+- **Endpoint:** `/api/production-orders/:id/status`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "status": "in_progress",
+  "quantity_manufactured": 0,
+  "actual_end_date": null
+}
+```
+- **Status Values:** `planned`, `in_progress`, `completed`, `cancelled`
+
+### 5. Mark Production Order In Progress
+- **Method:** `POST`
+- **Endpoint:** `/api/production-orders/:id/start`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Response:** Returns updated Production Order with status = "in_progress"
+
+### 6. Complete Production Order
+- **Method:** `POST`
+- **Endpoint:** `/api/production-orders/:id/complete`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "quantity_manufactured": 100
+}
+```
+- **Response:** Returns updated Production Order with:
+  - `status` = "completed"
+  - `quantity_manufactured` = 100
+  - Components marked as "consumed" in inventory
+  - New product inventory created
+
+### 7. Get Required Components
+- **Method:** `GET`
+- **Endpoint:** `/api/production-orders/:id/components`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "production_order_id": "po_mfg_001",
+    "components": [
+      {
+        "item_id": "item_bottle_001",
+        "variant_id": 1,
+        "quantity_required": 100,
+        "quantity_available": 150,
+        "name": "Bottle (300ml)"
+      },
+      {
+        "item_id": "item_cap_001",
+        "variant_id": 2,
+        "quantity_required": 100,
+        "quantity_available": 200,
+        "name": "Cap (20mm)"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Inventory Tracking
+
+Comprehensive inventory tracking across purchases, manufacturing, and sales.
+
+### 1. Get Inventory Balance
+- **Method:** `GET`
+- **Endpoint:** `/api/inventory/balance/:item_id?variant_id=1`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "item_id": "item_bottle_001",
+    "variant_id": 1,
+    "item": {
+      "id": "item_bottle_001",
+      "name": "Plastic Bottle",
+      "type": "goods"
+    },
+    "variant": {
+      "id": 1,
+      "sku": "BOTTLE-300ML",
+      "selling_price": 2.5,
+      "cost_price": 1.5,
+      "stock_quantity": 150
+    },
+    "current_quantity": 150,
+    "reserved_quantity": 50,
+    "available_quantity": 100,
+    "last_received_date": "2026-02-15T10:00:00Z",
+    "last_consumed_date": "2026-02-14T14:30:00Z",
+    "last_sold_date": "2026-02-16T09:00:00Z",
+    "updated_at": "2026-02-16T10:00:00Z"
+  }
+}
+```
+
+### 2. Get Inventory Aggregation
+- **Method:** `GET`
+- **Endpoint:** `/api/inventory/aggregation/:item_id?variant_id=1`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "item_id": "item_bottle_001",
+    "variant_id": 1,
+    "total_purchased": 500,
+    "total_manufactured": 0,
+    "total_consumed_in_mfg": 100,
+    "total_sold": 250,
+    "calculated_at": "2026-02-16T10:00:00Z",
+    "updated_at": "2026-02-16T10:00:00Z"
+  }
+}
+```
+
+### 3. Reserve Inventory
+- **Method:** `PUT`
+- **Endpoint:** `/api/inventory/balance/:item_id/reserve`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "variant_id": 1,
+  "quantity": 50
+}
+```
+- **Response:** Updated InventoryBalance with reserved_quantity increased
+
+### 4. Release Reservation
+- **Method:** `PUT`
+- **Endpoint:** `/api/inventory/balance/:item_id/release`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "variant_id": 1,
+  "quantity": 50
+}
+```
+
+### 5. Get Inventory Journal (Audit Trail)
+- **Method:** `GET`
+- **Endpoint:** `/api/inventory/journal/:item_id?variant_id=1&start_date=2026-02-01&end_date=2026-02-16&page=1&page_size=20`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Query Parameters:**
+  - `variant_id` - Filter by variant
+  - `start_date` - Filter from date (ISO 8601)
+  - `end_date` - Filter to date (ISO 8601)
+  - `page` - Page number
+  - `page_size` - Items per page
+
+- **Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "data": [
+      {
+        "id": 1,
+        "item_id": "item_bottle_001",
+        "variant_id": 1,
+        "transaction_type": "purchase",
+        "quantity": 500,
+        "reference_type": "PurchaseOrder",
+        "reference_id": "po_001",
+        "reference_no": "PO-2026-001",
+        "notes": "Received from vendor",
+        "created_at": "2026-02-15T10:00:00Z",
+        "created_by": "user_123"
+      },
+      {
+        "id": 2,
+        "item_id": "item_bottle_001",
+        "variant_id": 1,
+        "transaction_type": "consume",
+        "quantity": -100,
+        "reference_type": "ProductionOrder",
+        "reference_id": "po_mfg_001",
+        "reference_no": "PO-MFG-001",
+        "notes": "Consumed in manufacturing",
+        "created_at": "2026-02-16T10:00:00Z",
+        "created_by": "user_456"
+      }
+    ],
+    "total": 10,
+    "start_date": "2026-02-01T00:00:00Z",
+    "end_date": "2026-02-16T23:59:59Z"
+  }
+}
+```
+
+### 6. Get Supply Chain Summary
+- **Method:** `GET`
+- **Endpoint:** `/api/inventory/supply-chain/:item_id?variant_id=1`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "item_id": "item_bottle_001",
+    "variant_id": 1,
+    "opening_stock": 50,
+    "total_po_quantity": 500,
+    "total_po_amount": 750.0,
+    "avg_purchase_rate": 1.5,
+    "total_prod_qty": 0,
+    "total_mfg_qty": 0,
+    "total_consumed_in_mfg": 100,
+    "total_so_quantity": 250,
+    "total_so_amount": 625.0,
+    "avg_sales_rate": 2.5,
+    "total_invoiced_qty": 200,
+    "current_qty": 150,
+    "updated_at": "2026-02-16T10:00:00Z"
+  }
+}
+```
 
 ---
 

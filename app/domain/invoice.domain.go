@@ -82,3 +82,12 @@ const (
 	BillStatusOverdue BillStatus = "overdue"
 	BillStatusVoid    BillStatus = "void"
 )
+
+type ProductionOrderStatus string
+
+const (
+	ProductionOrderStatusPlanned    ProductionOrderStatus = "planned"
+	ProductionOrderStatusInProgress ProductionOrderStatus = "in_progress"
+	ProductionOrderStatusCompleted  ProductionOrderStatus = "completed"
+	ProductionOrderStatusCancelled  ProductionOrderStatus = "cancelled"
+)

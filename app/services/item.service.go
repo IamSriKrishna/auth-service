@@ -46,12 +46,6 @@ func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutp
 			return nil, fmt.Errorf("preferred vendor not found")
 		}
 	}
-	if input.ManufacturerID != nil {
-		_, err := s.ManufacturerRepo.FindByID(*input.ManufacturerID)
-		if err != nil {
-			return nil, fmt.Errorf("manufacturer not found")
-		}
-	}
 
 	if input.PurchaseInfo != nil && input.PurchaseInfo.PreferredVendorID != nil {
 		_, err := s.vendorRepo.FindByID(*input.PurchaseInfo.PreferredVendorID)
@@ -122,18 +116,16 @@ func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutp
 
 	// Create the item
 	item := &models.Item{
-		ID:             id,
-		Name:           input.Name,
-		Type:           input.Type,
-		Brand:          input.Brand,
-		ManufacturerID: input.ManufacturerID,
-		ItemDetails:    itemDetails,
-		SalesInfo:      salesInfo,
-		PurchaseInfo:   purchaseInfo,
-		Inventory:      inventory,
-		ReturnPolicy:   returnPolicy,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		ID:           id,
+		Name:         input.Name,
+		Type:         input.Type,
+		ItemDetails:  itemDetails,
+		SalesInfo:    salesInfo,
+		PurchaseInfo: purchaseInfo,
+		Inventory:    inventory,
+		ReturnPolicy: returnPolicy,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}
 
 	if err := s.repo.Create(item); err != nil {
@@ -236,17 +228,6 @@ func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*outp
 	}
 	if input.Type != nil {
 		item.Type = *input.Type
-	}
-	if input.Brand != nil {
-		item.Brand = *input.Brand
-	}
-	if input.ManufacturerID != nil {
-		// Validate manufacturer exists
-		_, err := s.ManufacturerRepo.FindByID(*input.ManufacturerID)
-		if err != nil {
-			return nil, fmt.Errorf("manufacturer not found")
-		}
-		item.ManufacturerID = input.ManufacturerID
 	}
 
 	// Update SalesInfo

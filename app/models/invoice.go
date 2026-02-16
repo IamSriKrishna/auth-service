@@ -17,10 +17,11 @@ type Invoice struct {
 	CustomerID    uint      `json:"customer_id" gorm:"not null;index"`
 	Customer      *Customer `json:"customer,omitempty" gorm:"foreignKey:CustomerID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 
-	OrderNumber string              `json:"order_number" gorm:"type:varchar(100)"`
-	InvoiceDate time.Time           `json:"invoice_date" gorm:"not null"`
-	Terms       domain.PaymentTerms `json:"terms" gorm:"type:varchar(50);not null"`
-	DueDate     time.Time           `json:"due_date" gorm:"not null"`
+	OrderNumber  string              `json:"order_number" gorm:"type:varchar(100)"`
+	SalesOrderID *string             `json:"sales_order_id,omitempty" gorm:"type:varchar(255);index"` // Link to source SalesOrder
+	InvoiceDate  time.Time           `json:"invoice_date" gorm:"not null"`
+	Terms        domain.PaymentTerms `json:"terms" gorm:"type:varchar(50);not null"`
+	DueDate      time.Time           `json:"due_date" gorm:"not null"`
 
 	SalespersonID *uint        `json:"salesperson_id,omitempty" gorm:"index"`
 	Salesperson   *Salesperson `json:"salesperson,omitempty" gorm:"foreignKey:SalespersonID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
@@ -55,6 +56,10 @@ type Invoice struct {
 	// Status
 	Status domain.InvoiceStatus `json:"status" gorm:"type:varchar(50);not null;default:'draft'"`
 
+	// Inventory Synchronization Fields
+	InventorySynced   bool       `json:"inventory_synced" gorm:"default:false;index"` // Has inventory been deducted?
+	InventorySyncDate *time.Time `json:"inventory_sync_date"`                         // When was inventory synced?
+
 	// Attachments (stored as JSON array of file paths)
 	Attachments InvoiceAttachments `json:"attachments,omitempty" gorm:"type:json"`
 
@@ -80,12 +85,19 @@ type InvoiceLineItem struct {
 	Variant   *Variant `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 
 	Description string  `json:"description" gorm:"type:text"`
-	Quantity    float64 `json:"quantity" gorm:"not null"`
+	Quantity    float64 `json:"quantity" gorm:"type:decimal(18,2);not null"`
 	Rate        float64 `json:"rate" gorm:"not null"`
 	Amount      float64 `json:"amount" gorm:"not null"`
 
 	// For tracking which variant attributes were selected
 	VariantDetails VariantDetails `json:"variant_details,omitempty" gorm:"type:json"`
+
+	// Inventory Synchronization
+	InventorySynced bool       `json:"inventory_synced" gorm:"default:false"` // Has inventory been deducted?
+	SyncedAt        *time.Time `json:"synced_at"`                             // When was inventory synced?
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (InvoiceLineItem) TableName() string {

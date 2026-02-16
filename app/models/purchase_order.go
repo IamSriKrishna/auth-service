@@ -29,8 +29,13 @@ type PurchaseOrder struct {
 	ReferenceNo        string              `json:"reference_no" gorm:"type:varchar(100)"`
 	PODate             time.Time           `json:"date" gorm:"not null"`
 	DeliveryDate       time.Time           `json:"delivery_date" gorm:"not null"`
+	DeliveryDateActual *time.Time          `json:"delivery_date_actual,omitempty"` // Actual received date - triggers inventory sync
 	PaymentTerms       domain.PaymentTerms `json:"payment_terms" gorm:"type:varchar(50);not null"`
 	ShipmentPreference string              `json:"shipment_preference" gorm:"type:varchar(255)"`
+
+	// Inventory Synchronization Fields
+	InventorySynced   bool       `json:"inventory_synced" gorm:"default:false"` // Has inventory been updated?
+	InventorySyncDate *time.Time `json:"inventory_sync_date"`                   // When was inventory synced?
 
 	// Line Items
 	LineItems []PurchaseOrderLineItem `json:"line_items" gorm:"foreignKey:PurchaseOrderID;constraint:OnDelete:CASCADE"`
@@ -74,13 +79,16 @@ type PurchaseOrderLineItem struct {
 	ItemID string `json:"item_id" gorm:"type:varchar(255);not null;index"`
 	Item   *Item  `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 
-	VariantID      *uint          `json:"variant_id,omitempty" gorm:"index"`
-	Variant        *Variant       `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
-	Account        string         `json:"account" gorm:"type:varchar(100)"`
-	Quantity       float64        `json:"quantity" gorm:"not null"`
-	Rate           float64        `json:"rate" gorm:"not null"`
-	Amount         float64        `json:"amount" gorm:"not null"`
-	VariantDetails VariantDetails `json:"variant_details,omitempty" gorm:"type:json"`
+	VariantID        *uint          `json:"variant_id,omitempty" gorm:"index"`
+	Variant          *Variant       `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	Account          string         `json:"account" gorm:"type:varchar(100)"`
+	Quantity         float64        `json:"quantity" gorm:"not null"`
+	ReceivedQuantity float64        `json:"received_quantity" gorm:"default:0"` // Actual received - triggers inventory sync
+	Rate             float64        `json:"rate" gorm:"not null"`
+	Amount           float64        `json:"amount" gorm:"not null"`
+	VariantDetails   VariantDetails `json:"variant_details,omitempty" gorm:"type:json"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
 }
 
 func (PurchaseOrderLineItem) TableName() string {

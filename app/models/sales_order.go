@@ -31,25 +31,35 @@ type SalesOrder struct {
 	CustomerNotes        string                  `json:"customer_notes" gorm:"type:text"`
 	TermsAndConditions   string                  `json:"terms_and_conditions" gorm:"type:text"`
 	Status               domain.SalesOrderStatus `json:"status" gorm:"type:varchar(50);not null;default:'draft'"`
-	Attachments          []string                `json:"attachments,omitempty" gorm:"type:json"`
-	CreatedAt            time.Time               `json:"created_at"`
-	UpdatedAt            time.Time               `json:"updated_at"`
-	CreatedBy            string                  `json:"created_by" gorm:"type:varchar(255)"`
-	UpdatedBy            string                  `json:"updated_by" gorm:"type:varchar(255)"`
+
+	// Inventory Synchronization Fields
+	InventoryReserved bool       `json:"inventory_reserved" gorm:"default:false;index"` // Is inventory reserved?
+	InventoryDeducted bool       `json:"inventory_deducted" gorm:"default:false;index"` // Is inventory deducted via invoice?
+	ReservedDate      *time.Time `json:"reserved_date"`                                 // When was inventory reserved?
+	DeductedDate      *time.Time `json:"deducted_date"`                                 // When was inventory deducted?
+
+	Attachments []string  `json:"attachments,omitempty" gorm:"type:json"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	CreatedBy   string    `json:"created_by" gorm:"type:varchar(255)"`
+	UpdatedBy   string    `json:"updated_by" gorm:"type:varchar(255)"`
 }
 
 // SalesOrderLineItem represents a line item in the sales order
 type SalesOrderLineItem struct {
-	ID             uint           `json:"id" gorm:"primaryKey"`
-	SalesOrderID   string         `json:"sales_order_id" gorm:"type:varchar(255);not null;index"`
-	ItemID         string         `json:"item_id" gorm:"type:varchar(255);not null;index"`
-	Item           *Item          `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	VariantID      *uint          `json:"variant_id,omitempty" gorm:"index"`
-	Variant        *Variant       `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
-	Quantity       float64        `json:"quantity" gorm:"not null"`
-	Rate           float64        `json:"rate" gorm:"not null"`
-	Amount         float64        `json:"amount" gorm:"not null"`
-	VariantDetails VariantDetails `json:"variant_details,omitempty" gorm:"type:json"`
+	ID               uint           `json:"id" gorm:"primaryKey"`
+	SalesOrderID     string         `json:"sales_order_id" gorm:"type:varchar(255);not null;index"`
+	ItemID           string         `json:"item_id" gorm:"type:varchar(255);not null;index"`
+	Item             *Item          `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	VariantID        *uint          `json:"variant_id,omitempty" gorm:"index"`
+	Variant          *Variant       `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	Quantity         float64        `json:"quantity" gorm:"not null"`
+	InvoicedQuantity float64        `json:"invoiced_quantity" gorm:"default:0"` // Actual invoiced - triggers inventory deduction
+	Rate             float64        `json:"rate" gorm:"not null"`
+	Amount           float64        `json:"amount" gorm:"not null"`
+	VariantDetails   VariantDetails `json:"variant_details,omitempty" gorm:"type:json"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
 }
 
 // TableName specifies the table name for SalesOrder

@@ -8,12 +8,9 @@ import (
 )
 
 type ItemOutput struct {
-	ID             string          `json:"id"`
-	Name           string          `json:"name"`
-	Type           domain.ItemType `json:"type"`
-	Brand          string          `json:"brand,omitempty"`
-	ManufacturerID *uint           `json:"manufacturer_id,omitempty"`
-	Manufacturer   *ManufacturerInfo `json:"manufacturer,omitempty"`
+	ID   string          `json:"id"`
+	Name string          `json:"name"`
+	Type domain.ItemType `json:"type"`
 
 	ItemDetails  ItemDetailsOutput  `json:"item_details"`
 	SalesInfo    SalesInfoOutput    `json:"sales_info"`
@@ -53,7 +50,7 @@ type VariantOutput struct {
 	AttributeMap  map[string]string `json:"attribute_map"`
 	SellingPrice  float64           `json:"selling_price"`
 	CostPrice     float64           `json:"cost_price"`
-	StockQuantity int               `json:"stock_quantity"`
+	StockQuantity float64           `json:"stock_quantity"`
 }
 
 type SalesInfoOutput struct {
@@ -170,21 +167,10 @@ func ToItemOutput(item *models.Item) (*ItemOutput, error) {
 		}
 	}
 
-	var manufacturerInfo *ManufacturerInfo
-	if item.Manufacturer != nil {
-		manufacturerInfo = &ManufacturerInfo{
-			ID:   item.Manufacturer.ID,
-			Name: item.Manufacturer.Name,
-		}
-	}
-
 	output := &ItemOutput{
-		ID:           item.ID,
-		Name:         item.Name,
-		Type:         item.Type,
-		Brand:        item.Brand,
-		Manufacturer: manufacturerInfo,
-		ManufacturerID: item.ManufacturerID,
+		ID:   item.ID,
+		Name: item.Name,
+		Type: item.Type,
 		ItemDetails: ItemDetailsOutput{
 			Structure:            item.ItemDetails.Structure,
 			Unit:                 item.ItemDetails.Unit,

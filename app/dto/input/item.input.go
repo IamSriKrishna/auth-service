@@ -6,15 +6,13 @@ import (
 )
 
 type CreateItemInput struct {
-	Name           string             `json:"name" validate:"required"`
-	Type           domain.ItemType    `json:"type" validate:"required,oneof=goods service"`
-	Brand          string             `json:"brand"`
-	ItemDetails    ItemDetailsInput   `json:"item_details" validate:"required"`
-	ManufacturerID *uint              `json:"manufacturer_id,omitempty"`
-	SalesInfo      SalesInfoInput     `json:"sales_info" validate:"required"`
-	PurchaseInfo   *PurchaseInfoInput `json:"purchase_info"`
-	Inventory      *InventoryInput    `json:"inventory"`
-	ReturnPolicy   *ReturnPolicyInput `json:"return_policy"`
+	Name         string             `json:"name" validate:"required"`
+	Type         domain.ItemType    `json:"type" validate:"required,oneof=goods service"`
+	ItemDetails  ItemDetailsInput   `json:"item_details" validate:"required"`
+	SalesInfo    SalesInfoInput     `json:"sales_info" validate:"required"`
+	PurchaseInfo *PurchaseInfoInput `json:"purchase_info"`
+	Inventory    *InventoryInput    `json:"inventory"`
+	ReturnPolicy *ReturnPolicyInput `json:"return_policy"`
 }
 
 type ItemDetailsInput struct {
@@ -43,7 +41,7 @@ type VariantInput struct {
 	AttributeMap  map[string]string `json:"attribute_map" validate:"required"` // e.g., {"color": "blue", "size": "M"}
 	SellingPrice  float64           `json:"selling_price" validate:"required,gt=0"`
 	CostPrice     float64           `json:"cost_price" validate:"required,gt=0"`
-	StockQuantity int               `json:"stock_quantity" validate:"gte=0"`
+	StockQuantity float64           `json:"stock_quantity" validate:"gte=0"`
 }
 
 type SalesInfoInput struct {
@@ -73,15 +71,13 @@ type ReturnPolicyInput struct {
 }
 
 type UpdateItemInput struct {
-	Name           *string            `json:"name"`
-	Type           *domain.ItemType   `json:"type"`
-	Brand          *string            `json:"brand"`
-	ManufacturerID *uint              `json:"manufacturer_id"`
-	ItemDetails    *ItemDetailsInput  `json:"item_details"`
-	SalesInfo      *SalesInfoInput    `json:"sales_info"`
-	PurchaseInfo   *PurchaseInfoInput `json:"purchase_info"`
-	Inventory      *InventoryInput    `json:"inventory"`
-	ReturnPolicy   *ReturnPolicyInput `json:"return_policy"`
+	Name         *string            `json:"name"`
+	Type         *domain.ItemType   `json:"type"`
+	ItemDetails  *ItemDetailsInput  `json:"item_details"`
+	SalesInfo    *SalesInfoInput    `json:"sales_info"`
+	PurchaseInfo *PurchaseInfoInput `json:"purchase_info"`
+	Inventory    *InventoryInput    `json:"inventory"`
+	ReturnPolicy *ReturnPolicyInput `json:"return_policy"`
 }
 
 type OpeningStockInput struct {

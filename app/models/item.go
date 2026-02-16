@@ -10,12 +10,9 @@ import (
 )
 
 type Item struct {
-	ID             string          `json:"id" gorm:"type:varchar(255);primaryKey"`
-	Name           string          `json:"name" gorm:"not null"`
-	Type           domain.ItemType `json:"type" gorm:"not null"`
-	Brand          string          `json:"brand"`
-	ManufacturerID *uint           `json:"manufacturer_id" gorm:"index"`
-	Manufacturer   *Manufacturer   `json:"manufacturer,omitempty" gorm:"foreignKey:ManufacturerID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	ID   string          `json:"id" gorm:"type:varchar(255);primaryKey"`
+	Name string          `json:"name" gorm:"not null"`
+	Type domain.ItemType `json:"type" gorm:"not null"`
 
 	ItemDetails  ItemDetails  `json:"item_details" gorm:"foreignKey:ItemID;constraint:OnDelete:CASCADE"`
 	SalesInfo    SalesInfo    `json:"sales_info" gorm:"foreignKey:ItemID;constraint:OnDelete:CASCADE"`
@@ -88,7 +85,10 @@ type Variant struct {
 	Attributes    []VariantAttribute `json:"attributes" gorm:"foreignKey:VariantID;constraint:OnDelete:CASCADE"`
 	SellingPrice  float64            `json:"selling_price" gorm:"not null"`
 	CostPrice     float64            `json:"cost_price" gorm:"not null"`
-	StockQuantity int                `json:"stock_quantity" gorm:"default:0"`
+	StockQuantity float64            `json:"stock_quantity" gorm:"type:decimal(18,2);default:0"` // Changed to decimal for precision
+	ReorderLevel  float64            `json:"reorder_level" gorm:"type:decimal(18,2);default:0"`  // Auto-reorder when below this
+	CreatedAt     time.Time          `json:"created_at"`
+	UpdatedAt     time.Time          `json:"updated_at"`
 }
 
 func (Variant) TableName() string {
@@ -187,14 +187,18 @@ type StockMovement struct {
 	ID            uint      `gorm:"primaryKey;autoIncrement"`
 	ItemID        string    `gorm:"type:varchar(255);index;not null"`
 	VariantID     *uint     `gorm:"index"`
-	MovementType  string    `gorm:"type:varchar(50);not null"`
-	Quantity      float64   `gorm:"not null"`
+	MovementType  string    `gorm:"type:varchar(50);not null"` // purchase_received, sales_reserved, sales_invoiced, manufactured, consumed, adjustment
+	Quantity      float64   `gorm:"type:decimal(18,2);not null"`
 	RatePerUnit   float64   `gorm:"not null"`
-	ReferenceType string    `gorm:"type:varchar(50)"`
+	ReferenceType string    `gorm:"type:varchar(50)"` // PurchaseOrder, SalesOrder, Invoice, ProductionOrder
 	ReferenceID   string    `gorm:"type:varchar(255);index"`
+	ReferenceNo   string    `gorm:"type:varchar(100)"` // PO-001, SO-001, INV-001, etc.
 	Notes         string    `gorm:"type:text"`
+	Status        string    `gorm:"type:varchar(50);default:'pending'"` // pending, completed, reversed
 	CreatedAt     time.Time `json:"created_at"`
 	CreatedBy     string    `gorm:"type:varchar(255)"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	UpdatedBy     string    `gorm:"type:varchar(255)"`
 }
 
 func (StockMovement) TableName() string {
