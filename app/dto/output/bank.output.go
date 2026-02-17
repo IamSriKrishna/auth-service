@@ -2,7 +2,22 @@ package output
 
 import "time"
 
-// BankResponse represents a single bank response
+type BankOutput struct {
+	ID         uint      `json:"id"`
+	BankName   string    `json:"bank_name"`
+	IFSCCode   string    `json:"ifsc_code"`
+	BranchName string    `json:"branch_name,omitempty"`
+	BranchCode string    `json:"branch_code,omitempty"`
+	Address    string    `json:"address,omitempty"`
+	City       string    `json:"city,omitempty"`
+	State      string    `json:"state,omitempty"`
+	PostalCode string    `json:"postal_code,omitempty"`
+	Country    string    `json:"country,omitempty"`
+	IsActive   bool      `json:"is_active"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
 type BankResponse struct {
 	ID        uint      `json:"id"`
 	BankCode  *string   `json:"bank_code,omitempty"`
@@ -12,5 +27,9 @@ type BankResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// BankListItem is an item in bank list responses
+type ListBankOutput struct {
+	Banks []BankOutput `json:"banks"`
+	Total int64        `json:"total"`
+}
+
 type BankListItem = BankResponse

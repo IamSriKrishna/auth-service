@@ -28,7 +28,6 @@ func (h *BillHandler) CreateBill(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate input
 	validate := validator.New()
 	if err := validate.Struct(billInput); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -193,7 +192,6 @@ func (h *BillHandler) UpdateBill(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate input
 	validate := validator.New()
 	if err := validate.Struct(billInput); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -233,7 +231,6 @@ func (h *BillHandler) UpdateBillStatus(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate input
 	validate := validator.New()
 	if err := validate.Struct(statusInput); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

@@ -2,18 +2,15 @@ package utils
 
 import "net/http"
 
-// HTTPError represents an error with an associated HTTP status code
 type HTTPError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
 
-// Error implements the error interface
 func (e *HTTPError) Error() string {
 	return e.Message
 }
 
-// NewHTTPError creates a new HTTPError
 func NewHTTPError(code int, message string) *HTTPError {
 	return &HTTPError{
 		Code:    code,
@@ -21,7 +18,6 @@ func NewHTTPError(code int, message string) *HTTPError {
 	}
 }
 
-// Common error constructors
 func NewNotFoundError(message string) *HTTPError {
 	return &HTTPError{
 		Code:    http.StatusNotFound,

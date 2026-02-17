@@ -120,7 +120,6 @@ type StockSummaryOutput struct {
 }
 
 func ToItemOutput(item *models.Item) (*ItemOutput, error) {
-	// Convert attribute definitions
 	attributeDefs := make([]AttributeDefinitionOutput, len(item.ItemDetails.AttributeDefinitions))
 	for i, def := range item.ItemDetails.AttributeDefinitions {
 		attributeDefs[i] = AttributeDefinitionOutput{
@@ -129,10 +128,8 @@ func ToItemOutput(item *models.Item) (*ItemOutput, error) {
 		}
 	}
 
-	// Convert variants
 	variants := make([]VariantOutput, len(item.ItemDetails.Variants))
 	for i, v := range item.ItemDetails.Variants {
-		// Convert attributes array to map
 		attributeMap := make(map[string]string)
 		for _, attr := range v.Attributes {
 			attributeMap[attr.Key] = attr.Value
@@ -147,7 +144,6 @@ func ToItemOutput(item *models.Item) (*ItemOutput, error) {
 		}
 	}
 
-	// Build purchase info (might be empty for services)
 	purchaseInfo := PurchaseInfoOutput{
 		Account:           item.PurchaseInfo.Account,
 		CostPrice:         item.PurchaseInfo.CostPrice,
@@ -156,7 +152,6 @@ func ToItemOutput(item *models.Item) (*ItemOutput, error) {
 		Description:       item.PurchaseInfo.Description,
 	}
 
-	// Add vendor details if available
 	if item.PurchaseInfo.PreferredVendor != nil {
 		purchaseInfo.PreferredVendor = &PreferredVendorInfo{
 			ID:           item.PurchaseInfo.PreferredVendor.ID,

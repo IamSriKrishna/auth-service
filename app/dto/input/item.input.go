@@ -18,27 +18,25 @@ type CreateItemInput struct {
 type ItemDetailsInput struct {
 	Structure   domain.ItemStructure `json:"structure" validate:"required,oneof=single variants"`
 	Unit        string               `json:"unit" validate:"required"`
-	SKU         string               `json:"sku"` // Only for single items
+	SKU         string               `json:"sku"`
 	UPC         string               `json:"upc"`
 	EAN         string               `json:"ean"`
 	MPN         string               `json:"mpn"`
 	ISBN        string               `json:"isbn"`
 	Description string               `json:"description"`
 
-	// For variant items - defines available attributes and their options
-	Attributes []AttributeDefinitionInput `json:"attributes"` // e.g., [{key: "color", options: ["blue", "red"]}]
-	Variants   []VariantInput             `json:"variants"`   // Generated combinations with pricing
+	Attributes []AttributeDefinitionInput `json:"attributes"`
+	Variants   []VariantInput             `json:"variants"`
 }
 
-// Defines an attribute and its possible values (e.g., "color" -> ["blue", "red", "green"])
 type AttributeDefinitionInput struct {
-	Key     string   `json:"key" validate:"required"`     // e.g., "color", "size"
-	Options []string `json:"options" validate:"required"` // e.g., ["blue", "red"]
+	Key     string   `json:"key" validate:"required"`
+	Options []string `json:"options" validate:"required"`
 }
 
 type VariantInput struct {
 	SKU           string            `json:"sku" validate:"required"`
-	AttributeMap  map[string]string `json:"attribute_map" validate:"required"` // e.g., {"color": "blue", "size": "M"}
+	AttributeMap  map[string]string `json:"attribute_map" validate:"required"`
 	SellingPrice  float64           `json:"selling_price" validate:"required,gt=0"`
 	CostPrice     float64           `json:"cost_price" validate:"required,gt=0"`
 	StockQuantity float64           `json:"stock_quantity" validate:"gte=0"`
@@ -46,14 +44,14 @@ type VariantInput struct {
 
 type SalesInfoInput struct {
 	Account      string  `json:"account" validate:"required"`
-	SellingPrice float64 `json:"selling_price"` // For single items only
+	SellingPrice float64 `json:"selling_price"`
 	Currency     string  `json:"currency"`
 	Description  string  `json:"description"`
 }
 
 type PurchaseInfoInput struct {
 	Account           string  `json:"account" validate:"required"`
-	CostPrice         float64 `json:"cost_price"` // For single items only
+	CostPrice         float64 `json:"cost_price"`
 	Currency          string  `json:"currency"`
 	PreferredVendorID *uint   `json:"preferred_vendor_id"`
 	Description       string  `json:"description"`
@@ -62,7 +60,7 @@ type PurchaseInfoInput struct {
 type InventoryInput struct {
 	TrackInventory           bool   `json:"track_inventory"`
 	InventoryAccount         string `json:"inventory_account"`
-	InventoryValuationMethod string `json:"inventory_valuation_method"` // FIFO, LIFO, Weighted Average
+	InventoryValuationMethod string `json:"inventory_valuation_method"`
 	ReorderPoint             int    `json:"reorder_point"`
 }
 

@@ -56,7 +56,6 @@ func ToPackageOutput(pkg *models.Package) (*PackageOutput, error) {
 			PackedQty:  item.PackedQty,
 		}
 
-		// Add item info
 		if item.Item != nil {
 			packageItemOutput.Item = &ItemInfo{
 				ID:   item.Item.ID,
@@ -65,7 +64,6 @@ func ToPackageOutput(pkg *models.Package) (*PackageOutput, error) {
 			}
 		}
 
-		// Add variant info if available
 		if item.Variant != nil {
 			attributeMap := make(map[string]string)
 			for _, attr := range item.Variant.Attributes {
@@ -78,7 +76,6 @@ func ToPackageOutput(pkg *models.Package) (*PackageOutput, error) {
 			}
 		}
 
-		// Convert variant details
 		if item.VariantDetails != nil {
 			packageItemOutput.VariantDetails = convertVariantDetails(item.VariantDetails)
 		}
@@ -86,7 +83,6 @@ func ToPackageOutput(pkg *models.Package) (*PackageOutput, error) {
 		items = append(items, packageItemOutput)
 	}
 
-	// Build sales order info
 	var soInfo *SalesOrderInfo
 	if pkg.SalesOrder != nil {
 		soInfo = &SalesOrderInfo{
@@ -100,7 +96,6 @@ func ToPackageOutput(pkg *models.Package) (*PackageOutput, error) {
 		}
 	}
 
-	// Build customer info
 	var customerInfo *CustomerInfo
 	if pkg.Customer != nil {
 		customerInfo = &CustomerInfo{

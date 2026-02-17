@@ -84,7 +84,6 @@ func (r *itemRepository) Create(item *models.Item) error {
 func (r *itemRepository) FindByID(id string) (*models.Item, error) {
 	var item models.Item
 	err := r.db.
-		Preload("Manufacturer").
 		Preload("ItemDetails.Variants.Attributes").
 		Preload("SalesInfo").
 		Preload("PurchaseInfo.PreferredVendor").
@@ -107,7 +106,7 @@ func (r *itemRepository) FindAll(limit, offset int) ([]models.Item, int64, error
 	}
 
 	err := r.db.
-		Preload("Manufacturer").
+
 		Preload("ItemDetails.Variants.Attributes").
 		Preload("SalesInfo").
 		Preload("PurchaseInfo.PreferredVendor").
@@ -126,46 +125,37 @@ func (r *itemRepository) FindAll(limit, offset int) ([]models.Item, int64, error
 
 func (r *itemRepository) Update(item *models.Item) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		// Update main item
 		if err := tx.Model(item).
 			Omit("ItemDetails", "SalesInfo", "PurchaseInfo", "Inventory", "ReturnPolicy").
 			Updates(item).Error; err != nil {
 			return err
 		}
 
-		// Update SalesInfo
 		if err := tx.Where("item_id = ?", item.ID).Updates(&item.SalesInfo).Error; err != nil {
 			return err
 		}
 
-		// Update PurchaseInfo if it exists
 		if item.PurchaseInfo.Account != "" {
 			if err := tx.Where("item_id = ?", item.ID).Save(&item.PurchaseInfo).Error; err != nil {
 				return err
 			}
 		}
 
-		// Update Inventory
 		if err := tx.Where("item_id = ?", item.ID).Updates(&item.Inventory).Error; err != nil {
 			return err
 		}
 
-		// Update ReturnPolicy
 		if err := tx.Where("item_id = ?", item.ID).Updates(&item.ReturnPolicy).Error; err != nil {
 			return err
 		}
 
-		// Update ItemDetails
 		if err := tx.Where("item_id = ?", item.ID).
 			Omit("Variants").
 			Updates(&item.ItemDetails).Error; err != nil {
 			return err
 		}
 
-		// Handle variant updates if needed
 		if item.ItemDetails.Structure == "variants" {
-			// Delete existing variants and create new ones
-			// (More sophisticated update logic can be added)
 			if err := tx.Where("item_details_id = ?", item.ItemDetails.ID).
 				Delete(&models.Variant{}).Error; err != nil {
 				return err
@@ -215,7 +205,6 @@ func (r *itemRepository) FindByType(itemType string, limit, offset int) ([]model
 	}
 
 	err := query.
-		Preload("Manufacturer").
 		Preload("ItemDetails.Variants.Attributes").
 		Preload("SalesInfo").
 		Preload("PurchaseInfo.PreferredVendor").

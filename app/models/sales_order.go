@@ -6,7 +6,6 @@ import (
 	"github.com/bbapp-org/auth-service/app/domain"
 )
 
-// SalesOrder represents a sales order to customer
 type SalesOrder struct {
 	ID                   string                  `json:"id" gorm:"type:varchar(255);primaryKey"`
 	SalesOrderNumber     string                  `json:"sales_order_no" gorm:"column:sales_order_no;type:varchar(100);uniqueIndex;not null"`
@@ -32,11 +31,10 @@ type SalesOrder struct {
 	TermsAndConditions   string                  `json:"terms_and_conditions" gorm:"type:text"`
 	Status               domain.SalesOrderStatus `json:"status" gorm:"type:varchar(50);not null;default:'draft'"`
 
-	// Inventory Synchronization Fields
-	InventoryReserved bool       `json:"inventory_reserved" gorm:"default:false;index"` // Is inventory reserved?
-	InventoryDeducted bool       `json:"inventory_deducted" gorm:"default:false;index"` // Is inventory deducted via invoice?
-	ReservedDate      *time.Time `json:"reserved_date"`                                 // When was inventory reserved?
-	DeductedDate      *time.Time `json:"deducted_date"`                                 // When was inventory deducted?
+	InventoryReserved bool       `json:"inventory_reserved" gorm:"default:false;index"`
+	InventoryDeducted bool       `json:"inventory_deducted" gorm:"default:false;index"`
+	ReservedDate      *time.Time `json:"reserved_date"`
+	DeductedDate      *time.Time `json:"deducted_date"`
 
 	Attachments []string  `json:"attachments,omitempty" gorm:"type:json"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -45,7 +43,6 @@ type SalesOrder struct {
 	UpdatedBy   string    `json:"updated_by" gorm:"type:varchar(255)"`
 }
 
-// SalesOrderLineItem represents a line item in the sales order
 type SalesOrderLineItem struct {
 	ID               uint           `json:"id" gorm:"primaryKey"`
 	SalesOrderID     string         `json:"sales_order_id" gorm:"type:varchar(255);not null;index"`
@@ -54,7 +51,7 @@ type SalesOrderLineItem struct {
 	VariantID        *uint          `json:"variant_id,omitempty" gorm:"index"`
 	Variant          *Variant       `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 	Quantity         float64        `json:"quantity" gorm:"not null"`
-	InvoicedQuantity float64        `json:"invoiced_quantity" gorm:"default:0"` // Actual invoiced - triggers inventory deduction
+	InvoicedQuantity float64        `json:"invoiced_quantity" gorm:"default:0"`
 	Rate             float64        `json:"rate" gorm:"not null"`
 	Amount           float64        `json:"amount" gorm:"not null"`
 	VariantDetails   VariantDetails `json:"variant_details,omitempty" gorm:"type:json"`
@@ -62,12 +59,10 @@ type SalesOrderLineItem struct {
 	UpdatedAt        time.Time      `json:"updated_at"`
 }
 
-// TableName specifies the table name for SalesOrder
 func (SalesOrder) TableName() string {
 	return "sales_orders"
 }
 
-// TableName specifies the table name for SalesOrderLineItem
 func (SalesOrderLineItem) TableName() string {
 	return "sales_order_line_items"
 }

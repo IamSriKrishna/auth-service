@@ -17,12 +17,10 @@ func NewInvoiceRepository(db *gorm.DB) InvoiceRepository {
 
 func (r *invoiceRepository) Create(invoice *models.Invoice) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		// Create invoice without line items first
 		if err := tx.Omit("LineItems", "Customer", "Salesperson", "Tax").Create(invoice).Error; err != nil {
 			return err
 		}
 
-		// Create line items
 		if len(invoice.LineItems) > 0 {
 			for i := range invoice.LineItems {
 				invoice.LineItems[i].InvoiceID = invoice.ID
@@ -79,14 +77,12 @@ func (r *invoiceRepository) FindAll(limit, offset int) ([]models.Invoice, int64,
 
 func (r *invoiceRepository) Update(invoice *models.Invoice) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		// Update main invoice
 		if err := tx.Model(invoice).
 			Omit("LineItems", "Customer", "Salesperson", "Tax").
 			Updates(invoice).Error; err != nil {
 			return err
 		}
 
-		// Delete existing line items and create new ones
 		if err := tx.Where("invoice_id = ?", invoice.ID).Delete(&models.InvoiceLineItem{}).Error; err != nil {
 			return err
 		}
@@ -172,8 +168,6 @@ func (r *invoiceRepository) GetNextInvoiceNumber() (string, error) {
 		return "", err
 	}
 
-	// Parse the last invoice number and increment
-	// This is a simple implementation - you may want to add more sophisticated logic
 	var number int
 	_, err = fmt.Sscanf(lastInvoice.InvoiceNumber, "INV-%d", &number)
 	if err != nil {
@@ -183,7 +177,6 @@ func (r *invoiceRepository) GetNextInvoiceNumber() (string, error) {
 	return fmt.Sprintf("INV-%06d", number+1), nil
 }
 
-// salespersonRepository implements SalespersonRepository
 type salespersonRepository struct {
 	db *gorm.DB
 }
@@ -242,7 +235,6 @@ func (r *salespersonRepository) FindByEmail(email string) (*models.Salesperson, 
 	return &salesperson, nil
 }
 
-// taxRepository implements TaxRepository
 type taxRepository struct {
 	db *gorm.DB
 }
@@ -292,7 +284,6 @@ func (r *taxRepository) Delete(id uint) error {
 	return r.db.Delete(&models.Tax{}, "id = ?", id).Error
 }
 
-// paymentRepository implements PaymentRepository
 type paymentRepository struct {
 	db *gorm.DB
 }

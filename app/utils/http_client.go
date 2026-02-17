@@ -8,13 +8,11 @@ import (
 	"time"
 )
 
-// HTTPClient provides methods to make HTTP requests
 type HTTPClient struct {
 	client  *http.Client
 	baseURL string
 }
 
-// NewHTTPClient creates a new HTTP client with timeout
 func NewHTTPClient(baseURL string, timeout time.Duration) *HTTPClient {
 	return &HTTPClient{
 		client: &http.Client{
@@ -24,7 +22,6 @@ func NewHTTPClient(baseURL string, timeout time.Duration) *HTTPClient {
 	}
 }
 
-// MembershipCountResponse represents the response from customer service membership count API
 type MembershipCountResponse struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
@@ -34,13 +31,11 @@ type MembershipCountResponse struct {
 	} `json:"data"`
 }
 
-// MembershipCountData represents the membership count data with timestamp
 type MembershipCountData struct {
 	Count         int
 	LastUpdatedAt string
 }
 
-// GetMembershipCount calls the customer service API to get membership user count
 func (h *HTTPClient) GetMembershipCount() (*MembershipCountData, error) {
 	url := fmt.Sprintf("%s/admin/customers/membership-count", h.baseURL)
 

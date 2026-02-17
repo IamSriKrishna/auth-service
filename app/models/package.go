@@ -6,7 +6,6 @@ import (
 	"github.com/bbapp-org/auth-service/app/domain"
 )
 
-// Package represents a package for shipment
 type Package struct {
 	ID            string               `json:"id" gorm:"type:varchar(255);primaryKey"`
 	PackageSlipNo string               `json:"package_slip_no" gorm:"column:package_slip_no;type:varchar(100);uniqueIndex;not null"`
@@ -24,7 +23,6 @@ type Package struct {
 	UpdatedBy     string               `json:"updated_by" gorm:"type:varchar(255)"`
 }
 
-// PackageItem represents a line item in the package
 type PackageItem struct {
 	ID               uint                `json:"id" gorm:"primaryKey"`
 	PackageID        string              `json:"package_id" gorm:"type:varchar(255);not null;index"`
@@ -39,12 +37,10 @@ type PackageItem struct {
 	VariantDetails   VariantDetails      `json:"variant_details,omitempty" gorm:"type:json"`
 }
 
-// TableName specifies the table name for Package
 func (Package) TableName() string {
 	return "packages"
 }
 
-// TableName specifies the table name for PackageItem
 func (PackageItem) TableName() string {
 	return "package_items"
 }

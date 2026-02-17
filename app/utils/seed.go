@@ -232,10 +232,9 @@ func SeedDefaultCompany(db *gorm.DB) error {
 
 		bank := models.CompanyBankDetail{
 			CompanyID:         company.ID,
-			BankName:          "HDFC Bank",
+			BankID:            1, // Will need to fetch actual bank ID from database
 			AccountHolderName: "BB Cloud Technologies",
 			AccountNumber:     "123456789012",
-			IFSCCode:          "HDFC0001234",
 			IsPrimary:         true,
 		}
 		if err := tx.Create(&bank).Error; err != nil {

@@ -6,7 +6,6 @@ import (
 	"github.com/bbapp-org/auth-service/app/domain"
 )
 
-// Shipment represents a shipment for delivery
 type Shipment struct {
 	ID              string                `json:"id" gorm:"type:varchar(255);primaryKey"`
 	ShipmentNo      string                `json:"shipment_no" gorm:"column:shipment_no;type:varchar(100);uniqueIndex;not null"`
@@ -29,7 +28,6 @@ type Shipment struct {
 	UpdatedBy       string                `json:"updated_by" gorm:"type:varchar(255)"`
 }
 
-// TableName specifies the table name for Shipment
 func (Shipment) TableName() string {
 	return "shipments"
 }

@@ -7,7 +7,6 @@ type DatabaseConfig struct {
 	Password string
 	DBName   string
 	SSLMode  string
-	// Read Replica configuration (optional)
 	ReadReplicaHost     string
 	ReadReplicaPort     int
 	ReadReplicaUser     string
@@ -23,7 +22,6 @@ type AppConfig struct {
 	Environment string
 	JWTSecret   string
 	ServerPort  string
-	// Comma-separated list of allowed origins for CORS (e.g. "http://localhost:3000,http://127.0.0.1:3000")
 	AllowedOrigins string
 }
 
@@ -45,11 +43,10 @@ type CustomerServiceConfig struct {
 	BaseURL string
 }
 
-// DashboardStatsFilter represents filters for dashboard statistics
 type DashboardStatsFilter struct {
-	CustomerType *string `json:"customer_type,omitempty"` // mobile_user, partner, vendor, admin, superadmin
-	FromDate     *string `json:"from_date,omitempty"`     // Format: YYYY-MM-DD
-	ToDate       *string `json:"to_date,omitempty"`       // Format: YYYY-MM-DD
+	CustomerType *string `json:"customer_type,omitempty"`
+	FromDate     *string `json:"from_date,omitempty"`
+	ToDate       *string `json:"to_date,omitempty"`
 }
 
 type ServiceConfig struct {

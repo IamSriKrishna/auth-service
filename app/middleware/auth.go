@@ -8,15 +8,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// AuthMiddleware validates JWT token
 func AuthMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// Allow OPTIONS preflight to pass through without auth
 		if c.Method() == fiber.MethodOptions {
 			return c.Next()
 		}
 
-		// Get authorization header
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -25,7 +22,6 @@ func AuthMiddleware() fiber.Handler {
 			})
 		}
 
-		// Extract token from "Bearer <token>"
 		tokenParts := strings.Split(authHeader, " ")
 		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -36,7 +32,6 @@ func AuthMiddleware() fiber.Handler {
 
 		token := tokenParts[1]
 
-		// Validate token
 		claims, err := utils.ValidateJWT(token)
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -45,7 +40,6 @@ func AuthMiddleware() fiber.Handler {
 			})
 		}
 
-		// Store user claims in context
 		c.Locals("user_id", claims.UserID)
 		c.Locals("user_type", claims.UserType)
 		c.Locals("user_role", claims.Role)
@@ -57,7 +51,6 @@ func AuthMiddleware() fiber.Handler {
 	}
 }
 
-// SuperAdminMiddleware validates super admin role
 func SuperAdminMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userType := c.Locals("user_type")
@@ -71,7 +64,6 @@ func SuperAdminMiddleware() fiber.Handler {
 	}
 }
 
-// AdminMiddleware validates admin or super admin role
 func AdminMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userType := c.Locals("user_type")
@@ -85,7 +77,6 @@ func AdminMiddleware() fiber.Handler {
 	}
 }
 
-// PartnerMiddleware validates partner or admin role
 func PartnerMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userType := c.Locals("user_type")
@@ -99,7 +90,6 @@ func PartnerMiddleware() fiber.Handler {
 	}
 }
 
-// MobileUserMiddleware validates mobile user role
 func MobileUserMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userType := c.Locals("user_type")

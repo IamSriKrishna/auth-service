@@ -28,13 +28,11 @@ func (Item) TableName() string {
 	return "items"
 }
 
-// AttributeDefinition represents a variant attribute type and its possible values
 type AttributeDefinition struct {
 	Key     string   `json:"key"`
 	Options []string `json:"options"`
 }
 
-// AttributeDefinitions is a custom type for storing attribute definitions as JSON
 type AttributeDefinitions []AttributeDefinition
 
 func (a AttributeDefinitions) Value() (driver.Value, error) {
@@ -68,7 +66,6 @@ type ItemDetails struct {
 	ISBN        string               `json:"isbn,omitempty" gorm:"type:varchar(20)"`
 	Description string               `json:"description,omitempty" gorm:"type:text"`
 
-	// Store attribute definitions as JSON for variant items
 	AttributeDefinitions AttributeDefinitions `json:"attribute_definitions,omitempty" gorm:"type:json"`
 
 	Variants []Variant `json:"variants,omitempty" gorm:"foreignKey:ItemDetailsID;constraint:OnDelete:CASCADE"`
@@ -85,8 +82,8 @@ type Variant struct {
 	Attributes    []VariantAttribute `json:"attributes" gorm:"foreignKey:VariantID;constraint:OnDelete:CASCADE"`
 	SellingPrice  float64            `json:"selling_price" gorm:"not null"`
 	CostPrice     float64            `json:"cost_price" gorm:"not null"`
-	StockQuantity float64            `json:"stock_quantity" gorm:"type:decimal(18,2);default:0"` // Changed to decimal for precision
-	ReorderLevel  float64            `json:"reorder_level" gorm:"type:decimal(18,2);default:0"`  // Auto-reorder when below this
+	StockQuantity float64            `json:"stock_quantity" gorm:"type:decimal(18,2);default:0"`
+	ReorderLevel  float64            `json:"reorder_level" gorm:"type:decimal(18,2);default:0"`
 	CreatedAt     time.Time          `json:"created_at"`
 	UpdatedAt     time.Time          `json:"updated_at"`
 }
@@ -139,7 +136,7 @@ type Inventory struct {
 	ItemID                   string `json:"item_id" gorm:"type:varchar(255);uniqueIndex;not null"`
 	TrackInventory           bool   `json:"track_inventory"`
 	InventoryAccount         string `json:"inventory_account" gorm:"type:varchar(255)"`
-	InventoryValuationMethod string `json:"inventory_valuation_method" gorm:"type:varchar(50)"` // FIFO, LIFO, Weighted Average
+	InventoryValuationMethod string `json:"inventory_valuation_method" gorm:"type:varchar(50)"`
 	ReorderPoint             int    `json:"reorder_point" gorm:"default:0"`
 }
 
@@ -187,14 +184,14 @@ type StockMovement struct {
 	ID            uint      `gorm:"primaryKey;autoIncrement"`
 	ItemID        string    `gorm:"type:varchar(255);index;not null"`
 	VariantID     *uint     `gorm:"index"`
-	MovementType  string    `gorm:"type:varchar(50);not null"` // purchase_received, sales_reserved, sales_invoiced, manufactured, consumed, adjustment
+	MovementType  string    `gorm:"type:varchar(50);not null"`
 	Quantity      float64   `gorm:"type:decimal(18,2);not null"`
 	RatePerUnit   float64   `gorm:"not null"`
-	ReferenceType string    `gorm:"type:varchar(50)"` // PurchaseOrder, SalesOrder, Invoice, ProductionOrder
+	ReferenceType string    `gorm:"type:varchar(50)"`
 	ReferenceID   string    `gorm:"type:varchar(255);index"`
-	ReferenceNo   string    `gorm:"type:varchar(100)"` // PO-001, SO-001, INV-001, etc.
+	ReferenceNo   string    `gorm:"type:varchar(100)"`
 	Notes         string    `gorm:"type:text"`
-	Status        string    `gorm:"type:varchar(50);default:'pending'"` // pending, completed, reversed
+	Status        string    `gorm:"type:varchar(50);default:'pending'"`
 	CreatedAt     time.Time `json:"created_at"`
 	CreatedBy     string    `gorm:"type:varchar(255)"`
 	UpdatedAt     time.Time `json:"updated_at"`

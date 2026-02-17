@@ -31,15 +31,19 @@ func MapCreateCustomerInput(input *input.CreateCustomerInput) *models.Customer {
 	}
 
 	for _, cp := range input.ContactPersons {
+		// Normalize alternative field names to primary fields
+		cpCopy := cp
+		cpCopy.Normalize()
+
 		customer.ContactPersons = append(customer.ContactPersons, models.EntityContactPerson{
-			Salutation:    cp.Salutation,
-			FirstName:     cp.FirstName,
-			LastName:      cp.LastName,
-			EmailAddress:  cp.EmailAddress,
-			WorkPhone:     cp.WorkPhone,
-			WorkPhoneCode: cp.WorkPhoneCode,
-			Mobile:        cp.Mobile,
-			MobileCode:    cp.MobileCode,
+			Salutation:    cpCopy.Salutation,
+			FirstName:     cpCopy.FirstName,
+			LastName:      cpCopy.LastName,
+			EmailAddress:  cpCopy.EmailAddress,
+			WorkPhone:     cpCopy.WorkPhone,
+			WorkPhoneCode: cpCopy.WorkPhoneCode,
+			Mobile:        cpCopy.Mobile,
+			MobileCode:    cpCopy.MobileCode,
 		})
 	}
 
@@ -102,15 +106,19 @@ func ApplyUpdateCustomerInput(customer *models.Customer, input *input.UpdateCust
 		customer.ContactPersons = []models.EntityContactPerson{}
 
 		for _, cp := range input.ContactPersons {
+			// Normalize alternative field names to primary fields
+			cpCopy := cp
+			cpCopy.Normalize()
+
 			customer.ContactPersons = append(customer.ContactPersons, models.EntityContactPerson{
-				Salutation:    cp.Salutation,
-				FirstName:     cp.FirstName,
-				LastName:      cp.LastName,
-				EmailAddress:  cp.EmailAddress,
-				WorkPhone:     cp.WorkPhone,
-				WorkPhoneCode: cp.WorkPhoneCode,
-				Mobile:        cp.Mobile,
-				MobileCode:    cp.MobileCode,
+				Salutation:    cpCopy.Salutation,
+				FirstName:     cpCopy.FirstName,
+				LastName:      cpCopy.LastName,
+				EmailAddress:  cpCopy.EmailAddress,
+				WorkPhone:     cpCopy.WorkPhone,
+				WorkPhoneCode: cpCopy.WorkPhoneCode,
+				Mobile:        cpCopy.Mobile,
+				MobileCode:    cpCopy.MobileCode,
 			})
 		}
 	}
@@ -119,6 +127,9 @@ func mapAddress(input *input.AddressInput, addressType string) *models.EntityAdd
 	if input == nil {
 		return nil
 	}
+
+	// Normalize alternative field names to primary fields
+	input.Normalize()
 
 	return &models.EntityAddress{
 		AddressType:   addressType,
@@ -139,6 +150,9 @@ func updateAddressInSlice(addresses *[]models.EntityAddress, input *input.Addres
 	if input == nil {
 		return
 	}
+
+	// Normalize alternative field names to primary fields
+	input.Normalize()
 
 	for i := range *addresses {
 		if (*addresses)[i].AddressType == addressType {

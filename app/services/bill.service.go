@@ -46,13 +46,11 @@ func NewBillService(
 }
 
 func (s *billService) CreateBill(billInput *input.CreateBillInput, userID string) (*output.BillOutput, error) {
-	// Validate vendor exists
 	vendor, err := s.vendorRepo.FindByID(billInput.VendorID)
 	if err != nil {
 		return nil, errors.New("vendor not found")
 	}
 
-	// Validate tax if provided
 	var tax *models.Tax
 	if billInput.TaxID != nil {
 		tax, err = s.taxRepo.FindByID(*billInput.TaxID)
@@ -61,7 +59,6 @@ func (s *billService) CreateBill(billInput *input.CreateBillInput, userID string
 		}
 	}
 
-	// Process line items and calculate subtotal
 	lineItems := make([]models.BillLineItem, 0)
 	subTotal := 0.0
 
@@ -85,7 +82,6 @@ func (s *billService) CreateBill(billInput *input.CreateBillInput, userID string
 			Amount:      amount,
 		}
 
-		// Convert variant details
 		if itemInput.VariantDetails != nil {
 			variantDetails := make(models.VariantDetails)
 			for k, v := range itemInput.VariantDetails {
@@ -97,16 +93,13 @@ func (s *billService) CreateBill(billInput *input.CreateBillInput, userID string
 		lineItems = append(lineItems, lineItem)
 	}
 
-	// Calculate tax amount
 	taxAmount := 0.0
 	if tax != nil {
 		taxAmount = (subTotal - billInput.Discount) * (tax.Rate / 100)
 	}
 
-	// Calculate total
 	total := subTotal - billInput.Discount + taxAmount + billInput.Adjustment
 
-	// Create bill
 	bill := &models.Bill{
 		ID:             uuid.New().String(),
 		BillNumber:     fmt.Sprintf("BILL-%d", time.Now().Unix()),
@@ -136,7 +129,6 @@ func (s *billService) CreateBill(billInput *input.CreateBillInput, userID string
 		UpdatedBy:      userID,
 	}
 
-	// Save to database
 	savedBill, err := s.billRepo.Create(bill)
 	if err != nil {
 		return nil, err
@@ -199,13 +191,11 @@ func (s *billService) GetBillsByStatus(status string, limit, offset int) ([]outp
 }
 
 func (s *billService) UpdateBill(id string, billInput *input.UpdateBillInput, userID string) (*output.BillOutput, error) {
-	// Get existing bill
 	bill, err := s.billRepo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("bill not found")
 	}
 
-	// Update fields if provided
 	if billInput.VendorID != nil {
 		vendor, err := s.vendorRepo.FindByID(*billInput.VendorID)
 		if err != nil {
@@ -239,7 +229,6 @@ func (s *billService) UpdateBill(id string, billInput *input.UpdateBillInput, us
 		bill.Subject = *billInput.Subject
 	}
 
-	// Update line items if provided
 	if len(billInput.LineItems) > 0 {
 		lineItems := make([]models.BillLineItem, 0)
 		subTotal := 0.0
@@ -308,7 +297,6 @@ func (s *billService) UpdateBill(id string, billInput *input.UpdateBillInput, us
 		bill.Attachments = billInput.Attachments
 	}
 
-	// Recalculate tax and total
 	if bill.Tax != nil {
 		bill.TaxAmount = (bill.SubTotal - bill.Discount) * (bill.Tax.Rate / 100)
 	} else {
@@ -319,7 +307,6 @@ func (s *billService) UpdateBill(id string, billInput *input.UpdateBillInput, us
 	bill.UpdatedAt = time.Now()
 	bill.UpdatedBy = userID
 
-	// Save changes
 	updatedBill, err := s.billRepo.Update(id, bill)
 	if err != nil {
 		return nil, err

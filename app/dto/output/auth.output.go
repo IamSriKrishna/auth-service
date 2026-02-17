@@ -2,7 +2,6 @@ package output
 
 import "time"
 
-// AuthResponse represents authentication response
 type AuthResponse struct {
 	AccessToken  string   `json:"access_token"`
 	RefreshToken string   `json:"refresh_token"`
@@ -11,7 +10,6 @@ type AuthResponse struct {
 	User         UserInfo `json:"user"`
 }
 
-// UserInfo represents user information in response
 type UserInfo struct {
 	ID          uint       `json:"id"`
 	Email       *string    `json:"email,omitempty"`
@@ -25,7 +23,6 @@ type UserInfo struct {
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 }
 
-// SocialUserData represents minimal social user info for clients
 type SocialUserData struct {
 	UID          string  `json:"uid"`
 	Email        *string `json:"email,omitempty"`
@@ -33,7 +30,6 @@ type SocialUserData struct {
 	AuthProvider string  `json:"auth_provider"`
 }
 
-// AppleLoginResponse represents the response for Apple login
 type AppleLoginResponse struct {
 	Token        string         `json:"token"`
 	RefreshToken string         `json:"refreshToken"`
@@ -42,13 +38,11 @@ type AppleLoginResponse struct {
 	UserID       uint           `json:"user_id"`
 }
 
-// OTPResponse represents OTP generation response
 type OTPResponse struct {
 	Message   string `json:"message"`
 	ExpiresIn int    `json:"expires_in"`
 }
 
-// TokenValidationResponse represents token validation response
 type TokenValidationResponse struct {
 	Valid    bool   `json:"valid"`
 	UserID   uint   `json:"user_id,omitempty"`
@@ -57,7 +51,6 @@ type TokenValidationResponse struct {
 	Claims   Claims `json:"claims,omitempty"`
 }
 
-// Claims represents JWT claims
 type Claims struct {
 	UserID       uint   `json:"user_id"`
 	UserType     string `json:"user_type"`
@@ -70,28 +63,24 @@ type Claims struct {
 	IdentityType string `json:"identity_type"`
 }
 
-// ErrorResponse represents error response
 type ErrorResponse struct {
 	Error   bool   `json:"error"`
 	Message string `json:"message"`
 	Code    int    `json:"code,omitempty"`
 }
 
-// SuccessResponse represents success response
 type SuccessResponse struct {
 	Success bool        `json:"success"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
-// PaginatedResponse represents paginated response
 type PaginatedResponse struct {
 	Success bool           `json:"success"`
 	Data    interface{}    `json:"data"`
 	Meta    PaginationMeta `json:"meta"`
 }
 
-// PaginationMeta represents pagination metadata
 type PaginationMeta struct {
 	CurrentPage int `json:"current_page"`
 	PerPage     int `json:"per_page"`
@@ -99,7 +88,6 @@ type PaginationMeta struct {
 	TotalPages  int `json:"total_pages"`
 }
 
-// UserListResponse represents user list response
 type UserListResponse struct {
 	ID          uint       `json:"id"`
 	Email       *string    `json:"email,omitempty"`
@@ -113,7 +101,6 @@ type UserListResponse struct {
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 }
 
-// DashboardStatsResponse represents dashboard statistics response
 type DashboardStatsResponse struct {
 	TotalUsers              int                         `json:"total_users"`
 	ActiveUsers             int                         `json:"active_users"`
@@ -122,7 +109,6 @@ type DashboardStatsResponse struct {
 	Filters                 DashboardStatsFilterApplied `json:"filters_applied"`
 }
 
-// DashboardStatsFilterApplied shows what filters were applied
 type DashboardStatsFilterApplied struct {
 	CustomerType *string `json:"customer_type,omitempty"`
 	FromDate     *string `json:"from_date,omitempty"`

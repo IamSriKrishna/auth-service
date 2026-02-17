@@ -6,7 +6,6 @@ import (
 	"github.com/bbapp-org/auth-service/app/models"
 )
 
-// PurchaseOrderOutput represents the purchase order response
 type PurchaseOrderOutput struct {
 	ID                  string                        `json:"id"`
 	PurchaseOrderNo     string                        `json:"purchase_order_no"`
@@ -43,7 +42,6 @@ type PurchaseOrderOutput struct {
 	UpdatedBy           string                        `json:"updated_by,omitempty"`
 }
 
-// PurchaseOrderLineItemOutput represents a line item in the purchase order response
 type PurchaseOrderLineItemOutput struct {
 	ID             uint              `json:"id"`
 	ItemID         string            `json:"item_id"`
@@ -57,15 +55,12 @@ type PurchaseOrderLineItemOutput struct {
 	VariantDetails map[string]string `json:"variant_details,omitempty"`
 }
 
-// PurchaseOrderListOutput represents a list of purchase orders with pagination
 type PurchaseOrderListOutput struct {
 	PurchaseOrders []PurchaseOrderOutput `json:"purchase_orders"`
 	Total          int64                 `json:"total"`
 }
 
-// ToPurchaseOrderOutput converts a models.PurchaseOrder to PurchaseOrderOutput
 func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, error) {
-	// Convert line items
 	lineItems := make([]PurchaseOrderLineItemOutput, len(po.LineItems))
 	for i, item := range po.LineItems {
 		lineItemOutput := PurchaseOrderLineItemOutput{
@@ -81,7 +76,6 @@ func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, erro
 			lineItemOutput.VariantID = item.VariantID
 		}
 
-		// Add item info if available
 		if item.Item != nil {
 			lineItemOutput.Item = &ItemInfo{
 				ID:   item.Item.ID,
@@ -90,7 +84,6 @@ func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, erro
 			}
 		}
 
-		// Add variant info if available
 		if item.Variant != nil {
 			attributeMap := make(map[string]string)
 			for _, attr := range item.Variant.Attributes {
@@ -103,7 +96,6 @@ func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, erro
 			}
 		}
 
-		// Convert variant details
 		if item.VariantDetails != nil {
 			lineItemOutput.VariantDetails = convertVariantDetails(item.VariantDetails)
 		}
@@ -111,13 +103,11 @@ func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, erro
 		lineItems[i] = lineItemOutput
 	}
 
-	// Convert attachments
 	attachments := po.Attachments
 	if attachments == nil {
 		attachments = []string{}
 	}
 
-	// Build output
 	output := &PurchaseOrderOutput{
 		ID:                  po.ID,
 		PurchaseOrderNo:     po.PurchaseOrderNumber,
@@ -149,7 +139,6 @@ func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, erro
 		UpdatedBy:           po.UpdatedBy,
 	}
 
-	// Add vendor info
 	if po.Vendor != nil {
 		output.Vendor = &VendorInfo{
 			ID:           po.Vendor.ID,
@@ -160,7 +149,6 @@ func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, erro
 		}
 	}
 
-	// Add customer info if available
 	if po.Customer != nil {
 		output.Customer = &CustomerInfo{
 			ID:          po.Customer.ID,
@@ -171,7 +159,6 @@ func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, erro
 		}
 	}
 
-	// Add tax info if available
 	if po.Tax != nil {
 		taxTypeStr := string(*po.TaxType)
 		output.TaxType = &taxTypeStr

@@ -98,15 +98,12 @@ type PaymentOutput struct {
 	CreatedBy   string    `json:"created_by,omitempty"`
 }
 
-// PaymentListOutput represents a list of payments
 type PaymentListOutput struct {
 	Payments []PaymentOutput `json:"payments"`
 	Total    int64           `json:"total"`
 }
 
-// ToInvoiceOutput converts a models.Invoice to InvoiceOutput
 func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
-	// Convert line items
 	lineItems := make([]InvoiceLineItemOutput, len(invoice.LineItems))
 	for i, item := range invoice.LineItems {
 		lineItemOutput := InvoiceLineItemOutput{
@@ -120,7 +117,6 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 			VariantDetails: convertVariantDetails(item.VariantDetails),
 		}
 
-		// Add item info if available
 		if item.Item != nil {
 			lineItemOutput.Item = &ItemInfo{
 				ID:   item.Item.ID,
@@ -129,7 +125,6 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 			}
 		}
 
-		// Add variant info if available
 		if item.Variant != nil {
 			attributeMap := make(map[string]string)
 			for _, attr := range item.Variant.Attributes {
@@ -174,13 +169,11 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 		UpdatedBy:          invoice.UpdatedBy,
 	}
 
-	// Convert TaxType if not empty
 	if invoice.TaxType != "" {
 		taxTypeStr := string(invoice.TaxType)
 		output.TaxType = &taxTypeStr
 	}
 
-	// Add customer info if available
 	if invoice.Customer != nil {
 		output.Customer = &CustomerInfo{
 			ID:          invoice.Customer.ID,
@@ -191,7 +184,6 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 		}
 	}
 
-	// Add salesperson info if available
 	if invoice.Salesperson != nil {
 		output.Salesperson = &SalespersonInfo{
 			ID:    invoice.Salesperson.ID,
@@ -200,7 +192,6 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 		}
 	}
 
-	// Add tax info if available
 	if invoice.Tax != nil {
 		output.Tax = &TaxInfo{
 			ID:      invoice.Tax.ID,
@@ -210,7 +201,6 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 		}
 	}
 
-	// Convert payment splits if available
 	if len(invoice.PaymentSplits) > 0 {
 		paymentSplits := make([]PaymentSplitOutput, len(invoice.PaymentSplits))
 		for i, split := range invoice.PaymentSplits {
@@ -219,7 +209,6 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 		output.PaymentSplits = paymentSplits
 	}
 
-	// Convert payments if available
 	if len(invoice.Payments) > 0 {
 		payments := make([]PaymentOutput, len(invoice.Payments))
 		for i, payment := range invoice.Payments {
@@ -228,7 +217,6 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 		output.Payments = payments
 	}
 
-	// Convert email communications if available
 	if len(invoice.EmailCommunications) > 0 {
 		emails := make([]EmailCommunicationOutput, len(invoice.EmailCommunications))
 		for i, email := range invoice.EmailCommunications {
@@ -240,7 +228,6 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 	return output, nil
 }
 
-// ToInvoiceListOutput converts a slice of invoices to InvoiceListOutput
 func ToInvoiceListOutput(invoices []models.Invoice, total int64) (*InvoiceListOutput, error) {
 	outputs := make([]InvoiceOutput, len(invoices))
 	for i, invoice := range invoices {
@@ -257,7 +244,6 @@ func ToInvoiceListOutput(invoices []models.Invoice, total int64) (*InvoiceListOu
 	}, nil
 }
 
-// ToSalespersonOutput converts a models.Salesperson to SalespersonOutput
 func ToSalespersonOutput(salesperson *models.Salesperson) *SalespersonOutput {
 	return &SalespersonOutput{
 		ID:        salesperson.ID,
@@ -268,7 +254,6 @@ func ToSalespersonOutput(salesperson *models.Salesperson) *SalespersonOutput {
 	}
 }
 
-// ToSalespersonListOutput converts a slice of salespersons to SalespersonListOutput
 func ToSalespersonListOutput(salespersons []models.Salesperson, total int64) *SalespersonListOutput {
 	outputs := make([]SalespersonOutput, len(salespersons))
 	for i, sp := range salespersons {
@@ -281,7 +266,6 @@ func ToSalespersonListOutput(salespersons []models.Salesperson, total int64) *Sa
 	}
 }
 
-// ToTaxOutput converts a models.Tax to TaxOutput
 func ToTaxOutput(tax *models.Tax) *TaxOutput {
 	return &TaxOutput{
 		ID:        tax.ID,
@@ -293,7 +277,6 @@ func ToTaxOutput(tax *models.Tax) *TaxOutput {
 	}
 }
 
-// ToTaxListOutput converts a slice of taxes to TaxListOutput
 func ToTaxListOutput(taxes []models.Tax, total int64) *TaxListOutput {
 	outputs := make([]TaxOutput, len(taxes))
 	for i, tax := range taxes {
@@ -306,7 +289,6 @@ func ToTaxListOutput(taxes []models.Tax, total int64) *TaxListOutput {
 	}
 }
 
-// ToPaymentOutput converts a models.Payment to PaymentOutput
 func ToPaymentOutput(payment *models.Payment) *PaymentOutput {
 	return &PaymentOutput{
 		ID:          payment.ID,
@@ -321,7 +303,6 @@ func ToPaymentOutput(payment *models.Payment) *PaymentOutput {
 	}
 }
 
-// ToPaymentListOutput converts a slice of payments to PaymentListOutput
 func ToPaymentListOutput(payments []models.Payment, total int64) *PaymentListOutput {
 	outputs := make([]PaymentOutput, len(payments))
 	for i, payment := range payments {
@@ -334,7 +315,6 @@ func ToPaymentListOutput(payments []models.Payment, total int64) *PaymentListOut
 	}
 }
 
-// PaymentSplitOutput represents a split payment response
 type PaymentSplitOutput struct {
 	ID             uint      `json:"id"`
 	InvoiceID      string    `json:"invoice_id"`
@@ -345,7 +325,6 @@ type PaymentSplitOutput struct {
 	CreatedBy      string    `json:"created_by,omitempty"`
 }
 
-// EmailCommunicationOutput represents email communication response
 type EmailCommunicationOutput struct {
 	ID           uint       `json:"id"`
 	InvoiceID    string     `json:"invoice_id"`
@@ -357,7 +336,6 @@ type EmailCommunicationOutput struct {
 	SentAt       *time.Time `json:"sent_at,omitempty"`
 }
 
-// ToPaymentSplitOutput converts a models.PaymentSplit to PaymentSplitOutput
 func ToPaymentSplitOutput(split *models.PaymentSplit) *PaymentSplitOutput {
 	return &PaymentSplitOutput{
 		ID:             split.ID,
@@ -370,7 +348,6 @@ func ToPaymentSplitOutput(split *models.PaymentSplit) *PaymentSplitOutput {
 	}
 }
 
-// ToEmailCommunicationOutput converts a models.EmailCommunication to EmailCommunicationOutput
 func ToEmailCommunicationOutput(email *models.EmailCommunication) *EmailCommunicationOutput {
 	return &EmailCommunicationOutput{
 		ID:           email.ID,

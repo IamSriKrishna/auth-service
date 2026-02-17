@@ -35,7 +35,6 @@ type PackageInfo struct {
 }
 
 func ToShipmentOutput(shipment *models.Shipment) (*ShipmentOutput, error) {
-	// Build package info
 	var packageInfo *PackageInfo
 	if shipment.Package != nil {
 		packageInfo = &PackageInfo{
@@ -45,7 +44,6 @@ func ToShipmentOutput(shipment *models.Shipment) (*ShipmentOutput, error) {
 		}
 	}
 
-	// Build sales order info
 	var soInfo *SalesOrderInfo
 	if shipment.SalesOrder != nil {
 		soInfo = &SalesOrderInfo{
@@ -59,7 +57,6 @@ func ToShipmentOutput(shipment *models.Shipment) (*ShipmentOutput, error) {
 		}
 	}
 
-	// Build customer info
 	var customerInfo *CustomerInfo
 	if shipment.Customer != nil {
 		customerInfo = &CustomerInfo{

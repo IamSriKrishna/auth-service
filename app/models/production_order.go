@@ -6,8 +6,6 @@ import (
 	"github.com/bbapp-org/auth-service/app/domain"
 )
 
-// ProductionOrder represents a manufacturing order for an ItemGroup
-// Example: Manufacturing 100 units of "300ml Water Bottle" ItemGroup
 type ProductionOrder struct {
 	ID                    string                       `json:"id" gorm:"type:varchar(255);primaryKey"`
 	ProductionOrderNumber string                       `json:"production_order_no" gorm:"type:varchar(100);uniqueIndex;not null"`
@@ -20,7 +18,7 @@ type ProductionOrder struct {
 	PlannedEndDate        time.Time                    `json:"planned_end_date"`
 	ActualStartDate       *time.Time                   `json:"actual_start_date"`
 	ActualEndDate         *time.Time                   `json:"actual_end_date"`
-	ManufacturedDate      *time.Time                   `json:"manufactured_date"` // Actual completion triggers inventory sync
+	ManufacturedDate      *time.Time                   `json:"manufactured_date"`
 	InventorySynced       bool                         `json:"inventory_synced" gorm:"default:false;index"`
 	InventorySyncDate     *time.Time                   `json:"inventory_sync_date"`
 	Notes                 string                       `json:"notes" gorm:"type:text"`
@@ -35,7 +33,6 @@ func (ProductionOrder) TableName() string {
 	return "production_orders"
 }
 
-// ProductionOrderItem tracks individual items needed for production
 type ProductionOrderItem struct {
 	ID                   uint                `gorm:"primaryKey;autoIncrement"`
 	ProductionOrderID    string              `json:"production_order_id" gorm:"type:varchar(255);index;not null"`

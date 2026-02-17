@@ -52,36 +52,30 @@ func (s *shipmentService) CreateShipment(shipInput *input.CreateShipmentInput, u
 		return nil, errors.New("shipment input cannot be nil")
 	}
 
-	// Verify package exists
 	pkg, err := s.pkgRepo.FindByID(shipInput.PackageID)
 	if err != nil {
 		return nil, fmt.Errorf("package not found: %w", err)
 	}
 
-	// Verify sales order exists
 	so, err := s.soRepo.FindByID(shipInput.SalesOrderID)
 	if err != nil {
 		return nil, fmt.Errorf("sales order not found: %w", err)
 	}
 
-	// Verify customer exists
 	customer, err := s.customerRepo.FindByID(shipInput.CustomerID)
 	if err != nil {
 		return nil, fmt.Errorf("customer not found: %w", err)
 	}
 
-	// Verify customer matches package and sales order
 	if pkg.CustomerID != shipInput.CustomerID || so.CustomerID != shipInput.CustomerID {
 		return nil, errors.New("customer does not match package or sales order")
 	}
 
-	// Generate shipment number
 	shipNo, err := s.shipRepo.GetNextShipmentNo()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate shipment number: %w", err)
 	}
 
-	// Create shipment
 	shipment := &models.Shipment{
 		ID:              uuid.New().String(),
 		ShipmentNo:      shipNo,
@@ -99,18 +93,15 @@ func (s *shipmentService) CreateShipment(shipInput *input.CreateShipmentInput, u
 		UpdatedBy:       userID,
 	}
 
-	// Set references
 	shipment.Package = pkg
 	shipment.SalesOrder = so
 	shipment.Customer = customer
 
-	// Save shipment
 	createdShip, err := s.shipRepo.Create(shipment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create shipment: %w", err)
 	}
 
-	// Convert to output
 	return output.ToShipmentOutput(createdShip)
 }
 
@@ -208,13 +199,11 @@ func (s *shipmentService) UpdateShipment(id string, shipInput *input.UpdateShipm
 		return nil, errors.New("shipment input cannot be nil")
 	}
 
-	// Get existing shipment
 	shipment, err := s.shipRepo.FindByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("shipment not found: %w", err)
 	}
 
-	// Update fields
 	if shipInput.ShipDate != nil {
 		shipment.ShipDate = *shipInput.ShipDate
 	}
@@ -246,7 +235,6 @@ func (s *shipmentService) UpdateShipment(id string, shipInput *input.UpdateShipm
 	shipment.UpdatedBy = userID
 	shipment.UpdatedAt = time.Now()
 
-	// Update shipment
 	updatedShip, err := s.shipRepo.Update(id, shipment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update shipment: %w", err)
@@ -256,25 +244,21 @@ func (s *shipmentService) UpdateShipment(id string, shipInput *input.UpdateShipm
 }
 
 func (s *shipmentService) UpdateShipmentStatus(id string, status string, userID string) (*output.ShipmentOutput, error) {
-	// Verify status is valid
 	switch status {
 	case "created", "shipped", "in_transit", "delivered", "cancelled":
 	default:
 		return nil, fmt.Errorf("invalid status: %s", status)
 	}
 
-	// Get existing shipment
 	shipment, err := s.shipRepo.FindByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("shipment not found: %w", err)
 	}
 
-	// Update status
 	shipment.Status = domain.ShipmentStatus(status)
 	shipment.UpdatedBy = userID
 	shipment.UpdatedAt = time.Now()
 
-	// Update in database
 	updatedShip, err := s.shipRepo.Update(id, shipment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update shipment status: %w", err)

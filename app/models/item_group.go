@@ -2,8 +2,6 @@ package models
 
 import "time"
 
-// ItemGroup represents a group/bundle of items (Bill of Materials)
-// Example: A 300ml Water Bottle ItemGroup contains 100 bottles + 100 caps
 type ItemGroup struct {
 	ID          string               `json:"id" gorm:"type:varchar(255);primaryKey"`
 	Name        string               `json:"name" gorm:"type:varchar(255);not null;unique"`
@@ -18,8 +16,6 @@ func (ItemGroup) TableName() string {
 	return "item_groups"
 }
 
-// ItemGroupComponent represents a single item in an ItemGroup
-// Example: 100 units of "Bottle" variant as a component of "300ml Water Bottle" ItemGroup
 type ItemGroupComponent struct {
 	ID             uint           `gorm:"primaryKey;autoIncrement"`
 	ItemGroupID    string         `json:"item_group_id" gorm:"type:varchar(255);index;not null"`

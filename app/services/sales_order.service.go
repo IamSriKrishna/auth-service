@@ -49,13 +49,11 @@ func NewSalesOrderService(
 }
 
 func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInput, userID string) (*output.SalesOrderOutput, error) {
-	// Validate customer exists
 	customer, err := s.customerRepo.FindByID(soInput.CustomerID)
 	if err != nil {
 		return nil, errors.New("customer not found")
 	}
 
-	// Validate salesperson if provided
 	var salesperson *models.Salesperson
 	if soInput.SalespersonID != nil {
 		salesperson, err = s.salespersonRepo.FindByID(*soInput.SalespersonID)
@@ -64,7 +62,6 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 		}
 	}
 
-	// Validate tax if provided
 	var tax *models.Tax
 	if soInput.TaxID != nil {
 		tax, err = s.taxRepo.FindByID(*soInput.TaxID)
@@ -73,7 +70,6 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 		}
 	}
 
-	// Process line items and calculate subtotal
 	lineItems := make([]models.SalesOrderLineItem, 0)
 	subTotal := 0.0
 
@@ -95,7 +91,6 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 			Amount:    amount,
 		}
 
-		// Convert variant details
 		if itemInput.VariantDetails != nil {
 			variantDetails := make(models.VariantDetails)
 			for k, v := range itemInput.VariantDetails {
@@ -107,19 +102,15 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 		lineItems = append(lineItems, lineItem)
 	}
 
-	// Calculate tax amount
 	taxAmount := 0.0
 	if tax != nil {
 		taxAmount = ((subTotal + soInput.ShippingCharges) * tax.Rate) / 100
 	}
 
-	// Calculate total
 	total := subTotal + soInput.ShippingCharges + taxAmount + soInput.Adjustment
 
-	// Generate sales order number
 	soNumber := fmt.Sprintf("SO-%s-%04d", time.Now().Format("20060102"), s.generateSOSequence())
 
-	// Convert tax type if provided
 	var taxType *domain.TaxType
 	if soInput.TaxType != nil {
 		tt := domain.TaxType(*soInput.TaxType)
@@ -157,7 +148,6 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 		UpdatedBy:            userID,
 	}
 
-	// Create sales order
 	createdSO, err := s.soRepo.Create(so)
 	if err != nil {
 		return nil, errors.New("failed to create sales order: " + err.Error())
@@ -225,7 +215,6 @@ func (s *salesOrderService) UpdateSalesOrder(id string, soInput *input.UpdateSal
 		return nil, errors.New("sales order not found")
 	}
 
-	// Update fields if provided
 	if soInput.CustomerID != nil {
 		customer, err := s.customerRepo.FindByID(*soInput.CustomerID)
 		if err != nil {
@@ -264,7 +253,6 @@ func (s *salesOrderService) UpdateSalesOrder(id string, soInput *input.UpdateSal
 		so.DeliveryMethod = *soInput.DeliveryMethod
 	}
 
-	// Update line items if provided
 	if len(soInput.LineItems) > 0 {
 		lineItems := make([]models.SalesOrderLineItem, 0)
 		subTotal := 0.0
@@ -301,24 +289,20 @@ func (s *salesOrderService) UpdateSalesOrder(id string, soInput *input.UpdateSal
 		so.LineItems = lineItems
 		so.SubTotal = subTotal
 
-		// Recalculate tax
 		if so.Tax != nil {
 			so.TaxAmount = ((so.SubTotal + so.ShippingCharges) * so.Tax.Rate) / 100
 		}
 
-		// Recalculate total
 		so.Total = so.SubTotal + so.ShippingCharges + so.TaxAmount + so.Adjustment
 	}
 
 	if soInput.ShippingCharges != nil {
 		so.ShippingCharges = *soInput.ShippingCharges
 
-		// Recalculate tax
 		if so.Tax != nil {
 			so.TaxAmount = ((so.SubTotal + so.ShippingCharges) * so.Tax.Rate) / 100
 		}
 
-		// Recalculate total
 		so.Total = so.SubTotal + so.ShippingCharges + so.TaxAmount + so.Adjustment
 	}
 
@@ -330,7 +314,6 @@ func (s *salesOrderService) UpdateSalesOrder(id string, soInput *input.UpdateSal
 		so.TaxID = soInput.TaxID
 		so.Tax = tax
 
-		// Recalculate tax amount
 		so.TaxAmount = ((so.SubTotal + so.ShippingCharges) * tax.Rate) / 100
 		so.Total = so.SubTotal + so.ShippingCharges + so.TaxAmount + so.Adjustment
 	}

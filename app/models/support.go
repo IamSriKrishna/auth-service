@@ -7,7 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// SupportStatus represents the status of a support ticket
 type SupportStatus string
 
 const (
@@ -19,7 +18,6 @@ const (
 
 const SupportTableName = "support"
 
-// Support represents the support table model
 type Support struct {
 	ID          uint           `json:"id" gorm:"primaryKey;autoIncrement"`
 	Name        string         `json:"name" gorm:"type:varchar(100);not null"`
@@ -37,7 +35,6 @@ func (Support) TableName() string {
 	return SupportTableName
 }
 
-// BeforeCreate validates that either phone or email is provided
 func (s *Support) BeforeCreate(tx *gorm.DB) (err error) {
 	if (s.Phone == nil || *s.Phone == "") && (s.Email == nil || *s.Email == "") {
 		return errors.New("either phone or email is required")

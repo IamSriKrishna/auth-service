@@ -62,17 +62,16 @@ type CompanyAddressOutput struct {
 }
 
 type CompanyBankDetailOutput struct {
-	ID                uint      `json:"id"`
-	CompanyID         uint      `json:"company_id"`
-	BankName          string    `json:"bank_name"`
-	AccountHolderName string    `json:"account_holder_name"`
-	AccountNumber     string    `json:"account_number"`
-	IFSCCode          string    `json:"ifsc_code"`
-	BranchName        string    `json:"branch_name,omitempty"`
-	IsPrimary         bool      `json:"is_primary"`
-	IsActive          bool      `json:"is_active"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	ID                uint                   `json:"id"`
+	CompanyID         uint                   `json:"company_id"`
+	BankID            uint                   `json:"bank_id"`
+	Bank              map[string]interface{} `json:"bank,omitempty"`
+	AccountHolderName string                 `json:"account_holder_name"`
+	AccountNumber     string                 `json:"account_number"`
+	IsPrimary         bool                   `json:"is_primary"`
+	IsActive          bool                   `json:"is_active"`
+	CreatedAt         time.Time              `json:"created_at"`
+	UpdatedAt         time.Time              `json:"updated_at"`
 }
 
 type CompanyUPIDetailOutput struct {

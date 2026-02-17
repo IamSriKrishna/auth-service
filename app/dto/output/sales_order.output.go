@@ -62,7 +62,6 @@ func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 			Amount:    item.Amount,
 		}
 
-		// Add item info
 		if item.Item != nil {
 			lineItemOutput.Item = &ItemInfo{
 				ID:   item.Item.ID,
@@ -71,7 +70,6 @@ func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 			}
 		}
 
-		// Add variant info if available
 		if item.Variant != nil {
 			attributeMap := make(map[string]string)
 			for _, attr := range item.Variant.Attributes {
@@ -84,7 +82,6 @@ func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 			}
 		}
 
-		// Convert variant details
 		if item.VariantDetails != nil {
 			lineItemOutput.VariantDetails = convertVariantDetails(item.VariantDetails)
 		}
@@ -92,13 +89,11 @@ func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 		lineItems = append(lineItems, lineItemOutput)
 	}
 
-	// Convert attachments
 	attachments := so.Attachments
 	if attachments == nil {
 		attachments = []string{}
 	}
 
-	// Build output
 	output := &SalesOrderOutput{
 		ID:                   so.ID,
 		SalesOrderNo:         so.SalesOrderNumber,
@@ -125,7 +120,6 @@ func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 		UpdatedBy:            so.UpdatedBy,
 	}
 
-	// Add customer info
 	if so.Customer != nil {
 		output.Customer = &CustomerInfo{
 			ID:          so.Customer.ID,
@@ -136,7 +130,6 @@ func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 		}
 	}
 
-	// Add salesperson info
 	if so.Salesperson != nil {
 		output.Salesperson = &SalespersonInfo{
 			ID:   so.Salesperson.ID,
@@ -144,7 +137,6 @@ func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 		}
 	}
 
-	// Add tax info if available
 	if so.Tax != nil {
 		taxTypeStr := string(*so.TaxType)
 		output.TaxType = &taxTypeStr

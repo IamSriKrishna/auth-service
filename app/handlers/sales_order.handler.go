@@ -28,7 +28,6 @@ func (h *SalesOrderHandler) CreateSalesOrder(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate input
 	validate := validator.New()
 	if err := validate.Struct(soInput); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

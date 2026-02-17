@@ -10,29 +10,16 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// AdminHandler handles admin endpoints
 type AdminHandler struct {
 	adminService services.AdminService
 }
 
-// NewAdminHandler creates a new admin handler instance
 func NewAdminHandler(adminService services.AdminService) *AdminHandler {
 	return &AdminHandler{
 		adminService: adminService,
 	}
 }
 
-// CreateUser handles user creation by super admin
-// @Summary Create user
-// @Description Create a new admin or partner user
-// @Tags Admin
-// @Accept json
-// @Produce json
-// @Security Bearer
-// @Param request body input.CreateUserRequest true "Create user request"
-// @Success 200 {object} output.UserInfo
-// @Failure 400 {object} output.ErrorResponse
-// @Router /auth/admin/create-user [post]
 func (h *AdminHandler) CreateUser(c *fiber.Ctx) error {
 	var req input.CreateUserRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -55,17 +42,6 @@ func (h *AdminHandler) CreateUser(c *fiber.Ctx) error {
 	return c.JSON(resp)
 }
 
-// ResetPassword handles password reset by super admin
-// @Summary Reset password
-// @Description Reset user password (super admin only)
-// @Tags Admin
-// @Accept json
-// @Produce json
-// @Security Bearer
-// @Param request body input.ResetPasswordRequest true "Reset password request"
-// @Success 200 {object} output.SuccessResponse
-// @Failure 400 {object} output.ErrorResponse
-// @Router /auth/admin/reset-password [post]
 func (h *AdminHandler) ResetAdminPassword(c *fiber.Ctx) error {
 	var req input.ResetPasswordRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -119,19 +95,6 @@ func (h *AdminHandler) ResetUserPassword(c *fiber.Ctx) error {
 	})
 }
 
-// GetUsers handles user list retrieval
-// @Summary Get users
-// @Description Get list of users with pagination and search
-// @Tags Admin
-// @Accept json
-// @Produce json
-// @Security Bearer
-// @Param page query int false "Page number" default(1)
-// @Param limit query int false "Items per page" default(10)
-// @Param search query string false "Search by email or phone"
-// @Success 200 {object} output.PaginatedResponse
-// @Failure 400 {object} output.ErrorResponse
-// @Router /auth/admin/users [get]
 func (h *AdminHandler) GetUsers(c *fiber.Ctx) error {
 	page, err := strconv.Atoi(c.Query("page", "1"))
 	if err != nil {
@@ -156,17 +119,6 @@ func (h *AdminHandler) GetUsers(c *fiber.Ctx) error {
 	return c.JSON(resp)
 }
 
-// GetUser handles specific user retrieval
-// @Summary Get user
-// @Description Get specific user details
-// @Tags Admin
-// @Accept json
-// @Produce json
-// @Security Bearer
-// @Param id path int true "User ID"
-// @Success 200 {object} output.UserInfo
-// @Failure 400 {object} output.ErrorResponse
-// @Router /auth/admin/users/{id} [get]
 func (h *AdminHandler) GetUser(c *fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -187,18 +139,6 @@ func (h *AdminHandler) GetUser(c *fiber.Ctx) error {
 	return c.JSON(resp)
 }
 
-// UpdateUser handles user update
-// @Summary Update user
-// @Description Update user information
-// @Tags Admin
-// @Accept json
-// @Produce json
-// @Security Bearer
-// @Param id path int true "User ID"
-// @Param request body input.UpdateUserRequest true "Update user request"
-// @Success 200 {object} output.UserInfo
-// @Failure 400 {object} output.ErrorResponse
-// @Router /auth/admin/users/{id} [put]
 func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -227,17 +167,6 @@ func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
 	return c.JSON(resp)
 }
 
-// DeleteUser handles user deletion
-// @Summary Delete user
-// @Description Delete user account
-// @Tags Admin
-// @Accept json
-// @Produce json
-// @Security Bearer
-// @Param id path int true "User ID"
-// @Success 200 {object} output.SuccessResponse
-// @Failure 400 {object} output.ErrorResponse
-// @Router /auth/admin/users/{id} [delete]
 func (h *AdminHandler) DeleteUser(c *fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -261,18 +190,6 @@ func (h *AdminHandler) DeleteUser(c *fiber.Ctx) error {
 	})
 }
 
-// UpdateUserStatus handles user status update
-// @Summary Update user status
-// @Description Update user status
-// @Tags Admin
-// @Accept json
-// @Produce json
-// @Security Bearer
-// @Param id path int true "User ID"
-// @Param status body object{status=string} true "Status update"
-// @Success 200 {object} output.SuccessResponse
-// @Failure 400 {object} output.ErrorResponse
-// @Router /auth/admin/users/{id}/status [put]
 func (h *AdminHandler) UpdateUserStatus(c *fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -306,18 +223,6 @@ func (h *AdminHandler) UpdateUserStatus(c *fiber.Ctx) error {
 	})
 }
 
-// UpdateUserRole handles user role update
-// @Summary Update user role
-// @Description Update user role
-// @Tags Admin
-// @Accept json
-// @Produce json
-// @Security Bearer
-// @Param id path int true "User ID"
-// @Param role body object{role_name=string} true "Role update"
-// @Success 200 {object} output.SuccessResponse
-// @Failure 400 {object} output.ErrorResponse
-// @Router /auth/admin/users/{id}/role [put]
 func (h *AdminHandler) UpdateUserRole(c *fiber.Ctx) error {
 	userID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -351,21 +256,7 @@ func (h *AdminHandler) UpdateUserRole(c *fiber.Ctx) error {
 	})
 }
 
-// GetDashboardStats handles dashboard statistics retrieval
-// @Summary Get dashboard statistics
-// @Description Get dashboard statistics with filters (customer_type can be: mobile_user, partner, vendor, admin, superadmin)
-// @Tags Admin
-// @Accept json
-// @Produce json
-// @Security Bearer
-// @Param customer_type query string false "Filter by user type (mobile_user, partner, vendor, admin, superadmin)"
-// @Param from_date query string false "From date (YYYY-MM-DD)"
-// @Param to_date query string false "To date (YYYY-MM-DD)"
-// @Success 200 {object} output.DashboardStatsResponse
-// @Failure 400 {object} output.ErrorResponse
-// @Router /auth/admin/dashboard/stats [get]
 func (h *AdminHandler) GetDashboardStats(c *fiber.Ctx) error {
-	// Parse query parameters
 	filter := &input.DashboardStatsFilter{}
 
 	if customerType := c.Query("customer_type"); customerType != "" {
@@ -383,7 +274,6 @@ func (h *AdminHandler) GetDashboardStats(c *fiber.Ctx) error {
 		filter.ToDate = &toDate
 	}
 
-	// Get stats from service
 	stats, err := h.adminService.GetDashboardStats(c.Context(), filter)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{

@@ -50,18 +50,15 @@ func NewPurchaseOrderService(
 }
 
 func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchaseOrderInput, userID string) (*output.PurchaseOrderOutput, error) {
-	// Validate vendor exists
 	vendor, err := s.vendorRepo.FindByID(poInput.VendorID)
 	if err != nil {
 		return nil, errors.New("vendor not found")
 	}
 
-	// Validate delivery address type
 	if poInput.DeliveryAddressType != "organization" && poInput.DeliveryAddressType != "customer" {
 		return nil, errors.New("invalid delivery address type")
 	}
 
-	// Validate customer if customer delivery
 	var customer *models.Customer
 	if poInput.DeliveryAddressType == "customer" {
 		if poInput.CustomerID == nil {
@@ -74,7 +71,6 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 		}
 	}
 
-	// Validate tax if provided
 	var tax *models.Tax
 	if poInput.TaxID != nil {
 		tax, err = s.taxRepo.FindByID(*poInput.TaxID)
@@ -83,12 +79,10 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 		}
 	}
 
-	// Create line items
 	lineItems := make([]models.PurchaseOrderLineItem, 0)
 	subTotal := 0.0
 
 	for _, itemInput := range poInput.LineItems {
-		// Validate item exists
 		item, err := s.itemRepo.FindByID(itemInput.ItemID)
 		if err != nil {
 			return nil, fmt.Errorf("item %s not found", itemInput.ItemID)
@@ -107,7 +101,6 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 			Amount:    amount,
 		}
 
-		// Convert variant details
 		if itemInput.VariantDetails != nil {
 			variantDetails := make(models.VariantDetails)
 			for k, v := range itemInput.VariantDetails {
@@ -119,25 +112,20 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 		lineItems = append(lineItems, lineItem)
 	}
 
-	// Calculate discount
 	discount := poInput.Discount
 	if poInput.DiscountType == "percentage" {
 		discount = (subTotal * poInput.Discount) / 100
 	}
 
-	// Calculate tax amount
 	taxAmount := 0.0
 	if tax != nil {
 		taxAmount = ((subTotal - discount) * tax.Rate) / 100
 	}
 
-	// Calculate total
 	total := subTotal - discount + taxAmount + poInput.Adjustment
 
-	// Generate purchase order number
 	poNumber := fmt.Sprintf("PO-%s-%04d", time.Now().Format("20060102"), s.generatePOSequence())
 
-	// Convert tax type if provided
 	var taxType *domain.TaxType
 	if poInput.TaxType != nil {
 		tt := domain.TaxType(*poInput.TaxType)
@@ -179,12 +167,10 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 		UpdatedBy:           userID,
 	}
 
-	// Convert attachments
 	if len(poInput.Attachments) > 0 {
 		po.Attachments = poInput.Attachments
 	}
 
-	// Save to database
 	createdPO, err := s.poRepo.Create(po)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create purchase order: %w", err)
@@ -229,7 +215,6 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 		return nil, errors.New("purchase order not found")
 	}
 
-	// Validate vendor if provided
 	if poInput.VendorID != nil {
 		vendor, err := s.vendorRepo.FindByID(*poInput.VendorID)
 		if err != nil {
@@ -239,7 +224,6 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 		po.Vendor = vendor
 	}
 
-	// Update delivery address details if provided
 	if poInput.DeliveryAddressType != nil {
 		po.DeliveryAddressType = *poInput.DeliveryAddressType
 	}
@@ -261,7 +245,6 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 		po.Customer = customer
 	}
 
-	// Update basic fields
 	if poInput.ReferenceNo != nil {
 		po.ReferenceNo = *poInput.ReferenceNo
 	}
@@ -282,7 +265,6 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 		po.ShipmentPreference = *poInput.ShipmentPreference
 	}
 
-	// Update line items if provided
 	if len(poInput.LineItems) > 0 {
 		lineItems := make([]models.PurchaseOrderLineItem, 0)
 		subTotal := 0.0
@@ -321,7 +303,6 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 		po.SubTotal = subTotal
 	}
 
-	// Update financial details
 	if poInput.Discount != nil {
 		po.Discount = *poInput.Discount
 	}
@@ -348,7 +329,6 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 		po.Adjustment = *poInput.Adjustment
 	}
 
-	// Recalculate totals
 	discount := po.Discount
 	if po.DiscountType == "percentage" {
 		discount = (po.SubTotal * po.Discount) / 100
@@ -362,7 +342,6 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 	po.TaxAmount = taxAmount
 	po.Total = po.SubTotal - discount + taxAmount + po.Adjustment
 
-	// Update notes and terms
 	if poInput.Notes != nil {
 		po.Notes = *poInput.Notes
 	}
@@ -371,7 +350,6 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 		po.TermsAndConditions = *poInput.TermsAndConditions
 	}
 
-	// Update attachments if provided
 	if len(poInput.Attachments) > 0 {
 		po.Attachments = poInput.Attachments
 	}
@@ -469,15 +447,11 @@ func (s *purchaseOrderService) UpdatePurchaseOrderStatus(id string, status domai
 	return s.GetPurchaseOrder(id)
 }
 
-// Helper function to generate PO sequence number
 func (s *purchaseOrderService) generatePOSequence() int {
-	// Query for the latest PO created today to get the sequence number
 	var count int64
 	today := time.Now().Format("2006-01-02")
 
-	// Count POs created today
 	s.poRepo.GetDB().Where("DATE(created_at) = ?", today).Model(&models.PurchaseOrder{}).Count(&count)
 
-	// Return count + 1 for the next sequence
 	return int(count) + 1
 }

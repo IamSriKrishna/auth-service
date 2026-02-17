@@ -194,6 +194,5 @@ func (r *packageRepository) GetDB() *gorm.DB {
 }
 
 func generatePackageSlipNo(number int64) string {
-	// Generate in format PKG-00001, PKG-00002, etc.
 	return fmt.Sprintf("PKG-%05d", number)
 }

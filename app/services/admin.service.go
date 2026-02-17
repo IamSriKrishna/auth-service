@@ -13,13 +13,11 @@ import (
 	"github.com/bbapp-org/auth-service/app/utils"
 )
 
-// adminService implements AdminService interface
 type adminService struct {
 	userRepo repo.UserRepository
 	roleRepo repo.RoleRepository
 }
 
-// NewAdminService creates a new admin service instance
 func NewAdminService(
 	userRepo repo.UserRepository,
 	roleRepo repo.RoleRepository,
@@ -30,32 +28,26 @@ func NewAdminService(
 	}
 }
 
-// CreateUser creates a new admin or partner user
 func (s *adminService) CreateUser(ctx context.Context, createdBy uint, req *input.CreateUserRequest) (*output.UserInfo, error) {
-	// Validate user type
 	if req.UserType != "admin" && req.UserType != "partner" {
 		return nil, errors.New("invalid user type")
 	}
 
-	// Check if user already exists
 	existingUser, err := s.userRepo.GetByEmail(req.Email)
 	if err == nil && existingUser != nil {
 		return nil, errors.New("user already exists with this email")
 	}
 
-	// Get role by name
 	role, err := s.roleRepo.GetByName(req.RoleName)
 	if err != nil {
 		return nil, errors.New("invalid role name")
 	}
 
-	// Hash password
 	passwordHash, err := utils.HashPassword(req.Password)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create user
 	user := &models.User{
 		Email:        &req.Email,
 		Username:     &req.Username,
@@ -71,7 +63,6 @@ func (s *adminService) CreateUser(ctx context.Context, createdBy uint, req *inpu
 		return nil, err
 	}
 
-	// Return user info
 	return &output.UserInfo{
 		ID:        user.ID,
 		Email:     user.Email,
@@ -84,74 +75,60 @@ func (s *adminService) CreateUser(ctx context.Context, createdBy uint, req *inpu
 	}, nil
 }
 
-// ResetPassword resets user password
 func (s *adminService) ResetPassword(ctx context.Context, req *input.ResetPasswordRequest) error {
-	// Get user
 	user, err := s.userRepo.GetByID(req.UserID)
 	if err != nil {
 		return errors.New("user not found")
 	}
 
-	// Only allow password reset for admin and partner users
 	if user.UserType == models.UserTypeMobile {
 		return errors.New("cannot reset password for mobile users")
 	}
 
-	// Hash new password
 	passwordHash, err := utils.HashPassword(req.NewPassword)
 	if err != nil {
 		return err
 	}
 
-	// Update password
 	user.PasswordHash = &passwordHash
 	if err := s.userRepo.Update(user); err != nil {
 		return err
 	}
 
-	// Update password changed timestamp
 	s.userRepo.UpdatePasswordChangedAt(req.UserID)
 
 	return nil
 }
 
-// ResetPassword resets user password
 func (s *adminService) ResetUserPassword(ctx context.Context, req *input.ResetUserPasswordRequest, userID uint64) error {
-	// Get user
 	user, err := s.userRepo.GetByID(uint(userID))
 	if err != nil {
 		return errors.New("user not found")
 	}
 
-	// Only allow password reset for admin and partner users
 	if user.UserType == models.UserTypeMobile {
 		return errors.New("cannot reset password for mobile users")
 	}
 
-	// Verify old password
 	if !utils.CheckPassword(*user.PasswordHash, req.OldPassword) {
 		return errors.New("current password is incorrect")
 	}
 
-	// Hash new password
 	passwordHash, err := utils.HashPassword(req.NewPassword)
 	if err != nil {
 		return err
 	}
 
-	// Update password
 	user.PasswordHash = &passwordHash
 	if err := s.userRepo.Update(user); err != nil {
 		return err
 	}
 
-	// Update password changed timestamp
 	s.userRepo.UpdatePasswordChangedAt(uint(userID))
 
 	return nil
 }
 
-// GetUsers retrieves users with pagination and search
 func (s *adminService) GetUsers(ctx context.Context, page, limit int, search string) (*output.PaginatedResponse, error) {
 	if page < 1 {
 		page = 1
@@ -167,7 +144,6 @@ func (s *adminService) GetUsers(ctx context.Context, page, limit int, search str
 		return nil, err
 	}
 
-	// Convert to response format
 	userList := make([]output.UserListResponse, len(users))
 	for i, user := range users {
 		userList[i] = output.UserListResponse{
@@ -198,7 +174,6 @@ func (s *adminService) GetUsers(ctx context.Context, page, limit int, search str
 	}, nil
 }
 
-// GetUser retrieves a specific user
 func (s *adminService) GetUser(ctx context.Context, userID uint) (*output.UserInfo, error) {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
@@ -218,14 +193,12 @@ func (s *adminService) GetUser(ctx context.Context, userID uint) (*output.UserIn
 	}, nil
 }
 
-// UpdateUser updates user information
 func (s *adminService) UpdateUser(ctx context.Context, userID uint, req *input.UpdateUserRequest) (*output.UserInfo, error) {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, errors.New("user not found")
 	}
 
-	// Update fields if provided
 	if req.Email != nil {
 		user.Email = req.Email
 	}
@@ -233,7 +206,6 @@ func (s *adminService) UpdateUser(ctx context.Context, userID uint, req *input.U
 		user.Username = req.Username
 	}
 	if req.RoleName != nil {
-		// Get role by name
 		role, err := s.roleRepo.GetByName(*req.RoleName)
 		if err != nil {
 			return nil, errors.New("invalid role name")
@@ -251,7 +223,6 @@ func (s *adminService) UpdateUser(ctx context.Context, userID uint, req *input.U
 		return nil, err
 	}
 
-	// Get updated user with role information
 	updatedUser, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return nil, err
@@ -270,14 +241,12 @@ func (s *adminService) UpdateUser(ctx context.Context, userID uint, req *input.U
 	}, nil
 }
 
-// DeleteUser soft deletes a user
 func (s *adminService) DeleteUser(ctx context.Context, userID uint) error {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return errors.New("user not found")
 	}
 
-	// Prevent deletion of superadmin users
 	if user.UserType == models.UserTypeSuperAdmin {
 		return errors.New("cannot delete superadmin user")
 	}
@@ -285,7 +254,6 @@ func (s *adminService) DeleteUser(ctx context.Context, userID uint) error {
 	return s.userRepo.Delete(userID)
 }
 
-// UpdateUserStatus updates user status
 func (s *adminService) UpdateUserStatus(ctx context.Context, userID uint, status string) error {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
@@ -296,14 +264,12 @@ func (s *adminService) UpdateUserStatus(ctx context.Context, userID uint, status
 	return s.userRepo.Update(user)
 }
 
-// UpdateUserRole updates user role
 func (s *adminService) UpdateUserRole(ctx context.Context, userID uint, roleName string) error {
 	user, err := s.userRepo.GetByID(userID)
 	if err != nil {
 		return errors.New("user not found")
 	}
 
-	// Get role by name
 	role, err := s.roleRepo.GetByName(roleName)
 	if err != nil {
 		return errors.New("invalid role name")
@@ -313,11 +279,9 @@ func (s *adminService) UpdateUserRole(ctx context.Context, userID uint, roleName
 	return s.userRepo.Update(user)
 }
 
-// GetDashboardStats retrieves dashboard statistics with filters
 func (s *adminService) GetDashboardStats(ctx context.Context, filter *input.DashboardStatsFilter) (*output.DashboardStatsResponse, error) {
 	var fromDate, toDate *time.Time
 
-	// Parse date strings if provided
 	if filter.FromDate != nil && *filter.FromDate != "" {
 		parsedFrom, err := time.Parse("2006-01-02", *filter.FromDate)
 		if err != nil {
@@ -331,12 +295,10 @@ func (s *adminService) GetDashboardStats(ctx context.Context, filter *input.Dash
 		if err != nil {
 			return nil, errors.New("invalid to_date format. Use YYYY-MM-DD")
 		}
-		// Set to end of day
 		endOfDay := parsedTo.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 		toDate = &endOfDay
 	}
 
-	// Get stats from repository
 	stats, err := s.userRepo.GetDashboardStats(
 		filter.CustomerType,
 		fromDate,
@@ -346,7 +308,6 @@ func (s *adminService) GetDashboardStats(ctx context.Context, filter *input.Dash
 		return nil, err
 	}
 
-	// Build response
 	response := &output.DashboardStatsResponse{
 		TotalUsers:              stats["total_users"].(int),
 		ActiveUsers:             stats["active_users"].(int),

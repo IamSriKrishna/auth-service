@@ -224,11 +224,9 @@ func (s *companyService) CompleteCompanySetup(input *input.CompleteCompanySetupI
 	if input.BankDetails != nil {
 		bankDetail := &models.CompanyBankDetail{
 			CompanyID:         company.ID,
-			BankName:          input.BankDetails.BankName,
+			BankID:            input.BankDetails.BankID,
 			AccountHolderName: input.BankDetails.AccountHolderName,
 			AccountNumber:     input.BankDetails.AccountNumber,
-			IFSCCode:          input.BankDetails.IFSCCode,
-			BranchName:        input.BankDetails.BranchName,
 			IsPrimary:         input.BankDetails.IsPrimary,
 		}
 		if err := tx.Create(bankDetail).Error; err != nil {
@@ -388,11 +386,9 @@ func (s *companyService) CreateBankDetail(companyID uint, input *input.CreateBan
 
 	bankDetail := &models.CompanyBankDetail{
 		CompanyID:         companyID,
-		BankName:          input.BankName,
+		BankID:            input.BankID,
 		AccountHolderName: input.AccountHolderName,
 		AccountNumber:     input.AccountNumber,
-		IFSCCode:          input.IFSCCode,
-		BranchName:        input.BranchName,
 		IsPrimary:         input.IsPrimary,
 	}
 
@@ -423,20 +419,14 @@ func (s *companyService) UpdateBankDetail(id uint, input *input.UpdateBankDetail
 		return nil, err
 	}
 
-	if input.BankName != nil {
-		bankDetail.BankName = *input.BankName
+	if input.BankID != nil {
+		bankDetail.BankID = *input.BankID
 	}
 	if input.AccountHolderName != nil {
 		bankDetail.AccountHolderName = *input.AccountHolderName
 	}
 	if input.AccountNumber != nil {
 		bankDetail.AccountNumber = *input.AccountNumber
-	}
-	if input.IFSCCode != nil {
-		bankDetail.IFSCCode = *input.IFSCCode
-	}
-	if input.BranchName != nil {
-		bankDetail.BranchName = *input.BranchName
 	}
 	if input.IsPrimary != nil {
 		bankDetail.IsPrimary = *input.IsPrimary
@@ -645,11 +635,9 @@ func (s *companyService) toBankDetailOutput(b *models.CompanyBankDetail) *output
 	return &output.CompanyBankDetailOutput{
 		ID:                b.ID,
 		CompanyID:         b.CompanyID,
-		BankName:          b.BankName,
+		BankID:            b.BankID,
 		AccountHolderName: b.AccountHolderName,
 		AccountNumber:     b.AccountNumber,
-		IFSCCode:          b.IFSCCode,
-		BranchName:        b.BranchName,
 		IsPrimary:         b.IsPrimary,
 		IsActive:          b.IsActive,
 		CreatedAt:         b.CreatedAt,

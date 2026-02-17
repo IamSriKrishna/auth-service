@@ -6,7 +6,6 @@ import (
 	"github.com/bbapp-org/auth-service/app/models"
 )
 
-// UserRepository interface defines user repository methods
 type UserRepository interface {
 	Create(user *models.User) error
 	GetByID(id uint) (*models.User, error)
@@ -23,7 +22,6 @@ type UserRepository interface {
 	GetDashboardStats(customerType *string, fromDate, toDate *time.Time) (map[string]interface{}, error)
 }
 
-// RoleRepository interface defines role repository methods
 type RoleRepository interface {
 	GetByID(id uint) (*models.Role, error)
 	GetByName(name string) (*models.Role, error)
@@ -33,7 +31,6 @@ type RoleRepository interface {
 	Delete(id uint) error
 }
 
-// RefreshTokenRepository interface defines refresh token repository methods
 type RefreshTokenRepository interface {
 	Create(token *models.RefreshToken) error
 	GetByTokenID(tokenID string) (*models.RefreshToken, error)
@@ -43,7 +40,6 @@ type RefreshTokenRepository interface {
 	DeleteExpired() error
 }
 
-// UserSessionRepository interface defines user session repository methods
 type UserSessionRepository interface {
 	Create(session *models.UserSession) error
 	GetBySessionID(sessionID string) (*models.UserSession, error)
@@ -53,7 +49,6 @@ type UserSessionRepository interface {
 	DeleteExpired() error
 }
 
-// SupportRepository interface defines support repository methods
 type SupportRepository interface {
 	Create(support *models.Support) error
 	GetByID(id uint) (*models.Support, error)
@@ -206,4 +201,11 @@ type BrandRepository interface {
 	Delete(id uint) error
 }
 
-
+type BankRepository interface {
+	Create(bank *models.Bank) error
+	FindByID(id uint) (*models.Bank, error)
+	FindByIFSCCode(ifscCode string) (*models.Bank, error)
+	FindAll(limit, offset int) ([]models.Bank, int64, error)
+	Update(bank *models.Bank) error
+	Delete(id uint) error
+}

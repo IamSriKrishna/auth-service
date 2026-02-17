@@ -9,7 +9,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// PurchaseOrderHandler handles purchase order-related HTTP requests
 type PurchaseOrderHandler struct {
 	service  services.PurchaseOrderService
 	validate *validator.Validate
@@ -22,8 +21,6 @@ func NewPurchaseOrderHandler(service services.PurchaseOrderService) *PurchaseOrd
 	}
 }
 
-// CreatePurchaseOrder creates a new purchase order
-// POST /api/purchase-orders
 func (h *PurchaseOrderHandler) CreatePurchaseOrder(c *fiber.Ctx) error {
 	var poInput input.CreatePurchaseOrderInput
 
@@ -41,7 +38,6 @@ func (h *PurchaseOrderHandler) CreatePurchaseOrder(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get user ID from context (assuming auth middleware sets this)
 	userID := ""
 	if uid := c.Locals("userID"); uid != nil {
 		userID = uid.(string)
@@ -62,8 +58,6 @@ func (h *PurchaseOrderHandler) CreatePurchaseOrder(c *fiber.Ctx) error {
 	})
 }
 
-// GetPurchaseOrder retrieves a purchase order by ID
-// GET /api/purchase-orders/:id
 func (h *PurchaseOrderHandler) GetPurchaseOrder(c *fiber.Ctx) error {
 	id := c.Params("id")
 
@@ -81,8 +75,6 @@ func (h *PurchaseOrderHandler) GetPurchaseOrder(c *fiber.Ctx) error {
 	})
 }
 
-// GetAllPurchaseOrders retrieves all purchase orders with pagination
-// GET /api/purchase-orders
 func (h *PurchaseOrderHandler) GetAllPurchaseOrders(c *fiber.Ctx) error {
 	limit := 10
 	offset := 0
@@ -113,8 +105,6 @@ func (h *PurchaseOrderHandler) GetAllPurchaseOrders(c *fiber.Ctx) error {
 	})
 }
 
-// UpdatePurchaseOrder updates an existing purchase order
-// PUT /api/purchase-orders/:id
 func (h *PurchaseOrderHandler) UpdatePurchaseOrder(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var poInput input.UpdatePurchaseOrderInput
@@ -153,8 +143,6 @@ func (h *PurchaseOrderHandler) UpdatePurchaseOrder(c *fiber.Ctx) error {
 	})
 }
 
-// DeletePurchaseOrder deletes a purchase order
-// DELETE /api/purchase-orders/:id
 func (h *PurchaseOrderHandler) DeletePurchaseOrder(c *fiber.Ctx) error {
 	id := c.Params("id")
 
@@ -172,8 +160,6 @@ func (h *PurchaseOrderHandler) DeletePurchaseOrder(c *fiber.Ctx) error {
 	})
 }
 
-// GetPurchaseOrdersByVendor retrieves purchase orders for a specific vendor
-// GET /api/purchase-orders/vendor/:vendorId
 func (h *PurchaseOrderHandler) GetPurchaseOrdersByVendor(c *fiber.Ctx) error {
 	vendorID, err := strconv.ParseUint(c.Params("vendorId"), 10, 32)
 	if err != nil {
@@ -212,8 +198,6 @@ func (h *PurchaseOrderHandler) GetPurchaseOrdersByVendor(c *fiber.Ctx) error {
 	})
 }
 
-// GetPurchaseOrdersByCustomer retrieves purchase orders for a specific customer
-// GET /api/purchase-orders/customer/:customerId
 func (h *PurchaseOrderHandler) GetPurchaseOrdersByCustomer(c *fiber.Ctx) error {
 	customerID, err := strconv.ParseUint(c.Params("customerId"), 10, 32)
 	if err != nil {
@@ -252,8 +236,6 @@ func (h *PurchaseOrderHandler) GetPurchaseOrdersByCustomer(c *fiber.Ctx) error {
 	})
 }
 
-// GetPurchaseOrdersByStatus retrieves purchase orders filtered by status
-// GET /api/purchase-orders/status/:status
 func (h *PurchaseOrderHandler) GetPurchaseOrdersByStatus(c *fiber.Ctx) error {
 	status := c.Params("status")
 
@@ -286,8 +268,6 @@ func (h *PurchaseOrderHandler) GetPurchaseOrdersByStatus(c *fiber.Ctx) error {
 	})
 }
 
-// UpdatePurchaseOrderStatus updates the status of a purchase order
-// PATCH /api/purchase-orders/:id/status
 func (h *PurchaseOrderHandler) UpdatePurchaseOrderStatus(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var statusInput input.UpdatePurchaseOrderStatusInput

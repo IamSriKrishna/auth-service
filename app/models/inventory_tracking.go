@@ -2,23 +2,21 @@ package models
 
 import "time"
 
-// InventoryBalance tracks the current quantity and value of inventory for each item/variant
-// This is used for real-time inventory tracking across purchases, manufacturing, and sales
 type InventoryBalance struct {
 	ID                  uint       `gorm:"primaryKey;autoIncrement"`
 	ItemID              string     `gorm:"type:varchar(255);index;not null"`
 	Item                *Item      `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	VariantID           *uint      `gorm:"index"`
 	Variant             *Variant   `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
-	CurrentQuantity     float64    `json:"current_quantity" gorm:"type:decimal(18,2);default:0"`    // Real-time stock
-	ReservedQuantity    float64    `json:"reserved_quantity" gorm:"type:decimal(18,2);default:0"`   // Reserved for SalesOrders
-	AvailableQuantity   float64    `json:"available_quantity" gorm:"type:decimal(18,2);default:0"`  // current - reserved
-	InTransitQuantity   float64    `json:"in_transit_quantity" gorm:"type:decimal(18,2);default:0"` // In transit from PO
-	AverageRate         float64    `json:"average_rate" gorm:"default:0"`                           // Weighted average cost
-	LastReceivedDate    *time.Time `json:"last_received_date"`                                      // From PurchaseOrder
-	LastConsumedDate    *time.Time `json:"last_consumed_date"`                                      // From ProductionOrder
-	LastSoldDate        *time.Time `json:"last_sold_date"`                                          // From Invoice
-	LastInventorySyncAt time.Time  `json:"last_inventory_sync_at"`                                  // When was inventory last updated
+	CurrentQuantity     float64    `json:"current_quantity" gorm:"type:decimal(18,2);default:0"`
+	ReservedQuantity    float64    `json:"reserved_quantity" gorm:"type:decimal(18,2);default:0"`
+	AvailableQuantity   float64    `json:"available_quantity" gorm:"type:decimal(18,2);default:0"`
+	InTransitQuantity   float64    `json:"in_transit_quantity" gorm:"type:decimal(18,2);default:0"`
+	AverageRate         float64    `json:"average_rate" gorm:"default:0"`
+	LastReceivedDate    *time.Time `json:"last_received_date"`
+	LastConsumedDate    *time.Time `json:"last_consumed_date"`
+	LastSoldDate        *time.Time `json:"last_sold_date"`
+	LastInventorySyncAt time.Time  `json:"last_inventory_sync_at"`
 	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
@@ -26,8 +24,6 @@ func (InventoryBalance) TableName() string {
 	return "inventory_balances"
 }
 
-// InventoryAggregation provides a summary view of inventory movements
-// Useful for reporting how much was purchased, manufactured, and sold
 type InventoryAggregation struct {
 	ID                 uint      `gorm:"primaryKey;autoIncrement"`
 	ItemID             string    `gorm:"type:varchar(255);index;not null"`
@@ -36,9 +32,9 @@ type InventoryAggregation struct {
 	Variant            *Variant  `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 	TotalPurchased     float64   `json:"total_purchased" gorm:"default:0"`
 	TotalManufactured  float64   `json:"total_manufactured" gorm:"default:0"`
-	TotalConsumedInMfg float64   `json:"total_consumed_in_mfg" gorm:"default:0"` // consumed as component
+	TotalConsumedInMfg float64   `json:"total_consumed_in_mfg" gorm:"default:0"`
 	TotalSold          float64   `json:"total_sold" gorm:"default:0"`
-	AverageRate        float64   `json:"average_rate" gorm:"default:0"` // Weighted average cost for valuation
+	AverageRate        float64   `json:"average_rate" gorm:"default:0"`
 	CalculatedAt       time.Time `json:"calculated_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
@@ -47,15 +43,13 @@ func (InventoryAggregation) TableName() string {
 	return "inventory_aggregations"
 }
 
-// InventoryJournal tracks detailed ledger entries for audit trail
-// Each transaction is logged here for traceability
 type InventoryJournal struct {
 	ID              uint      `gorm:"primaryKey;autoIncrement"`
 	ItemID          string    `gorm:"type:varchar(255);index;not null"`
 	VariantID       *uint     `gorm:"index"`
-	TransactionType string    `json:"transaction_type" gorm:"type:varchar(50);not null"` // purchase, manufacture, consume, sale, adjustment
+	TransactionType string    `json:"transaction_type" gorm:"type:varchar(50);not null"`
 	Quantity        float64   `json:"quantity" gorm:"not null"`
-	ReferenceType   string    `json:"reference_type" gorm:"type:varchar(50)"` // PurchaseOrder, ProductionOrder, SalesOrder, etc
+	ReferenceType   string    `json:"reference_type" gorm:"type:varchar(50)"`
 	ReferenceID     string    `json:"reference_id" gorm:"type:varchar(255);index"`
 	ReferenceNo     string    `json:"reference_no" gorm:"type:varchar(100)"`
 	Notes           string    `json:"notes" gorm:"type:text"`
@@ -67,28 +61,23 @@ func (InventoryJournal) TableName() string {
 	return "inventory_journals"
 }
 
-// SupplyChainSummary provides a complete picture of item flow through supply chain
 type SupplyChainSummary struct {
 	ID        uint     `gorm:"primaryKey;autoIncrement"`
 	ItemID    string   `gorm:"type:varchar(255);uniqueIndex;not null"`
 	Item      *Item    `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	VariantID *uint    `gorm:"uniqueIndex:,type:UNIQUE,composite:variant_item"`
 	Variant   *Variant `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
-	// Purchase metrics
 	OpeningStock               float64 `json:"opening_stock" gorm:"default:0"`
 	TotalPurchaseOrderQuantity float64 `json:"total_po_quantity" gorm:"default:0"`
 	TotalPurchaseOrderAmount   float64 `json:"total_po_amount" gorm:"default:0"`
 	AveragePurchaseRate        float64 `json:"avg_purchase_rate" gorm:"default:0"`
-	// Manufacturing metrics
 	TotalProductionOrderQuantity float64 `json:"total_prod_qty" gorm:"default:0"`
 	TotalManufacturedQuantity    float64 `json:"total_mfg_qty" gorm:"default:0"`
 	TotalConsumedInProduction    float64 `json:"total_consumed_in_mfg" gorm:"default:0"`
-	// Sales metrics
 	TotalSalesOrderQuantity float64 `json:"total_so_quantity" gorm:"default:0"`
 	TotalSalesOrderAmount   float64 `json:"total_so_amount" gorm:"default:0"`
 	AverageSalesRate        float64 `json:"avg_sales_rate" gorm:"default:0"`
 	TotalInvoicedQuantity   float64 `json:"total_invoiced_qty" gorm:"default:0"`
-	// Current status
 	CurrentQuantity float64   `json:"current_qty" gorm:"default:0"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }

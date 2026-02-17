@@ -12,6 +12,13 @@ import (
 func RunMigrations(db *gorm.DB) error {
 	log.Println("Starting database migration...")
 
+	if os.Getenv("DROP_ALL_EXCEPT_USER") == "true" {
+		log.Println("DROP_ALL_EXCEPT_USER=true detected, dropping all tables except user-related...")
+		if err := DropAllTablesExceptUser(db); err != nil {
+			log.Printf("Warning: Failed to drop tables: %v", err)
+		}
+	}
+
 	if os.Getenv("DROP_ITEM_TABLES") == "true" {
 		log.Println("DROP_ITEM_TABLES=true detected, dropping item tables...")
 		if err := DropItemTables(db); err != nil {
@@ -30,6 +37,7 @@ func RunMigrations(db *gorm.DB) error {
 		&models.Country{},
 		&models.State{},
 		&models.TaxType{},
+		&models.Bank{},
 
 		&models.Company{},
 		&models.CompanyContact{},
@@ -142,6 +150,90 @@ func DropItemTables(db *gorm.DB) error {
 	return nil
 }
 
+func DropAllTablesExceptUser(db *gorm.DB) error {
+	log.Println("WARNING: Dropping ALL tables except User-related tables...")
+
+	// Tables to drop (all except Role, User, RefreshToken, UserSession)
+	tablesToDrop := []interface{}{
+		&models.BillLineItem{},
+		&models.Bill{},
+
+		&models.Shipment{},
+
+		&models.PackageItem{},
+		&models.Package{},
+
+		&models.InvoiceLineItem{},
+		&models.Invoice{},
+		&models.Payment{},
+		&models.Salesperson{},
+
+		&models.SalesOrderLineItem{},
+		&models.SalesOrder{},
+
+		&models.PurchaseOrderLineItem{},
+		&models.PurchaseOrder{},
+		&models.ProductionOrderItem{},
+		&models.ProductionOrder{},
+
+		&models.InventoryAggregation{},
+		&models.InventoryBalance{},
+		&models.InventoryJournal{},
+		&models.SupplyChainSummary{},
+
+		&models.VariantOpeningStock{},
+		&models.OpeningStock{},
+		&models.StockMovement{},
+		&models.ItemGroupComponent{},
+		&models.ItemGroup{},
+		&models.VariantAttribute{},
+		&models.Variant{},
+		&models.ReturnPolicy{},
+		&models.Inventory{},
+		&models.PurchaseInfo{},
+		&models.SalesInfo{},
+		&models.ItemDetails{},
+		&models.Manufacturer{},
+		&models.Item{},
+
+		&models.Tax{},
+
+		&models.EntityDocument{},
+		&models.VendorBankDetail{},
+		&models.EntityContactPerson{},
+		&models.EntityAddress{},
+		&models.EntityOtherDetails{},
+		&models.Customer{},
+		&models.Vendor{},
+
+		&models.CompanyRegionalSetting{},
+		&models.CompanyTaxSetting{},
+		&models.CompanyInvoiceSetting{},
+		&models.CompanyUPIDetail{},
+		&models.CompanyBankDetail{},
+		&models.CompanyAddress{},
+		&models.CompanyContact{},
+		&models.Company{},
+
+		&models.TaxType{},
+		&models.State{},
+		&models.Country{},
+		&models.BusinessType{},
+		&models.Bank{},
+
+		&models.Support{},
+	}
+
+	for _, table := range tablesToDrop {
+		if err := db.Migrator().DropTable(table); err != nil {
+			log.Printf("Warning: Failed to drop table %T: %v", table, err)
+		}
+	}
+
+	log.Println("All tables except User-related tables dropped successfully!")
+	return nil
+}
+
 func DropAllTables(db *gorm.DB) error {
 	log.Println("WARNING: Dropping ALL tables...")
 
@@ -228,7 +320,6 @@ func DropAllTables(db *gorm.DB) error {
 	return nil
 }
 
-// ResetDatabase drops all tables and re-runs migrations (useful for development)
 func ResetDatabase(db *gorm.DB) error {
 	log.Println("WARNING: Resetting database...")
 

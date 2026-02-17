@@ -9,7 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// UserType represents the type of user
 type UserType string
 
 const (
@@ -19,7 +18,6 @@ const (
 	UserTypePartner    UserType = "partner"
 )
 
-// UserStatus represents the status of a user
 type UserStatus string
 
 const (
@@ -28,10 +26,8 @@ const (
 	UserStatusPending  UserStatus = "pending"
 )
 
-// StringArray is a custom type for handling JSON arrays in database
 type StringArray []string
 
-// Value implements the driver.Valuer interface for database writes
 func (a StringArray) Value() (driver.Value, error) {
 	if a == nil {
 		return nil, nil
@@ -39,7 +35,6 @@ func (a StringArray) Value() (driver.Value, error) {
 	return json.Marshal(a)
 }
 
-// Scan implements the sql.Scanner interface for database reads
 func (a *StringArray) Scan(value interface{}) error {
 	if value == nil {
 		*a = nil
@@ -59,7 +54,6 @@ func (a *StringArray) Scan(value interface{}) error {
 	return json.Unmarshal(bytes, a)
 }
 
-// User represents the users table
 type User struct {
 	ID                uint           `gorm:"primaryKey" json:"id"`
 	Email             *string        `gorm:"unique;index" json:"email,omitempty"`
@@ -83,7 +77,6 @@ type User struct {
 	PasswordChangedAt *time.Time     `json:"password_changed_at,omitempty"`
 }
 
-// Role represents the roles table
 type Role struct {
 	ID          uint           `gorm:"primaryKey" json:"id"`
 	RoleName    string         `gorm:"unique;not null" json:"role_name"`
@@ -95,7 +88,6 @@ type Role struct {
 	IsActive    bool           `gorm:"default:true" json:"is_active"`
 }
 
-// RefreshToken represents the refresh tokens table
 type RefreshToken struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	TokenID   string    `gorm:"unique;not null;index" json:"token_id"`
@@ -107,7 +99,6 @@ type RefreshToken struct {
 	IsRevoked bool      `gorm:"default:false" json:"is_revoked"`
 }
 
-// UserSession represents active user sessions
 type UserSession struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	UserID    uint      `gorm:"not null;index" json:"user_id"`
@@ -120,16 +111,13 @@ type UserSession struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// BeforeCreate hook for User model
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
-	// Validate that mobile users have at least one identity
 	if u.UserType == UserTypeMobile {
 		if u.Email == nil && u.Phone == nil && u.GoogleID == nil && u.AppleID == nil {
 			return gorm.ErrInvalidData
 		}
 	}
 
-	// Validate that admin/partner users have email
 	if u.UserType == UserTypeAdmin || u.UserType == UserTypePartner || u.UserType == UserTypeSuperAdmin {
 		if u.Email == nil {
 			return gorm.ErrInvalidData
@@ -139,22 +127,18 @@ func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
 	return nil
 }
 
-// TableName returns the table name for User model
 func (User) TableName() string {
 	return "users"
 }
 
-// TableName returns the table name for Role model
 func (Role) TableName() string {
 	return "roles"
 }
 
-// TableName returns the table name for RefreshToken model
 func (RefreshToken) TableName() string {
 	return "refresh_tokens"
 }
 
-// TableName returns the table name for UserSession model
 func (UserSession) TableName() string {
 	return "user_sessions"
 }

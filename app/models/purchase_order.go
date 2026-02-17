@@ -6,44 +6,37 @@ import (
 	"github.com/bbapp-org/auth-service/app/domain"
 )
 
-// PurchaseOrder represents the main purchase order entity
 type PurchaseOrder struct {
 	ID                  string  `json:"id" gorm:"type:varchar(255);primaryKey"`
 	PurchaseOrderNumber string  `json:"purchase_order_no" gorm:"column:purchase_order_no;type:varchar(100);uniqueIndex;not null"`
 	VendorID            uint    `json:"vendor_id" gorm:"not null;index"`
 	Vendor              *Vendor `json:"vendor,omitempty" gorm:"foreignKey:VendorID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 
-	// Delivery Address Type: "organization" or "customer"
-	DeliveryAddressType string         `json:"delivery_address_type" gorm:"type:varchar(50);not null"` // organization, customer
+	DeliveryAddressType string         `json:"delivery_address_type" gorm:"type:varchar(50);not null"`
 	DeliveryAddressID   *uint          `json:"delivery_address_id,omitempty" gorm:"index"`
 	DeliveryAddress     *EntityAddress `json:"delivery_address,omitempty" gorm:"foreignKey:DeliveryAddressID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 
-	// Organization Delivery Details
 	OrganizationName    string `json:"organization_name" gorm:"type:varchar(255)"`
 	OrganizationAddress string `json:"organization_address" gorm:"type:text"`
 
-	// Customer Delivery Details (Dropshipping)
 	CustomerID *uint     `json:"customer_id,omitempty" gorm:"index"`
 	Customer   *Customer `json:"customer,omitempty" gorm:"foreignKey:CustomerID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 
 	ReferenceNo        string              `json:"reference_no" gorm:"type:varchar(100)"`
 	PODate             time.Time           `json:"date" gorm:"not null"`
 	DeliveryDate       time.Time           `json:"delivery_date" gorm:"not null"`
-	DeliveryDateActual *time.Time          `json:"delivery_date_actual,omitempty"` // Actual received date - triggers inventory sync
+	DeliveryDateActual *time.Time          `json:"delivery_date_actual,omitempty"`
 	PaymentTerms       domain.PaymentTerms `json:"payment_terms" gorm:"type:varchar(50);not null"`
 	ShipmentPreference string              `json:"shipment_preference" gorm:"type:varchar(255)"`
 
-	// Inventory Synchronization Fields
-	InventorySynced   bool       `json:"inventory_synced" gorm:"default:false"` // Has inventory been updated?
-	InventorySyncDate *time.Time `json:"inventory_sync_date"`                   // When was inventory synced?
+	InventorySynced   bool       `json:"inventory_synced" gorm:"default:false"`
+	InventorySyncDate *time.Time `json:"inventory_sync_date"`
 
-	// Line Items
 	LineItems []PurchaseOrderLineItem `json:"line_items" gorm:"foreignKey:PurchaseOrderID;constraint:OnDelete:CASCADE"`
 
-	// Financial Details
 	SubTotal     float64         `json:"sub_total" gorm:"not null;default:0"`
 	Discount     float64         `json:"discount" gorm:"default:0"`
-	DiscountType string          `json:"discount_type" gorm:"type:varchar(50)"` // percentage, amount
+	DiscountType string          `json:"discount_type" gorm:"type:varchar(50)"`
 	TaxType      *domain.TaxType `json:"tax_type" gorm:"type:varchar(10)"`
 	TaxID        *uint           `json:"tax_id,omitempty" gorm:"index"`
 	Tax          *Tax            `json:"tax,omitempty" gorm:"foreignKey:TaxID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
@@ -51,14 +44,11 @@ type PurchaseOrder struct {
 	Adjustment   float64         `json:"adjustment" gorm:"default:0"`
 	Total        float64         `json:"total" gorm:"not null;default:0"`
 
-	// Additional Information
 	Notes              string `json:"notes" gorm:"type:text"`
 	TermsAndConditions string `json:"terms_and_conditions" gorm:"type:text"`
 
-	// Status
 	Status domain.PurchaseOrderStatus `json:"status" gorm:"type:varchar(50);not null;default:'draft'"`
 
-	// Attachments (stored as JSON array of file paths)
 	Attachments []string `json:"attachments,omitempty" gorm:"type:json"`
 
 	CreatedAt time.Time `json:"created_at"`
@@ -71,7 +61,6 @@ func (PurchaseOrder) TableName() string {
 	return "purchase_orders"
 }
 
-// PurchaseOrderLineItem represents a line item in a purchase order
 type PurchaseOrderLineItem struct {
 	ID              uint   `gorm:"primaryKey;autoIncrement" json:"id"`
 	PurchaseOrderID string `gorm:"type:varchar(255);index;not null" json:"purchase_order_id"`
@@ -83,7 +72,7 @@ type PurchaseOrderLineItem struct {
 	Variant          *Variant       `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 	Account          string         `json:"account" gorm:"type:varchar(100)"`
 	Quantity         float64        `json:"quantity" gorm:"not null"`
-	ReceivedQuantity float64        `json:"received_quantity" gorm:"default:0"` // Actual received - triggers inventory sync
+	ReceivedQuantity float64        `json:"received_quantity" gorm:"default:0"`
 	Rate             float64        `json:"rate" gorm:"not null"`
 	Amount           float64        `json:"amount" gorm:"not null"`
 	VariantDetails   VariantDetails `json:"variant_details,omitempty" gorm:"type:json"`

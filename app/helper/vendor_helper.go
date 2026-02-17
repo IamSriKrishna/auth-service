@@ -39,56 +39,65 @@ func MapCreateVendorInput(input *input.CreateVendorInput) *models.Vendor {
 	}
 
 	if input.BillingAddress != nil {
+		billingAddr := input.BillingAddress
+		billingAddr.Normalize()
+
 		vendor.BillingAddress = &models.EntityAddress{
 			AddressType:   "billing",
-			Attention:     input.BillingAddress.Attention,
-			CountryRegion: input.BillingAddress.CountryRegion,
-			AddressLine1:  input.BillingAddress.AddressLine1,
-			AddressLine2:  input.BillingAddress.AddressLine2,
-			City:          input.BillingAddress.City,
-			State:         input.BillingAddress.State,
-			PinCode:       input.BillingAddress.PinCode,
-			Phone:         input.BillingAddress.Phone,
-			PhoneCode:     input.BillingAddress.PhoneCode,
-			FaxNumber:     input.BillingAddress.FaxNumber,
+			Attention:     billingAddr.Attention,
+			CountryRegion: billingAddr.CountryRegion,
+			AddressLine1:  billingAddr.AddressLine1,
+			AddressLine2:  billingAddr.AddressLine2,
+			City:          billingAddr.City,
+			State:         billingAddr.State,
+			PinCode:       billingAddr.PinCode,
+			Phone:         billingAddr.Phone,
+			PhoneCode:     billingAddr.PhoneCode,
+			FaxNumber:     billingAddr.FaxNumber,
 		}
 	}
 
 	if input.ShippingAddress != nil {
+		shippingAddr := input.ShippingAddress
+		shippingAddr.Normalize()
+
 		vendor.ShippingAddress = &models.EntityAddress{
 			AddressType:   "shipping",
-			Attention:     input.ShippingAddress.Attention,
-			CountryRegion: input.ShippingAddress.CountryRegion,
-			AddressLine1:  input.ShippingAddress.AddressLine1,
-			AddressLine2:  input.ShippingAddress.AddressLine2,
-			City:          input.ShippingAddress.City,
-			State:         input.ShippingAddress.State,
-			PinCode:       input.ShippingAddress.PinCode,
-			Phone:         input.ShippingAddress.Phone,
-			PhoneCode:     input.ShippingAddress.PhoneCode,
-			FaxNumber:     input.ShippingAddress.FaxNumber,
+			Attention:     shippingAddr.Attention,
+			CountryRegion: shippingAddr.CountryRegion,
+			AddressLine1:  shippingAddr.AddressLine1,
+			AddressLine2:  shippingAddr.AddressLine2,
+			City:          shippingAddr.City,
+			State:         shippingAddr.State,
+			PinCode:       shippingAddr.PinCode,
+			Phone:         shippingAddr.Phone,
+			PhoneCode:     shippingAddr.PhoneCode,
+			FaxNumber:     shippingAddr.FaxNumber,
 		}
 	}
 
 	for _, cp := range input.ContactPersons {
+		// Normalize alternative field names to primary fields
+		cpCopy := cp
+		cpCopy.Normalize()
+
 		vendor.ContactPersons = append(vendor.ContactPersons, models.EntityContactPerson{
-			Salutation:    cp.Salutation,
-			FirstName:     cp.FirstName,
-			LastName:      cp.LastName,
-			EmailAddress:  cp.EmailAddress,
-			WorkPhone:     cp.WorkPhone,
-			WorkPhoneCode: cp.WorkPhoneCode,
-			Mobile:        cp.Mobile,
-			MobileCode:    cp.MobileCode,
+			Salutation:    cpCopy.Salutation,
+			FirstName:     cpCopy.FirstName,
+			LastName:      cpCopy.LastName,
+			EmailAddress:  cpCopy.EmailAddress,
+			WorkPhone:     cpCopy.WorkPhone,
+			WorkPhoneCode: cpCopy.WorkPhoneCode,
+			Mobile:        cpCopy.Mobile,
+			MobileCode:    cpCopy.MobileCode,
 		})
 	}
 
 	for _, bd := range input.BankDetails {
 		vendor.BankDetails = append(vendor.BankDetails, models.VendorBankDetail{
+			BankID:            bd.BankID,
 			AccountHolderName: bd.AccountHolderName,
-			BankName:          bd.BankName,
 			AccountNumber:     bd.AccountNumber,
-			IFSC:              bd.IFSC,
 		})
 	}
 
@@ -152,32 +161,38 @@ func ApplyUpdateVendorInput(vendor *models.Vendor, input *input.UpdateVendorInpu
 		if vendor.BillingAddress == nil {
 			vendor.BillingAddress = &models.EntityAddress{AddressType: "billing"}
 		}
-		vendor.BillingAddress.Attention = input.BillingAddress.Attention
-		vendor.BillingAddress.CountryRegion = input.BillingAddress.CountryRegion
-		vendor.BillingAddress.AddressLine1 = input.BillingAddress.AddressLine1
-		vendor.BillingAddress.AddressLine2 = input.BillingAddress.AddressLine2
-		vendor.BillingAddress.City = input.BillingAddress.City
-		vendor.BillingAddress.State = input.BillingAddress.State
-		vendor.BillingAddress.PinCode = input.BillingAddress.PinCode
-		vendor.BillingAddress.Phone = input.BillingAddress.Phone
-		vendor.BillingAddress.PhoneCode = input.BillingAddress.PhoneCode
-		vendor.BillingAddress.FaxNumber = input.BillingAddress.FaxNumber
+		billingAddr := input.BillingAddress
+		billingAddr.Normalize()
+
+		vendor.BillingAddress.Attention = billingAddr.Attention
+		vendor.BillingAddress.CountryRegion = billingAddr.CountryRegion
+		vendor.BillingAddress.AddressLine1 = billingAddr.AddressLine1
+		vendor.BillingAddress.AddressLine2 = billingAddr.AddressLine2
+		vendor.BillingAddress.City = billingAddr.City
+		vendor.BillingAddress.State = billingAddr.State
+		vendor.BillingAddress.PinCode = billingAddr.PinCode
+		vendor.BillingAddress.Phone = billingAddr.Phone
+		vendor.BillingAddress.PhoneCode = billingAddr.PhoneCode
+		vendor.BillingAddress.FaxNumber = billingAddr.FaxNumber
 	}
 
 	if input.ShippingAddress != nil {
 		if vendor.ShippingAddress == nil {
 			vendor.ShippingAddress = &models.EntityAddress{AddressType: "shipping"}
 		}
-		vendor.ShippingAddress.Attention = input.ShippingAddress.Attention
-		vendor.ShippingAddress.CountryRegion = input.ShippingAddress.CountryRegion
-		vendor.ShippingAddress.AddressLine1 = input.ShippingAddress.AddressLine1
-		vendor.ShippingAddress.AddressLine2 = input.ShippingAddress.AddressLine2
-		vendor.ShippingAddress.City = input.ShippingAddress.City
-		vendor.ShippingAddress.State = input.ShippingAddress.State
-		vendor.ShippingAddress.PinCode = input.ShippingAddress.PinCode
-		vendor.ShippingAddress.Phone = input.ShippingAddress.Phone
-		vendor.ShippingAddress.PhoneCode = input.ShippingAddress.PhoneCode
-		vendor.ShippingAddress.FaxNumber = input.ShippingAddress.FaxNumber
+		shippingAddr := input.ShippingAddress
+		shippingAddr.Normalize()
+
+		vendor.ShippingAddress.Attention = shippingAddr.Attention
+		vendor.ShippingAddress.CountryRegion = shippingAddr.CountryRegion
+		vendor.ShippingAddress.AddressLine1 = shippingAddr.AddressLine1
+		vendor.ShippingAddress.AddressLine2 = shippingAddr.AddressLine2
+		vendor.ShippingAddress.City = shippingAddr.City
+		vendor.ShippingAddress.State = shippingAddr.State
+		vendor.ShippingAddress.PinCode = shippingAddr.PinCode
+		vendor.ShippingAddress.Phone = shippingAddr.Phone
+		vendor.ShippingAddress.PhoneCode = shippingAddr.PhoneCode
+		vendor.ShippingAddress.FaxNumber = shippingAddr.FaxNumber
 	}
 }
 
@@ -249,10 +264,9 @@ func MapVendorToOutput(vendor *models.Vendor) *output.VendorOutput {
 		out.BankDetails = append(out.BankDetails, output.BankDetailOutput{
 			ID:                bd.ID,
 			VendorID:          bd.VendorID,
+			BankID:            bd.BankID,
 			AccountHolderName: bd.AccountHolderName,
-			BankName:          bd.BankName,
 			AccountNumber:     bd.AccountNumber,
-			IFSC:              bd.IFSC,
 			CreatedAt:         bd.CreatedAt,
 			UpdatedAt:         bd.UpdatedAt,
 		})

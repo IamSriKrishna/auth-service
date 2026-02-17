@@ -2,7 +2,6 @@ package output
 
 import "time"
 
-// SupportResponse represents the response after creating a support ticket
 type SupportResponse struct {
 	ID          uint      `json:"id"`
 	Name        string    `json:"name"`

@@ -36,10 +36,8 @@ func NewItemService(itemRepo repo.ItemRepository, vendorRepo repo.VendorReposito
 }
 
 func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutput, error) {
-	// Generate item ID
 	id := fmt.Sprintf("item_%s", uuid.New().String()[:8])
 
-	// Validate preferred vendor if provided
 	if input.PurchaseInfo != nil && input.PurchaseInfo.PreferredVendorID != nil {
 		_, err := s.vendorRepo.FindByID(*input.PurchaseInfo.PreferredVendorID)
 		if err != nil {
@@ -54,7 +52,6 @@ func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutp
 		}
 	}
 
-	// Validate structure-specific requirements
 	if input.ItemDetails.Structure == "single" {
 		if len(input.ItemDetails.Variants) > 0 {
 			return nil, fmt.Errorf("single items cannot have variants")
@@ -68,10 +65,8 @@ func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutp
 		}
 	}
 
-	// Build ItemDetails
 	itemDetails := buildItemDetails(id, input)
 
-	// Build SalesInfo
 	salesInfo := models.SalesInfo{
 		ItemID:       id,
 		Account:      input.SalesInfo.Account,
@@ -80,7 +75,6 @@ func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutp
 		Description:  input.SalesInfo.Description,
 	}
 
-	// Build PurchaseInfo (optional)
 	purchaseInfo := models.PurchaseInfo{}
 	if input.PurchaseInfo != nil {
 		purchaseInfo = models.PurchaseInfo{
@@ -93,7 +87,6 @@ func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutp
 		}
 	}
 
-	// Build Inventory (optional, but usually present)
 	inventory := models.Inventory{
 		ItemID:         id,
 		TrackInventory: false,
@@ -105,7 +98,6 @@ func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutp
 		inventory.ReorderPoint = input.Inventory.ReorderPoint
 	}
 
-	// Build ReturnPolicy
 	returnPolicy := models.ReturnPolicy{
 		ItemID:     id,
 		Returnable: false,
@@ -114,7 +106,6 @@ func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutp
 		returnPolicy.Returnable = input.ReturnPolicy.Returnable
 	}
 
-	// Create the item
 	item := &models.Item{
 		ID:           id,
 		Name:         input.Name,
@@ -132,7 +123,6 @@ func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutp
 		return nil, err
 	}
 
-	// Fetch the created item with all associations
 	createdItem, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, err
@@ -154,7 +144,6 @@ func buildItemDetails(itemID string, input *input.CreateItemInput) models.ItemDe
 		Description: input.ItemDetails.Description,
 	}
 
-	// Add attribute definitions for variant items
 	if input.ItemDetails.Structure == "variants" && len(input.ItemDetails.Attributes) > 0 {
 		itemDetails.AttributeDefinitions = make(models.AttributeDefinitions, len(input.ItemDetails.Attributes))
 		for i, attr := range input.ItemDetails.Attributes {
@@ -165,11 +154,9 @@ func buildItemDetails(itemID string, input *input.CreateItemInput) models.ItemDe
 		}
 	}
 
-	// Add variants
 	if len(input.ItemDetails.Variants) > 0 {
 		itemDetails.Variants = make([]models.Variant, len(input.ItemDetails.Variants))
 		for i, v := range input.ItemDetails.Variants {
-			// Convert attribute map to attribute array
 			attributes := make([]models.VariantAttribute, 0, len(v.AttributeMap))
 			for key, value := range v.AttributeMap {
 				attributes = append(attributes, models.VariantAttribute{
@@ -222,7 +209,6 @@ func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*outp
 		return nil, err
 	}
 
-	// Update basic fields
 	if input.Name != nil {
 		item.Name = *input.Name
 	}
@@ -230,7 +216,6 @@ func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*outp
 		item.Type = *input.Type
 	}
 
-	// Update SalesInfo
 	if input.SalesInfo != nil {
 		if input.SalesInfo.Account != "" {
 			item.SalesInfo.Account = input.SalesInfo.Account
@@ -246,7 +231,6 @@ func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*outp
 		}
 	}
 
-	// Update PurchaseInfo
 	if input.PurchaseInfo != nil {
 		if input.PurchaseInfo.Account != "" {
 			item.PurchaseInfo.Account = input.PurchaseInfo.Account
@@ -258,7 +242,6 @@ func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*outp
 			item.PurchaseInfo.Currency = input.PurchaseInfo.Currency
 		}
 		if input.PurchaseInfo.PreferredVendorID != nil {
-			// Validate vendor exists
 			_, err := s.vendorRepo.FindByID(*input.PurchaseInfo.PreferredVendorID)
 			if err != nil {
 				return nil, fmt.Errorf("preferred vendor not found")
@@ -270,7 +253,6 @@ func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*outp
 		}
 	}
 
-	// Update Inventory
 	if input.Inventory != nil {
 		item.Inventory.TrackInventory = input.Inventory.TrackInventory
 		if input.Inventory.InventoryAccount != "" {
@@ -284,12 +266,10 @@ func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*outp
 		}
 	}
 
-	// Update ReturnPolicy
 	if input.ReturnPolicy != nil {
 		item.ReturnPolicy.Returnable = input.ReturnPolicy.Returnable
 	}
 
-	// Update ItemDetails
 	if input.ItemDetails != nil {
 		if input.ItemDetails.Unit != "" {
 			item.ItemDetails.Unit = input.ItemDetails.Unit
@@ -301,9 +281,7 @@ func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*outp
 			item.ItemDetails.Description = input.ItemDetails.Description
 		}
 
-		// Update variants if provided
 		if len(input.ItemDetails.Variants) > 0 {
-			// Convert variants
 			item.ItemDetails.Variants = make([]models.Variant, len(input.ItemDetails.Variants))
 			for i, v := range input.ItemDetails.Variants {
 				attributes := make([]models.VariantAttribute, 0, len(v.AttributeMap))
@@ -324,7 +302,6 @@ func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*outp
 			}
 		}
 
-		// Update attribute definitions
 		if len(input.ItemDetails.Attributes) > 0 {
 			item.ItemDetails.AttributeDefinitions = make(models.AttributeDefinitions, len(input.ItemDetails.Attributes))
 			for i, attr := range input.ItemDetails.Attributes {
@@ -342,7 +319,6 @@ func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*outp
 		return nil, err
 	}
 
-	// Fetch updated item
 	updatedItem, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, err

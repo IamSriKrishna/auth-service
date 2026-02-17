@@ -51,33 +51,27 @@ func (s *packageService) CreatePackage(pkgInput *input.CreatePackageInput, userI
 		return nil, errors.New("package input cannot be nil")
 	}
 
-	// Verify sales order exists
 	so, err := s.soRepo.FindByID(pkgInput.SalesOrderID)
 	if err != nil {
 		return nil, fmt.Errorf("sales order not found: %w", err)
 	}
 
-	// Verify customer exists
 	customer, err := s.customerRepo.FindByID(pkgInput.CustomerID)
 	if err != nil {
 		return nil, fmt.Errorf("customer not found: %w", err)
 	}
 
-	// Verify customer matches sales order
 	if so.CustomerID != pkgInput.CustomerID {
 		return nil, errors.New("customer does not match sales order")
 	}
 
-	// Generate package slip number
 	slipNo, err := s.pkgRepo.GetNextPackageSlipNo()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate package slip number: %w", err)
 	}
 
-	// Create package items
 	var packageItems []models.PackageItem
 	for _, itemInput := range pkgInput.Items {
-		// Verify item exists
 		item, err := s.itemRepo.FindByID(itemInput.ItemID)
 		if err != nil {
 			return nil, fmt.Errorf("item %s not found: %w", itemInput.ItemID, err)
@@ -91,18 +85,15 @@ func (s *packageService) CreatePackage(pkgInput *input.CreatePackageInput, userI
 			PackedQty:        itemInput.PackedQty,
 		}
 
-		// Convert variant details if present
 		if itemInput.VariantDetails != nil {
 			packageItem.VariantDetails = models.VariantDetails(itemInput.VariantDetails)
 		}
 
-		// Set references to models
 		packageItem.Item = item
 
 		packageItems = append(packageItems, packageItem)
 	}
 
-	// Create package
 	pkg := &models.Package{
 		ID:            uuid.New().String(),
 		PackageSlipNo: slipNo,
@@ -116,17 +107,14 @@ func (s *packageService) CreatePackage(pkgInput *input.CreatePackageInput, userI
 		UpdatedBy:     userID,
 	}
 
-	// Set references
 	pkg.SalesOrder = so
 	pkg.Customer = customer
 
-	// Save package
 	createdPkg, err := s.pkgRepo.Create(pkg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create package: %w", err)
 	}
 
-	// Convert to output
 	return output.ToPackageOutput(createdPkg)
 }
 
@@ -208,13 +196,11 @@ func (s *packageService) UpdatePackage(id string, pkgInput *input.UpdatePackageI
 		return nil, errors.New("package input cannot be nil")
 	}
 
-	// Get existing package
 	pkg, err := s.pkgRepo.FindByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("package not found: %w", err)
 	}
 
-	// Update fields
 	if pkgInput.PackageDate != nil {
 		pkg.PackageDate = *pkgInput.PackageDate
 	}
@@ -227,7 +213,6 @@ func (s *packageService) UpdatePackage(id string, pkgInput *input.UpdatePackageI
 		pkg.Status = domain.PackageStatus(*pkgInput.Status)
 	}
 
-	// Update items if provided
 	if len(pkgInput.Items) > 0 {
 		var packageItems []models.PackageItem
 		for _, itemInput := range pkgInput.Items {
@@ -257,7 +242,6 @@ func (s *packageService) UpdatePackage(id string, pkgInput *input.UpdatePackageI
 	pkg.UpdatedBy = userID
 	pkg.UpdatedAt = time.Now()
 
-	// Update package
 	updatedPkg, err := s.pkgRepo.Update(id, pkg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update package: %w", err)
@@ -267,25 +251,21 @@ func (s *packageService) UpdatePackage(id string, pkgInput *input.UpdatePackageI
 }
 
 func (s *packageService) UpdatePackageStatus(id string, status string, userID string) (*output.PackageOutput, error) {
-	// Verify status is valid
 	switch status {
 	case "created", "packed", "shipped", "delivered", "cancelled":
 	default:
 		return nil, fmt.Errorf("invalid status: %s", status)
 	}
 
-	// Get existing package
 	pkg, err := s.pkgRepo.FindByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("package not found: %w", err)
 	}
 
-	// Update status
 	pkg.Status = domain.PackageStatus(status)
 	pkg.UpdatedBy = userID
 	pkg.UpdatedAt = time.Now()
 
-	// Update in database
 	updatedPkg, err := s.pkgRepo.Update(id, pkg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update package status: %w", err)

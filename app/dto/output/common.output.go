@@ -4,7 +4,6 @@ import (
 	"github.com/bbapp-org/auth-service/app/models"
 )
 
-// convertVariantDetails safely converts VariantDetails map values to strings
 func convertVariantDetails(details models.VariantDetails) map[string]string {
 	if len(details) == 0 {
 		return nil
@@ -16,7 +15,6 @@ func convertVariantDetails(details models.VariantDetails) map[string]string {
 	return result
 }
 
-// CustomerInfo represents basic customer information
 type CustomerInfo struct {
 	ID          uint   `json:"id"`
 	DisplayName string `json:"display_name"`
@@ -25,7 +23,6 @@ type CustomerInfo struct {
 	Phone       string `json:"phone,omitempty"`
 }
 
-// VendorInfo represents basic vendor information
 type VendorInfo struct {
 	ID           uint   `json:"id"`
 	DisplayName  string `json:"display_name"`
@@ -34,21 +31,18 @@ type VendorInfo struct {
 	WorkPhone    string `json:"work_phone,omitempty"`
 }
 
-// ItemInfo represents basic item information
 type ItemInfo struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	SKU  string `json:"sku,omitempty"`
 }
 
-// VariantInfo represents basic variant information
 type VariantInfo struct {
 	ID           uint              `json:"id"`
 	SKU          string            `json:"sku"`
 	AttributeMap map[string]string `json:"attribute_map"`
 }
 
-// TaxInfo represents basic tax information
 type TaxInfo struct {
 	ID      uint    `json:"id"`
 	Name    string  `json:"name"`
@@ -56,7 +50,6 @@ type TaxInfo struct {
 	Rate    float64 `json:"rate"`
 }
 
-// SalespersonInfo represents basic salesperson information
 type SalespersonInfo struct {
 	ID    uint   `json:"id"`
 	Name  string `json:"name"`

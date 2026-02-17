@@ -18,16 +18,6 @@ func NewPackageHandler(service services.PackageService) *PackageHandler {
 	return &PackageHandler{service: service}
 }
 
-// CreatePackage creates a new package
-// @Summary Create a new package
-// @Description Create a new package with items for shipment
-// @Tags Package
-// @Accept json
-// @Produce json
-// @Param package body input.CreatePackageInput true "Package input"
-// @Success 201 {object} fiber.Map
-// @Failure 400 {object} fiber.Map
-// @Router /packages [post]
 func (h *PackageHandler) CreatePackage(c *fiber.Ctx) error {
 	var pkgInput input.CreatePackageInput
 
@@ -38,7 +28,6 @@ func (h *PackageHandler) CreatePackage(c *fiber.Ctx) error {
 		})
 	}
 
-	// Validate input
 	validate := validator.New()
 	if err := validate.Struct(pkgInput); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -67,15 +56,6 @@ func (h *PackageHandler) CreatePackage(c *fiber.Ctx) error {
 	})
 }
 
-// GetPackage retrieves a package by ID
-// @Summary Get package by ID
-// @Description Get a specific package by its ID
-// @Tags Package
-// @Produce json
-// @Param id path string true "Package ID"
-// @Success 200 {object} fiber.Map
-// @Failure 404 {object} fiber.Map
-// @Router /packages/{id} [get]
 func (h *PackageHandler) GetPackage(c *fiber.Ctx) error {
 	id := c.Params("id")
 
@@ -93,16 +73,6 @@ func (h *PackageHandler) GetPackage(c *fiber.Ctx) error {
 	})
 }
 
-// GetAllPackages retrieves all packages with pagination
-// @Summary Get all packages
-// @Description Get all packages with pagination support
-// @Tags Package
-// @Produce json
-// @Param limit query int false "Limit (default: 10)"
-// @Param offset query int false "Offset (default: 0)"
-// @Success 200 {object} fiber.Map
-// @Failure 400 {object} fiber.Map
-// @Router /packages [get]
 func (h *PackageHandler) GetAllPackages(c *fiber.Ctx) error {
 	limit := 10
 	offset := 0
@@ -134,17 +104,6 @@ func (h *PackageHandler) GetAllPackages(c *fiber.Ctx) error {
 	})
 }
 
-// GetPackagesByCustomer retrieves packages for a specific customer
-// @Summary Get packages by customer
-// @Description Get all packages for a specific customer
-// @Tags Package
-// @Produce json
-// @Param customer_id path int true "Customer ID"
-// @Param limit query int false "Limit (default: 10)"
-// @Param offset query int false "Offset (default: 0)"
-// @Success 200 {object} fiber.Map
-// @Failure 400 {object} fiber.Map
-// @Router /packages/customer/{customer_id} [get]
 func (h *PackageHandler) GetPackagesByCustomer(c *fiber.Ctx) error {
 	customerID, err := strconv.ParseUint(c.Params("customer_id"), 10, 32)
 	if err != nil {
@@ -184,17 +143,6 @@ func (h *PackageHandler) GetPackagesByCustomer(c *fiber.Ctx) error {
 	})
 }
 
-// GetPackagesBySalesOrder retrieves packages for a specific sales order
-// @Summary Get packages by sales order
-// @Description Get all packages for a specific sales order
-// @Tags Package
-// @Produce json
-// @Param sales_order_id path string true "Sales Order ID"
-// @Param limit query int false "Limit (default: 10)"
-// @Param offset query int false "Offset (default: 0)"
-// @Success 200 {object} fiber.Map
-// @Failure 400 {object} fiber.Map
-// @Router /packages/sales-order/{sales_order_id} [get]
 func (h *PackageHandler) GetPackagesBySalesOrder(c *fiber.Ctx) error {
 	salesOrderID := c.Params("sales_order_id")
 
@@ -228,17 +176,6 @@ func (h *PackageHandler) GetPackagesBySalesOrder(c *fiber.Ctx) error {
 	})
 }
 
-// GetPackagesByStatus retrieves packages by status
-// @Summary Get packages by status
-// @Description Get all packages with a specific status
-// @Tags Package
-// @Produce json
-// @Param status query string true "Status (created, packed, shipped, delivered, cancelled)"
-// @Param limit query int false "Limit (default: 10)"
-// @Param offset query int false "Offset (default: 0)"
-// @Success 200 {object} fiber.Map
-// @Failure 400 {object} fiber.Map
-// @Router /packages/status/{status} [get]
 func (h *PackageHandler) GetPackagesByStatus(c *fiber.Ctx) error {
 	status := c.Params("status")
 
@@ -272,18 +209,6 @@ func (h *PackageHandler) GetPackagesByStatus(c *fiber.Ctx) error {
 	})
 }
 
-// UpdatePackage updates a package
-// @Summary Update a package
-// @Description Update package details
-// @Tags Package
-// @Accept json
-// @Produce json
-// @Param id path string true "Package ID"
-// @Param package body input.UpdatePackageInput true "Package input"
-// @Success 200 {object} fiber.Map
-// @Failure 400 {object} fiber.Map
-// @Failure 404 {object} fiber.Map
-// @Router /packages/{id} [put]
 func (h *PackageHandler) UpdatePackage(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var pkgInput input.UpdatePackageInput
@@ -323,18 +248,6 @@ func (h *PackageHandler) UpdatePackage(c *fiber.Ctx) error {
 	})
 }
 
-// UpdatePackageStatus updates package status
-// @Summary Update package status
-// @Description Update the status of a package
-// @Tags Package
-// @Accept json
-// @Produce json
-// @Param id path string true "Package ID"
-// @Param status body input.UpdatePackageStatusInput true "Status input"
-// @Success 200 {object} fiber.Map
-// @Failure 400 {object} fiber.Map
-// @Failure 404 {object} fiber.Map
-// @Router /packages/{id}/status [patch]
 func (h *PackageHandler) UpdatePackageStatus(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var statusInput input.UpdatePackageStatusInput
@@ -374,15 +287,6 @@ func (h *PackageHandler) UpdatePackageStatus(c *fiber.Ctx) error {
 	})
 }
 
-// DeletePackage deletes a package
-// @Summary Delete a package
-// @Description Delete a package by ID
-// @Tags Package
-// @Produce json
-// @Param id path string true "Package ID"
-// @Success 200 {object} fiber.Map
-// @Failure 404 {object} fiber.Map
-// @Router /packages/{id} [delete]
 func (h *PackageHandler) DeletePackage(c *fiber.Ctx) error {
 	id := c.Params("id")
 

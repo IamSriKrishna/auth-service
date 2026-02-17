@@ -17,7 +17,6 @@ var (
 func ConnectDatabase(config *config.Config) {
 	var err error
 
-	// Connect to primary database (write)
 	primaryDSN := config.GetDatabaseDSN()
 	log.Printf("Connecting to MySQL primary database: %s@tcp(%s:%d)/%s",
 		config.Database.User,
@@ -27,7 +26,6 @@ func ConnectDatabase(config *config.Config) {
 
 	gormConfig := &gorm.Config{}
 
-	// Set logger level based on environment
 	if config.App.Environment == "development" || config.App.Environment == "dev" {
 		gormConfig.Logger = logger.Default.LogMode(logger.Info)
 		log.Println("Database logging enabled (development mode)")
@@ -50,10 +48,8 @@ func ConnectDatabase(config *config.Config) {
 
 	log.Println("MySQL primary database connected successfully")
 
-	// Configure read replica using dbresolver plugin if configured
 	readReplicaDSN := config.GetReadReplicaDSN()
 	if readReplicaDSN != "" {
-		// Use read replica user if provided, otherwise fall back to primary user
 		replicaUser := config.Database.ReadReplicaUser
 		if replicaUser == "" {
 			replicaUser = config.Database.User
@@ -64,13 +60,9 @@ func ConnectDatabase(config *config.Config) {
 			config.Database.ReadReplicaPort,
 			config.Database.DBName)
 
-		// Register dbresolver plugin for read/write splitting
 		err = DB.Use(dbresolver.Register(dbresolver.Config{
-			// Sources: primary database (for writes)
 			Sources: []gorm.Dialector{mysql.Open(primaryDSN)},
-			// Replicas: read replica (for reads)
 			Replicas: []gorm.Dialector{mysql.Open(readReplicaDSN)},
-			// Policy: use round-robin for load balancing (if multiple replicas)
 			Policy: dbresolver.RandomPolicy{},
 		}).SetConnMaxIdleTime(3600).
 			SetConnMaxLifetime(7200).
@@ -89,17 +81,12 @@ func ConnectDatabase(config *config.Config) {
 			log.Println("Read replica configured successfully with dbresolver - reads will be routed to replica, writes to primary")
 		}
 	} else {
-		// No read replica configured, all operations use primary
 		log.Println("Read replica not configured, using primary database for all operations")
 	}
 }
 
 
 
-// GetDB returns the database connection with dbresolver enabled
-// dbresolver automatically routes:
-// - Read operations (SELECT, First, Find, etc.) to read replica if configured
-// - Write operations (Create, Update, Delete, Save, etc.) to primary database
 func GetDB() *gorm.DB {
 	return DB
 }

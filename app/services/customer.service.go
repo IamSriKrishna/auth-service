@@ -29,7 +29,6 @@ func NewCustomerService(repo repo.CustomerRepository) CustomerService {
 }
 
 func (s *customerService) CreateCustomer(input *input.CreateCustomerInput) (*output.CustomerOutput, error) {
-	// Check if mobile number already exists
 	if input.Mobile != "" {
 		existingCustomer, err := s.repo.FindByMobile(input.Mobile)
 		if err == nil && existingCustomer != nil {
@@ -56,7 +55,6 @@ func (s *customerService) UpdateCustomer(id uint, input *input.UpdateCustomerInp
 		return nil, errors.New("customer not found")
 	}
 
-	// Check if mobile number is being updated and if it already exists
 	if input.Mobile != nil && *input.Mobile != "" && *input.Mobile != customer.Mobile {
 		existingCustomer, err := s.repo.FindByMobile(*input.Mobile)
 		if err == nil && existingCustomer != nil && existingCustomer.ID != id {

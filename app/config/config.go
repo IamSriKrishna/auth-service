@@ -45,7 +45,6 @@ func LoadConfig() *Config {
 		
 	}
 
-	// Validate required database environment variables
 	log.Printf("MySQL database configuration loaded:")
 	log.Printf("  DB_HOST: %s", config.Database.Host)
 	log.Printf("  DB_PORT: %d", config.Database.Port)
@@ -67,11 +66,9 @@ func (c *Config) GetDatabaseDSN() string {
 }
 
 func (c *Config) GetReadReplicaDSN() string {
-	// If read replica is not configured, return empty string
 	if c.Database.ReadReplicaHost == "" {
 		return ""
 	}
-	// Use read replica credentials if provided, otherwise fall back to primary credentials
 	user := c.Database.ReadReplicaUser
 	password := c.Database.ReadReplicaPassword
 	if user == "" {
@@ -94,8 +91,6 @@ func (c *Config) GetServerAddress() string {
 }
 
 func getEnv(key, defaultValue string) string {
-	// In Kubernetes, environment variables are injected from ConfigMaps and Secrets
-	// Use os.Getenv to read them directly
 	if value := os.Getenv(key); value != "" {
 		return value
 	}

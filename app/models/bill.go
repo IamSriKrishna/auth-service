@@ -6,7 +6,6 @@ import (
 	"github.com/bbapp-org/auth-service/app/domain"
 )
 
-// Bill represents a bill to vendor (similar to invoice for customers)
 type Bill struct {
 	ID                string              `json:"id" gorm:"type:varchar(255);primaryKey"`
 	BillNumber        string              `json:"bill_number" gorm:"column:bill_number;type:varchar(100);uniqueIndex;not null"`
@@ -39,7 +38,6 @@ type Bill struct {
 	UpdatedBy         string              `json:"updated_by" gorm:"type:varchar(255)"`
 }
 
-// BillLineItem represents a line item in a bill
 type BillLineItem struct {
 	ID              uint           `json:"id" gorm:"primaryKey"`
 	BillID          string         `json:"bill_id" gorm:"type:varchar(255);not null;index"`

@@ -11,19 +11,405 @@
 8. [Production Orders (Manufacturing)](#production-orders-manufacturing)
 9. [Inventory Tracking](#inventory-tracking)
 10. [Manufacturers & Brands](#manufacturers--brands)
-11. [Companies](#companies)
-12. [Invoices](#invoices)
-13. [Bills](#bills)
-14. [Payments](#payments)
-15. [Tax Configuration](#tax-configuration)
-16. [Salespersons](#salespersons)
-17. [Purchase Orders](#purchase-orders)
-18. [Sales Orders](#sales-orders)
-19. [Packages](#packages)
-20. [Shipments](#shipments)
-21. [Helper/Lookup Routes](#helperlookup-routes)
-22. [Forward Auth Routes](#forward-auth-routes)
-23. [Support](#support)
+11. [Banks](#banks)
+12. [Companies](#companies)
+13. [Invoices](#invoices)
+14. [Bills](#bills)
+15. [Payments](#payments)
+16. [Tax Configuration](#tax-configuration)
+17. [Salespersons](#salespersons)
+18. [Purchase Orders](#purchase-orders)
+19. [Sales Orders](#sales-orders)
+20. [Packages](#packages)
+21. [Shipments](#shipments)
+22. [Helper/Lookup Routes](#helperlookup-routes)
+23. [Forward Auth Routes](#forward-auth-routes)
+24. [Support](#support)
+25. [API Workflow & Dependencies](#api-workflow--dependencies)
+
+---
+
+## ⚠️ IMPORTANT: Key API Architecture Notes
+
+**Before using this API, please understand these critical concepts:**
+
+### 1. **Banks are Master Reference Data (Now Creatable via API)**
+- Banks can NOW be created via `POST /banks` endpoint (requires SuperAdmin role)
+- Banks are master reference data used across the system
+- When setting up company or vendor bank details, you must reference an existing `bank_id`
+- **Workflow:** Create bank first via `POST /banks` → Then reference bank_id when adding bank details to companies/vendors
+- **Error Resolution:** If you get "Foreign key constraint fails for bank_id", ensure the bank exists before referencing it
+
+### 2. **Nested Entities are Sent Inline, Not Via Separate Endpoints**
+- **Bank Details, Addresses, Contact Persons**: These are included in the vendor/company/customer creation request, NOT created via separate endpoints
+- **Example:** When creating a vendor, include `bank_details`, `contact_persons`, `billing_address`, `shipping_address` in the same request
+- **NO separate endpoints exist** for:
+  - `POST /vendors/:id/bank-details` ❌ (Use POST /vendors with nested data instead)
+  - `POST /vendors/:id/addresses` ❌ (Use POST /vendors with nested data instead)
+  - `POST /vendors/:id/contact-persons` ❌ (Use POST /vendors with nested data instead)
+
+### 3. **Prerequisites Before Creating Entities**
+- **Company Setup Requires:** Business Type (from helpers), optionally a pre-existing Bank
+- **Vendor Setup Requires:** Optionally a pre-existing Bank
+- **Invoices/Bills Require:** Company, Customer/Vendor, Items, Tax, Salesperson (optional)
+- **Purchase Orders Require:** Company, Vendor, Items, Tax
+- **Sales Orders Require:** Company, Customer, Items, Tax, Salesperson (optional)
+
+### 4. **How to Handle Business Logic**
+- **Create Entity First, Update Details Later:** If you run into issues, create the main entity first without optional nested data, then update it
+- **Status Transitions**: Some entities have status changes (Draft → Sent → Confirmed). Use PATCH endpoints to update status
+- **Inventory Management**: After creating items, optionally set opening stock via `PUT /items/:id/opening-stock`
+
+---
+
+## API Workflow & Dependencies
+
+### Entity Creation Workflow
+
+This section outlines the correct order to create entities based on their foreign key dependencies. Follow these steps to avoid constraint errors.
+
+#### **Step 1: Authentication & User Setup**
+Create user accounts and authentication tokens first.
+
+```
+1. Register User (Auth) → Get Access Token → Use for subsequent API calls
+```
+
+**Endpoints:**
+- `POST /auth/register/email` - Create user account
+- `POST /auth/login/email` - Get access token
+
+---
+
+#### **Step 2: Master Data Setup (Banks, Business Types, Countries)**
+Create and verify master data entities needed for subsequent operations.
+
+```
+2a. Create Banks (if needed)
+2b. Get Business Types (Lookup - no creation needed)
+2c. Get Countries & States (Lookup - no creation needed)
+```
+
+**Endpoints:**
+- `POST /banks` - Create new bank master records (requires SuperAdmin role)
+- `GET /banks` - Get all available banks
+- `GET /helpers/business-types` - Get available business types
+- `GET /helpers/countries` - Get countries
+- `GET /helpers/countries/:country_id/states` - Get states
+
+**Important:** Banks are now part of the master data that you can create via API. If you need a bank that doesn't exist, create it first using `POST /banks`, then reference the bank_id when setting up bank details for companies or vendors (Step 3 and 4).
+
+---
+
+#### **Step 3: Company Setup**
+Create company records (requires business_type_id from Step 2, and optionally a bank_id if linking bank details).
+
+```
+3. Create Company → Add Contact → Add Address → Add Bank Details → Add Tax Settings
+```
+
+**Order:**
+1. `POST /companies/setup` - Create company
+2. `PUT /companies/:id/contact` - Add contact info
+3. `PUT /companies/:id/address` - Add address
+4. `POST /companies/:id/bank-details` - Link bank account (uses bank_id from Step 2)
+5. `PUT /companies/:id/tax-settings` - Configure taxes
+
+**Why This Order?** Company contact and address are optional but should be set up before using the company for transactions.
+
+---
+
+#### **Step 4: Vendors & Customers Setup**
+Create vendors and customers (no dependencies, but can optionally link banks).
+
+```
+4a. Create Vendor → Add Contact Persons → Add Bank Details
+4b. Create Customer → Add Contact Persons → Add Addresses
+```
+
+**Vendors - Step by Step:**
+```
+1. POST /vendors - Create basic vendor info
+   {
+     "first_name": "John",
+     "last_name": "Doe",
+     "company_name": "Acme Supplies",
+     "email_address": "john@acme.com",
+     "work_phone": "1234567890",
+     "mobile": "9876543210"
+   }
+
+2. Then optionally add bank details (requires bank_id from pre-populated banks database):
+   - Bank records must already exist in the database
+   - Reference the bank_id when calling POST /vendors/:id/bank-details
+   - Do NOT try to create banks via API - they are read-only master data
+```
+
+**Customers - Step by Step:**
+```
+1. POST /customers - Create basic customer info
+   {
+     "first_name": "Amit",
+     "last_name": "Singh",
+     "company_name": "Singh Enterprises",
+     "email_address": "amit@singh.com",
+     "work_phone": "9876543210"
+   }
+
+2. Then add contact persons and addresses as needed
+```
+
+---
+
+#### **Step 5: Manufacturers & Brands**
+Create manufacturers and brands (no dependencies).
+
+```
+5a. Create Manufacturers
+5b. Create Brands (can reference manufacturer_id from Step 5a)
+```
+
+**Endpoints:**
+- `POST /manufacturers` - Create manufacturer
+- `POST /brands` - Create brand
+
+---
+
+#### **Step 6: Items & Inventory**
+Create items and variants (requires manufacturer_id from Step 5).
+
+```
+6. Create Item → Add Variants → Set Opening Stock
+```
+
+**Order:**
+1. `POST /items` - Create item with manufacturer reference
+2. Item variants are created with the item
+3. `PUT /items/:id/opening-stock` - Set initial inventory
+
+---
+
+#### **Step 7: Tax & Salesperson Configuration**
+Set up taxes and salespersons for orders and invoices.
+
+```
+7a. Create Tax Types
+7b. Create Salespersons
+```
+
+**Endpoints:**
+- `POST /taxes` - Create tax configuration
+- `POST /salespersons` - Create sales team members
+
+---
+
+#### **Step 8: Purchase Orders (Water Company)**
+Create purchase orders with bottle suppliers (requires vendors from Step 4a and items from Step 6).
+
+**Water Supplies Workflow:**
+```
+8a. Create PO with bottle manufacturer
+8b. Add items: 500ml Bottles, 20L Cooler Bottles, Caps, Labels
+8c. Add tax (5% on plastic), shipping charges
+8d. Submit PO for delivery
+```
+
+**Example Items in PO:**
+- 5000 × 500ml PET Bottles @ ₹8 = ₹40,000
+- 50 × Cap packs (100 each) @ ₹25 = ₹1,250
+- 100 × 20L Bottles @ ₹80 = ₹8,000
+
+**Order:**
+1. `POST /purchase-orders` - Create PO with supplier
+2. `POST /purchase-orders/:po_id/line-items` - Add water bottles and caps
+3. `PUT /purchase-orders/:po_id` - Set tax (5%), shipping, discounts
+4. `PATCH /purchase-orders/:po_id/status` - Submit to vendor
+5. `POST /bills` - Create bill when received
+
+---
+
+#### **Step 9: Sales Orders, Packages & Shipments (Water Company)**
+Create sales orders to sell water bottles to retailers/customers.
+
+**Water Distribution Workflow:**
+```
+9a. Create SO with customer (retail store, office, distributor)
+9b. Add items: 500ml Bottles, 20L Cooler Bottles
+9c. Set delivery terms and shipping address
+9d. Create Package → Shipment → Invoice
+```
+
+**Example Order Items:**
+- 1000 × 500ml Bottles @ ₹15 = ₹15,000 (for retail shop)
+- 50 × 20L Bottles @ ₹150 = ₹7,500 (for offices/coolers)
+- Total: ₹22,500 (with 5% tax: ₹23,625)
+
+**Order:**
+1. `POST /sales-orders` - Create SO with customer
+2. `POST /sales-orders/:so_id/line-items` - Add water bottles
+3. `PUT /sales-orders/:so_id/reserve-inventory` - Lock warehouse stock
+4. `POST /packages` - Create shipment package
+5. `POST /shipments` - Generate shipping label, tracking
+6. `POST /invoices` - Issue customer invoice
+7. `POST /payments` - Record payment received
+
+---
+
+#### **Step 10: Item Groups & Inventory (Water Company)**
+Create item groups for packaged water products.
+
+**Water Company BOMs:**
+```
+10a. Item Group: "500ml Complete Bottle" = Bottle + Cap + Label
+10b. Item Group: "20L Cooler Set" = Bottle + Cap + Cleaning Kit
+10c. Track inventory for each component
+```
+
+**Endpoints:**
+- `POST /api/item-groups` - Create BOM for packaged products
+- `PUT /items/:id/opening-stock` - Set warehouse stock levels
+
+**Endpoints:**
+- `POST /api/item-groups` - Create BOM
+- `POST /api/production-orders` - Create manufacturing order
+- `GET /api/inventory/*` - Track inventory
+
+---
+
+### Dependency Graph Summary
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ STEP 1: AUTH                                                    │
+├─────────────────────────────────────────────────────────────────┤
+│ Register User → Login → Get Access Token                         │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────────┐
+│ STEP 2: MASTER DATA (No Dependencies)                           │
+├─────────────────────────────────────────────────────────────────┤
+│ • Banks                                                           │
+│ • Business Types                                                  │
+│ • Countries & States                                              │
+└────────┬───────────────────────────────────┬─────────────────────┘
+         │                                   │
+    ┌────▼──────┐                    ┌──────▼─────┐
+    │ Bank ID   │                    │ Bus Type ID│
+    └────┬──────┘                    └──────┬─────┘
+         │                                   │
+┌────────▼───────────────────────────────────▼─────────────────────┐
+│ STEP 3: COMPANY (needs: Business Type)                           │
+├─────────────────────────────────────────────────────────────────┤
+│ Company → Contact → Address → Bank Details → Settings            │
+└────────────┬──────────────────────────────────────────────────────┘
+             │
+    ┌────────▼────────┐
+    │                 │
+    │ Company ID      │
+    │ Bank ID         │
+    │ (referenced)    │
+    │                 │
+    └────────┬────────┘
+             │
+┌────────────▼────────────────────────────────────────────────────┐
+│ STEP 4: VENDORS & CUSTOMERS (No Dependencies)                   │
+├──────────────────────────────────────────────────────────────────┤
+│ 4a. Vendor → Bank Details                                        │
+│ 4b. Customer → Addresses & Contacts                              │
+└────────┬───────────────────────────────────────────┬─────────────┘
+         │                                           │
+    ┌────▼──────────┐                        ┌──────▼────────┐
+    │ Vendor ID     │                        │ Customer ID   │
+    │ Bank ID (ref) │                        │ Address Types │
+    └────┬──────────┘                        └──────┬────────┘
+         │                                          │
+         │      ┌──────────────────────────────────┘
+         │      │
+┌────────▼──────▼────────────────────────────────────────────────┐
+│ STEP 5: MANUFACTURERS & BRANDS (No Dependencies)               │
+├──────────────────────────────────────────────────────────────────┤
+│ Manufacturer → Brand (can reference Manufacturer ID)             │
+└────────┬──────────────────────────────────────────────────────┬──┘
+         │                                                       │
+    ┌────▼──────────┐                                    ┌──────▼─────┐
+    │ Manufacturer  │                                    │ Brand ID   │
+    │       ID      │                                    └────────────┘
+    └────┬──────────┘
+         │
+┌────────▼──────────────────────────────────────────────────────┐
+│ STEP 6: ITEMS (needs: Manufacturer)                           │
+├──────────────────────────────────────────────────────────────────┤
+│ Item → Variants → Opening Stock                                 │
+│ (references: Manufacturer ID)                                   │
+└────────┬──────────────────────────────────────────┬──────────┬──┘
+         │                                          │          │
+    ┌────▼──────────┐                       ┌──────▼────┐ ┌──▼────┐
+    │ Item ID       │                       │ Variant ID│ │Tax ID │
+    │ Variant ID    │                       └───────────┘ └───────┘
+    └────┬──────────┘
+         │
+┌────────▼──────────────────────────────────────────────────────┐
+│ STEP 7: TAXES & SALESPERSONS (No Dependencies)                │
+├──────────────────────────────────────────────────────────────────┤
+│ Taxes → Salespersons                                            │
+└────────┬──────────────────────────────────────┬─────────────┬──┘
+         │                                      │             │
+    ┌────▼──────┐                         ┌────▼────────┐ ┌─▼────────┐
+    │ Tax ID    │                         │ Salesman ID │ │ Company  │
+    └───────────┘                         └─────────────┘ │    ID    │
+                                                          └──────────┘
+         │                                      │             │
+         └──────────────────┬───────────────────┘             │
+                            │                                 │
+┌───────────────────────────▼──────────────────────────────────▼──┐
+│ STEP 8: PURCHASE ORDERS & BILLS                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ (needs: Vendor, Item, Company, Tax)                             │
+│ PurchaseOrder → Bill → Payment                                  │
+└───────────────────────────┬──────────────────────────────────────┘
+                            │
+                    ┌───────▼────────┐
+                    │ PO ID, Bill ID │
+                    └────────────────┘
+                            │
+┌───────────────────────────▼──────────────────────────────────────┐
+│ STEP 9: SALES ORDERS, PACKAGES & SHIPMENTS                      │
+├─────────────────────────────────────────────────────────────────┤
+│ (needs: Customer, Item, Salesman, Company, Tax)                 │
+│ SalesOrder → Package → Shipment → Invoice                       │
+└───────────────────────────┬──────────────────────────────────────┘
+                            │
+                    ┌───────▼──────────┐
+                    │ SO, PKG, SHIP ID │
+                    └──────────────────┘
+                            │
+┌───────────────────────────▼──────────────────────────────────────┐
+│ STEP 10: INVENTORY & ITEM GROUPS                                │
+├─────────────────────────────────────────────────────────────────┤
+│ (needs: Items)                                                  │
+│ ItemGroup → ProductionOrder → InventoryTracking                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Common Error Resolution
+
+**Error: "Foreign key constraint fails: bank_id"**
+- **Cause:** Creating vendor/company with non-existent bank_id
+- **Solution:** CREATE bank first using `POST /banks` (requires SuperAdmin role), then use that bank_id when calling `POST /companies/:id/bank-details` or include it in vendor/company creation request. 
+
+**Error: "Foreign key constraint fails: vendor_id"**
+- **Cause:** Trying to create bill/PO with non-existent vendor
+- **Solution:** CREATE vendor first using `POST /vendors`, then use that vendor_id in bill/PO creation
+
+**Error: "Foreign key constraint fails: customer_id"**
+- **Cause:** Trying to create sales order/invoice with non-existent customer
+- **Solution:** CREATE customer first using `POST /customers`, then use that customer_id in SO/invoice creation
+
+**Error: "Foreign key constraint fails: item_id"**
+- **Cause:** Trying to use non-existent item in PO/SO/Invoice line items
+- **Solution:** CREATE item first using `POST /items`, then reference item_id in line items
 
 ---
 
@@ -237,11 +623,17 @@
 - **Request Body:**
 ```json
 {
-  "email": "newuser@example.com",
+  "email": "jane.smith@example.com",
   "password": "SecurePassword123!",
   "first_name": "Jane",
-  "last_name": "Doe",
-  "role": "admin"
+  "last_name": "Smith",
+  "phone": "9876543210",
+  "phone_code": "+91",
+  "role": "admin",
+  "status": "active",
+  "department": "Operations",
+  "designation": "Senior Admin",
+  "profile_picture_url": "https://example.com/jane-smith.jpg"
 }
 ```
 - **Response:**
@@ -376,10 +768,19 @@
 - **Request Body:**
 ```json
 {
-  "email": "partner@example.com",
+  "email": "contact@abccorp.com",
   "password": "SecurePassword123!",
-  "company_name": "ABC Corp",
-  "contact_person": "John Smith"
+  "first_name": "John",
+  "last_name": "Smith",
+  "phone": "9876543210",
+  "phone_code": "+91",
+  "company_name": "ABC Corporation Ltd.",
+  "display_name": "ABC Corp",
+  "gstin": "18AABCT1234H1Z0",
+  "pan": "AAACT1234H",
+  "website_url": "https://www.abccorp.com",
+  "registration_number": "NCT/67890/2020",
+  "status": "active"
 }
 ```
 
@@ -404,133 +805,1029 @@
 
 ## Vendors
 
-### 1. Create Vendor
-- **Method:** `POST`
-- **Endpoint:** `/vendors`
-- **Authentication:** Bearer Token + SuperAdmin Role (Required)
-- **Request Body:**
+### 1. Create Vendor (Complete Field Reference)
+
+#### Available Fields Documentation
+
+**Method:** `POST`  
+**Endpoint:** `/vendors`  
+**Authentication:** Bearer Token + SuperAdmin Role (Required)  
+**Description:** Create vendor with complete information. All fields are optional unless marked as required.
+
+##### Core Vendor Fields
+
+| Field Name | Type | Required | Constraints | Alternative Names | Example |
+|---|---|---|---|---|---|
+| `salutation` | string | No | - | - | "Mr.", "Ms.", "Dr." |
+| `first_name` | string | No | - | - | "John" |
+| `last_name` | string | No | - | - | "Doe" |
+| `company_name` | string | No | - | - | "Acme Supplies" |
+| `display_name` | string | No | - | - | "Acme Supplies Inc." |
+| `email_address` | string | No | Valid email format | - | "john.doe@acmesupplies.com" |
+| `work_phone` | string | No | - | - | "1234567890" |
+| `work_phone_code` | string | No | - | - | "+91", "+1" |
+| `mobile` | string | No | - | `phone` | "9876543210" |
+| `mobile_code` | string | No | - | `phone_code` | "+91", "+1" |
+| `vendor_language` | string | No | - | - | "English", "Hindi" |
+
+##### Other Details (Vendor-Specific)
+
+The `other_details` object contains vendor-specific information:
+
+| Field Name | Type | Required | Constraints | Example |
+|---|---|---|---|---|
+| `pan` | string | No | Exactly 10 characters | "ABCDE1234F" |
+| `is_msme_registered` | boolean | No | true/false | true |
+| `currency` | string | No | - | "INR", "USD", "EUR" |
+| `payment_terms` | string | No | - | "Net 30", "Net 45", "Net 60" |
+| `tds` | string | No | - | "10%", "5%" |
+| `enable_portal` | boolean | No | true/false | true |
+| `website_url` | string | No | Valid URL format | "https://www.acmesupplies.com" |
+| `department` | string | No | - | "Sales", "Operations" |
+| `designation` | string | No | - | "Manager", "Director" |
+| `twitter` | string | No | - | "@acmesupplies" |
+| `skype_name` | string | No | - | "acme.supplies" |
+| `facebook` | string | No | - | "acmesupplies" |
+
+##### Billing Address (Complete Fields)
+
+The `billing_address` object contains:
+
+| Field Name | Type | Required | Constraints | Alternative Names | Example |
+|---|---|---|---|---|---|
+| `attention` | string | No | - | - | "Finance Department" |
+| `address_line1` | string | No | - | `street` | "123 Main Street" |
+| `address_line2` | string | No | - | - | "Suite 100" |
+| `city` | string | No | - | - | "Mumbai" |
+| `state` | string | No | - | - | "Maharashtra" |
+| `country_region` | string | No | - | `country` | "India" |
+| `pin_code` | string | No | Max 10 chars | `postal_code` | "400001" |
+| `phone` | string | No | - | - | "1234567890" |
+| `phone_code` | string | No | - | - | "+91" |
+| `fax_number` | string | No | - | - | "02212345678" |
+
+##### Shipping Address (Complete Fields)
+
+The `shipping_address` object contains the same fields as billing_address:
+
+| Field Name | Type | Required | Constraints | Alternative Names | Example |
+|---|---|---|---|---|---|
+| `attention` | string | No | - | - | "Warehouse Department" |
+| `address_line1` | string | No | - | `street` | "456 Shipping Rd" |
+| `address_line2` | string | No | - | - | "Building B" |
+| `city` | string | No | - | - | "Mumbai" |
+| `state` | string | No | - | - | "Maharashtra" |
+| `country_region` | string | No | - | `country` | "India" |
+| `pin_code` | string | No | Max 10 chars | `postal_code` | "400001" |
+| `phone` | string | No | - | - | "1234567890" |
+| `phone_code` | string | No | - | - | "+91" |
+| `fax_number` | string | No | - | - | "02212345678" |
+
+##### Contact Persons Array (Each Contact Has)
+
+The `contact_persons` array can contain multiple contact objects:
+
+| Field Name | Type | Required | Constraints | Alternative Names | Example |
+|---|---|---|---|---|---|
+| `salutation` | string | No | - | `title` | "Mr.", "Ms.", "Dr." |
+| `first_name` | string | No | - | - | "Rajesh" |
+| `last_name` | string | No | - | - | "Kumar" |
+| `email_address` | string | No | Valid email format | `email` | "rajesh@acme.com" |
+| `work_phone` | string | No | - | - | "1234567890" |
+| `work_phone_code` | string | No | - | - | "+91" |
+| `mobile` | string | No | - | `phone` | "9876543211" |
+| `mobile_code` | string | No | - | `phone_code` | "+91" |
+
+##### Bank Details Array (Each Bank Account Has)
+
+The `bank_details` array can contain multiple bank account objects:
+
+| Field Name | Type | Required | Constraints | Description |
+|---|---|---|---|---|
+| `bank_id` | number | **Yes** | Must exist in banks table | Reference to bank master |
+| `account_holder_name` | string | No | - | Name on bank account |
+| `account_number` | string | **Yes** | - | Bank account number |
+| `reenter_account_number` | string | **Yes** | Must match account_number | Confirmation field |
+
+---
+
+#### Request Body Examples
+
+**Complete Example (All Fields):**
 ```json
 {
   "salutation": "Mr.",
-  "first_name": "Rajesh",
-  "last_name": "Kumar",
-  "company_name": "Kumar Supplies",
-  "display_name": "Kumar Supplies",
-  "email_address": "rajesh@kumarsupplies.com",
-  "work_phone": "9876543210",
+  "first_name": "John",
+  "last_name": "Doe",
+  "company_name": "Acme Supplies",
+  "display_name": "Acme Supplies",
+  "email_address": "john.doe@acmesupplies.com",
+  "work_phone": "1234567890",
   "work_phone_code": "+91",
   "mobile": "9876543210",
   "mobile_code": "+91",
   "vendor_language": "English",
-  "gstin": "18AABCT1234H1Z0"
+  "other_details": {
+    "pan": "ABCDE1234F",
+    "is_msme_registered": true,
+    "currency": "INR",
+    "payment_terms": "Net 30",
+    "tds": "10%",
+    "enable_portal": true,
+    "website_url": "https://www.acmesupplies.com",
+    "department": "Sales",
+    "designation": "Director",
+    "twitter": "@acmesupplies",
+    "skype_name": "acme.supplies",
+    "facebook": "acmesupplies"
+  },
+  "billing_address": {
+    "attention": "Finance Department",
+    "street": "123 Main Street",
+    "address_line2": "Suite 100",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "country": "India",
+    "postal_code": "400001",
+    "phone": "1234567890",
+    "phone_code": "+91",
+    "fax_number": "02212345678"
+  },
+  "shipping_address": {
+    "attention": "Warehouse Department",
+    "street": "456 Shipping Rd",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "country": "India",
+    "postal_code": "400001",
+    "phone": "1234567890",
+    "phone_code": "+91"
+  },
+  "contact_persons": [
+    {
+      "title": "Mr.",
+      "first_name": "Rajesh",
+      "last_name": "Kumar",
+      "email": "rajesh@acme.com",
+      "phone": "9876543211",
+      "phone_code": "+91"
+    }
+  ],
+  "bank_details": [
+    {
+      "bank_id": 1,
+      "account_holder_name": "Acme Supplies",
+      "account_number": "1234567890123456",
+      "reenter_account_number": "1234567890123456"
+    }
+  ]
 }
 ```
-- **Response:**
+
+**Minimal Example (Required Fields Only):**
+```json
+{
+  "company_name": "Acme Supplies",
+  "display_name": "Acme Supplies"
+}
+```
+
+**Alternative Field Names Example** (These fields are automatically normalized to primary names):
+```json
+{
+  "salutation": "Mr.",
+  "first_name": "John",
+  "display_name": "Acme Supplies",
+  "billing_address": {
+    "street": "123 Main Street",
+    "country": "India",
+    "postal_code": "400001"
+  },
+  "contact_persons": [
+    {
+      "title": "Mr.",
+      "first_name": "Rajesh",
+      "email": "rajesh@acme.com",
+      "phone": "9876543211"
+    }
+  ]
+}
+```
+
+**Note:** The API intelligently maps alternative field names to primary fields:
+- `street` → `address_line1`
+- `country` → `country_region`
+- `postal_code` → `pin_code`
+- `title` → `salutation` (in contact persons)
+- `email` → `email_address` (in contact persons)
+- `phone` → `mobile` (in contact persons)
+- `phone_code` → `mobile_code` (in contact persons)
+- **Response (201 Created):**
 ```json
 {
   "success": true,
   "data": {
     "id": 1,
-    "display_name": "Kumar Supplies",
-    "company_name": "Kumar Supplies",
-    "email_address": "rajesh@kumarsupplies.com",
-    "work_phone": "9876543210",
+    "first_name": "John",
+    "last_name": "Doe",
+    "display_name": "Acme Supplies",
+    "company_name": "Acme Supplies",
+    "salutation": "Mr.",
+    "email_address": "john.doe@acmesupplies.com",
+    "work_phone": "1234567890",
+    "work_phone_code": "+91",
     "mobile": "9876543210",
+    "mobile_code": "+91",
+    "vendor_language": "English",
+    "other_details": {
+      "pan": "ABCDE1234F",
+      "is_msme_registered": true,
+      "currency": "INR",
+      "payment_terms": "Net 30",
+      "tds": "10%",
+      "enable_portal": true,
+      "website_url": "https://www.acmesupplies.com",
+      "department": "Sales",
+      "designation": "Director",
+      "twitter": "@acmesupplies",
+      "skype_name": "acme.supplies",
+      "facebook": "acmesupplies"
+    },
+    "billing_address": {
+      "id": 1,
+      "attention": "Finance Department",
+      "address_line1": "123 Main Street",
+      "address_line2": "Suite 100",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "country_region": "India",
+      "pin_code": "400001",
+      "phone": "1234567890",
+      "phone_code": "+91",
+      "fax_number": "02212345678"
+    },
+    "shipping_address": {
+      "id": 2,
+      "attention": "Warehouse Department",
+      "address_line1": "456 Shipping Rd",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "country_region": "India",
+      "pin_code": "400001"
+    },
+    "contact_persons": [
+      {
+        "id": 1,
+        "salutation": "Mr.",
+        "first_name": "Rajesh",
+        "last_name": "Kumar",
+        "email_address": "rajesh@acme.com",
+        "mobile": "9876543211",
+        "mobile_code": "+91"
+      }
+    ],
+    "bank_details": [
+      {
+        "id": 1,
+        "bank_id": 1,
+        "account_holder_name": "Acme Supplies",
+        "account_number": "****3456"
+      }
+    ],
     "created_at": "2026-02-07T10:00:00Z"
   },
   "message": "Vendor created successfully"
 }
 ```
 
-### 2. Get All Vendors
-- **Method:** `GET`
-- **Endpoint:** `/vendors?limit=10&offset=0`
-- **Authentication:** None (Public)
-- **Response:**
+---
+
+### 2. Update Vendor
+
+**Method:** `PUT`  
+**Endpoint:** `/vendors/:id`  
+**Authentication:** Bearer Token + SuperAdmin Role (Required)  
+**Description:** Update any vendor field. All fields from the create request are available for update.
+
+**Update Request Examples:**
+
+**Update Core Information:**
+```json
+{
+  "email_address": "newemail@acmesupplies.com",
+  "display_name": "Acme Global Supplies",
+  "vendor_language": "Hindi"
+}
+```
+
+**Update Only Other Details:**
+```json
+{
+  "other_details": {
+    "pan": "BCDEF5678G",
+    "currency": "USD",
+    "payment_terms": "Net 45",
+    "website_url": "https://www.acmeglobal.com"
+  }
+}
+```
+
+**Update Bank Details:**
+```json
+{
+  "bank_details": [
+    {
+      "bank_id": 2,
+      "account_holder_name": "Acme Supplies Pvt Ltd",
+      "account_number": "9876543210987654",
+      "reenter_account_number": "9876543210987654"
+    }
+  ]
+}
+```
+
+**Update Addresses and Contacts:**
+```json
+{
+  "billing_address": {
+    "address_line1": "789 New Street",
+    "city": "Bangalore",
+    "state": "Karnataka"
+  },
+  "contact_persons": [
+    {
+      "salutation": "Ms.",
+      "first_name": "Priya",
+      "last_name": "Singh",
+      "email_address": "priya@acme.com",
+      "mobile": "9876543212"
+    }
+  ]
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "display_name": "Acme Global Supplies",
+    "email_address": "newemail@acmesupplies.com",
+    "vendor_language": "Hindi",
+    "updated_at": "2026-02-07T11:00:00Z"
+  },
+  "message": "Vendor updated successfully"
+}
+```
+
+---
+
+### 3. Get All Vendors
+
+**Method:** `GET`  
+**Endpoint:** `/vendors?limit=10&offset=0`  
+**Authentication:** None (Public)  
+**Query Parameters:**
+- `limit` (optional, default: 10) - Number of vendors per page
+- `offset` (optional, default: 0) - Pagination offset
+
+**Response:**
 ```json
 {
   "success": true,
   "data": [
     {
       "id": 1,
-      "display_name": "Kumar Supplies",
-      "company_name": "Kumar Supplies",
-      "email_address": "rajesh@kumarsupplies.com"
+      "first_name": "John",
+      "last_name": "Doe",
+      "display_name": "Acme Supplies",
+      "company_name": "Acme Supplies",
+      "email_address": "john.doe@acmesupplies.com",
+      "work_phone": "1234567890",
+      "mobile": "9876543210",
+      "created_at": "2026-02-07T10:00:00Z"
     }
   ],
-  "total": 1
+  "total": 1,
+  "limit": 10,
+  "offset": 0
 }
 ```
 
-### 3. Get Vendor by ID
-- **Method:** `GET`
-- **Endpoint:** `/vendors/:id`
-- **Authentication:** None (Public)
-- **Response:** Single vendor object
+---
 
-### 4. Update Vendor
-- **Method:** `PUT`
-- **Endpoint:** `/vendors/:id`
-- **Authentication:** Bearer Token + SuperAdmin Role (Required)
-- **Request Body:** Same fields as create (all optional)
+### 4. Get Vendor by ID
+
+**Method:** `GET`  
+**Endpoint:** `/vendors/:id`  
+**Authentication:** None (Public)  
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "first_name": "John",
+    "last_name": "Doe",
+    "display_name": "Acme Supplies",
+    "company_name": "Acme Supplies",
+    "salutation": "Mr.",
+    "email_address": "john.doe@acmesupplies.com",
+    "work_phone": "1234567890",
+    "work_phone_code": "+91",
+    "mobile": "9876543210",
+    "mobile_code": "+91",
+    "vendor_language": "English",
+    "other_details": {
+      "pan": "ABCDE1234F",
+      "is_msme_registered": true,
+      "currency": "INR",
+      "payment_terms": "Net 30",
+      "tds": "10%",
+      "enable_portal": true,
+      "website_url": "https://www.acmesupplies.com"
+    },
+    "billing_address": {
+      "id": 1,
+      "address_line1": "123 Main Street",
+      "address_line2": "Suite 100",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "country_region": "India",
+      "pin_code": "400001"
+    },
+    "shipping_address": {
+      "id": 2,
+      "address_line1": "456 Shipping Rd",
+      "city": "Mumbai",
+      "state": "Maharashtra",
+      "country_region": "India",
+      "pin_code": "400001"
+    },
+    "contact_persons": [
+      {
+        "id": 1,
+        "salutation": "Mr.",
+        "first_name": "Rajesh",
+        "last_name": "Kumar",
+        "email_address": "rajesh@acme.com",
+        "mobile": "9876543211"
+      }
+    ],
+    "bank_details": [
+      {
+        "id": 1,
+        "bank_id": 1,
+        "account_holder_name": "Acme Supplies",
+        "account_number": "****3456"
+      }
+    ],
+    "created_at": "2026-02-07T10:00:00Z"
+  }
+}
+```
+
+---
 
 ### 5. Delete Vendor
-- **Method:** `DELETE`
-- **Endpoint:** `/vendors/:id`
-- **Authentication:** Bearer Token + SuperAdmin Role (Required)
+
+**Method:** `DELETE`  
+**Endpoint:** `/vendors/:id`  
+**Authentication:** Bearer Token + SuperAdmin Role (Required)  
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Vendor deleted successfully"
+}
+```
+
+**Error Response (409 Conflict - Foreign Key Constraint):**
+```json
+{
+  "success": false,
+  "message": "Cannot delete vendor. It is referenced by other records (e.g., Purchase Orders, Bills)",
+  "error": "Foreign key constraint violation"
+}
+```
 
 ---
 
 ## Customers
 
-### 1. Create Customer
-- **Method:** `POST`
-- **Endpoint:** `/customers`
-- **Authentication:** Bearer Token + SuperAdmin Role (Required)
-- **Request Body:**
+### 1. Create Customer (Complete Field Reference)
+
+**Method:** `POST`  
+**Endpoint:** `/customers`  
+**Authentication:** Bearer Token + SuperAdmin Role (Required)  
+**Description:** Create customer with complete information. All fields are optional unless marked as required.
+
+#### Customer Core Fields
+
+| Field Name | Type | Required | Constraints | Alternative Names | Example |
+|---|---|---|---|---|---|
+| `salutation` | string | **Yes** | - | - | "Mr.", "Ms.", "Dr." |
+| `first_name` | string | **Yes** | - | - | "Amit" |
+| `last_name` | string | No | - | - | "Singh" |
+| `company_name` | string | No | - | - | "Singh Enterprises Ltd." |
+| `display_name` | string | **Yes** | - | - | "Singh Enterprises" |
+| `email_address` | string | No | Valid email format | - | "amit.singh@singenterprises.com" |
+| `work_phone` | string | No | - | - | "9876543210" |
+| `work_phone_code` | string | No | - | - | "+91" |
+| `mobile` | string | No | - | `phone` | "9875432109" |
+| `mobile_code` | string | No | - | `phone_code` | "+91" |
+| `customer_language` | string | No | - | - | "English", "Hindi" |
+
+#### Customer Other Details
+
+The `other_details` object contains customer-specific information:
+
+| Field Name | Type | Required | Constraints | Example |
+|---|---|---|---|---|
+| `pan` | string | No | Exactly 10 characters | "ABCDS1234H" |
+| `currency` | string | No | - | "INR", "USD" |
+| `payment_terms` | string | No | - | "Net 45", "Net 30" |
+| `enable_portal` | boolean | No | true/false | true |
+
+#### Billing Address Fields
+
+Same 13 fields as vendor (see Vendor section for address field details):
+- attention, address_line1 (or street), address_line2, city, state, country_region (or country), pin_code (or postal_code), phone, phone_code, fax_number
+
+#### Shipping Address Fields
+
+Same 13 fields as vendor (see Vendor section for address field details)
+
+#### Contact Persons Array
+
+Same 12 fields as vendor (see Vendor section for contact person field details)
+
+---
+
+#### Request Body Examples
+
+**Complete Customer Example:**
 ```json
 {
   "salutation": "Mr.",
   "first_name": "Amit",
   "last_name": "Singh",
-  "company_name": "Singh Enterprises",
+  "company_name": "Singh Enterprises Ltd.",
   "display_name": "Singh Enterprises",
-  "email_address": "amit@singh.com",
+  "email_address": "amit.singh@singenterprises.com",
   "work_phone": "9876543210",
-  "mobile": "9876543210",
-  "customer_language": "English"
+  "work_phone_code": "+91",
+  "mobile": "9875432109",
+  "mobile_code": "+91",
+  "customer_language": "English",
+  "other_details": {
+    "pan": "ABCDS1234H",
+    "currency": "INR",
+    "payment_terms": "Net 45",
+    "enable_portal": true
+  },
+  "billing_address": {
+    "attention": "Finance Department",
+    "street": "789 Park Avenue",
+    "address_line2": "Suite 500",
+    "city": "New Delhi",
+    "state": "Delhi",
+    "country": "India",
+    "postal_code": "110001",
+    "phone": "01112345678",
+    "phone_code": "+91"
+  },
+  "shipping_address": {
+    "attention": "Receiving Department",
+    "street": "789 Warehouse Road",
+    "address_line2": "Building B",
+    "city": "Noida",
+    "state": "Uttar Pradesh",
+    "country": "India",
+    "postal_code": "201301",
+    "phone": "01204321098",
+    "phone_code": "+91"
+  },
+  "contact_persons": [
+    {
+      "title": "Ms.",
+      "first_name": "Priya",
+      "last_name": "Singh",
+      "email": "priya.singh@singenterprises.com",
+      "work_phone": "9876543215",
+      "phone": "9875432115"
+    }
+  ]
 }
 ```
 
-### 2. Get All Customers
-- **Method:** `GET`
-- **Endpoint:** `/customers?limit=10&offset=0`
-- **Authentication:** None (Public)
-- **Response:** List of customers
+**Minimal Customer Example (Required Fields Only):**
+```json
+{
+  "salutation": "Mr.",
+  "first_name": "Amit",
+  "display_name": "Singh Enterprises"
+}
+```
 
-### 3. Get Customer by ID
-- **Method:** `GET`
-- **Endpoint:** `/customers/:id`
-- **Authentication:** None (Public)
+**Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "first_name": "Amit",
+    "last_name": "Singh",
+    "display_name": "Singh Enterprises",
+    "company_name": "Singh Enterprises Ltd.",
+    "salutation": "Mr.",
+    "email_address": "amit.singh@singenterprises.com",
+    "work_phone": "9876543210",
+    "work_phone_code": "+91",
+    "mobile": "9875432109",
+    "mobile_code": "+91",
+    "customer_language": "English",
+    "other_details": {
+      "pan": "ABCDS1234H",
+      "currency": "INR",
+      "payment_terms": "Net 45",
+      "enable_portal": true
+    },
+    "billing_address": {
+      "id": 1,
+      "attention": "Finance Department",
+      "address_line1": "789 Park Avenue",
+      "city": "New Delhi",
+      "state": "Delhi",
+      "country_region": "India",
+      "pin_code": "110001"
+    },
+    "shipping_address": {
+      "id": 2,
+      "attention": "Receiving Department",
+      "address_line1": "789 Warehouse Road",
+      "city": "Noida",
+      "state": "Uttar Pradesh",
+      "country_region": "India",
+      "pin_code": "201301"
+    },
+    "contact_persons": [
+      {
+        "id": 1,
+        "salutation": "Ms.",
+        "first_name": "Priya",
+        "last_name": "Singh",
+        "email_address": "priya.singh@singenterprises.com",
+        "mobile": "9875432115"
+      }
+    ],
+    "created_at": "2026-02-07T10:00:00Z"
+  },
+  "message": "Customer created successfully"
+}
+```
 
-### 4. Update Customer
-- **Method:** `PUT`
-- **Endpoint:** `/customers/:id`
-- **Authentication:** Bearer Token + SuperAdmin Role (Required)
+---
+
+### 2. Update Customer
+
+**Method:** `PUT`  
+**Endpoint:** `/customers/:id`  
+**Authentication:** Bearer Token + SuperAdmin Role (Required)  
+**Description:** Update any customer field. All fields from the create request are available for update.
+
+**Update Request Examples:**
+
+**Update Basic Information:**
+```json
+{
+  "email_address": "amit.singh.new@singenterprises.com",
+  "display_name": "Singh Global Enterprises",
+  "customer_language": "Hindi"
+}
+```
+
+**Update Other Details:**
+```json
+{
+  "other_details": {
+    "pan": "BCDEF5678G",
+    "currency": "USD",
+    "payment_terms": "Net 60",
+    "enable_portal": false
+  }
+}
+```
+
+**Update Addresses and Contacts:**
+```json
+{
+  "billing_address": {
+    "address_line1": "New Park Avenue",
+    "city": "Mumbai",
+    "state": "Maharashtra"
+  },
+  "contact_persons": [
+    {
+      "salutation": "Ms.",
+      "first_name": "Priya",
+      "last_name": "Singh",
+      "email_address": "priya.new@singenterprises.com",
+      "mobile": "9875432115"
+    }
+  ]
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "display_name": "Singh Global Enterprises",
+    "email_address": "amit.singh.new@singenterprises.com",
+    "updated_at": "2026-02-07T11:00:00Z"
+  },
+  "message": "Customer updated successfully"
+}
+```
+
+---
+
+### 3. Get All Customers
+
+**Method:** `GET`  
+**Endpoint:** `/customers?limit=10&offset=0`  
+**Authentication:** None (Public)  
+**Query Parameters:**
+- `limit` (optional, default: 10) - Number of customers per page
+- `offset` (optional, default: 0) - Pagination offset
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "first_name": "Amit",
+      "last_name": "Singh",
+      "display_name": "Singh Enterprises",
+      "email_address": "amit.singh@singenterprises.com"
+    }
+  ],
+  "total": 1,
+  "limit": 10,
+  "offset": 0
+}
+```
+
+---
+
+### 4. Get Customer by ID
+
+**Method:** `GET`  
+**Endpoint:** `/customers/:id`  
+**Authentication:** None (Public)  
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "first_name": "Amit",
+    "last_name": "Singh",
+    "display_name": "Singh Enterprises",
+    "salutation": "Mr.",
+    "email_address": "amit.singh@singenterprises.com",
+    "work_phone": "9876543210",
+    "mobile": "9875432109",
+    "other_details": {
+      "pan": "ABCDS1234H",
+      "currency": "INR",
+      "payment_terms": "Net 45"
+    },
+    "billing_address": {
+      "id": 1,
+      "address_line1": "789 Park Avenue",
+      "city": "New Delhi"
+    },
+    "shipping_address": {
+      "id": 2,
+      "address_line1": "789 Warehouse Road",
+      "city": "Noida"
+    },
+    "contact_persons": [
+      {
+        "id": 1,
+        "first_name": "Priya",
+        "email_address": "priya@singenterprises.com"
+      }
+    ],
+    "created_at": "2026-02-07T10:00:00Z"
+  }
+}
+```
+
+---
 
 ### 5. Delete Customer
-- **Method:** `DELETE`
-- **Endpoint:** `/customers/:id`
-- **Authentication:** Bearer Token + SuperAdmin Role (Required)
 
-### 6. Get Customer Invoices
-- **Method:** `GET`
-- **Endpoint:** `/customers/:customerId/invoices`
-- **Authentication:** Bearer Token (Required)
+**Method:** `DELETE`  
+**Endpoint:** `/customers/:id`  
+**Authentication:** Bearer Token + SuperAdmin Role (Required)  
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Customer deleted successfully"
+}
+```
+
+**Error Response (409 Conflict - Foreign Key Constraint):**
+```json
+{
+  "success": false,
+  "message": "Cannot delete customer. It is referenced by other records (e.g., Sales Orders, Invoices)",
+  "error": "Foreign key constraint violation"
+}
+```
+
+---
+
+### 6. Get Customer Invoices (if available)
+
+**Method:** `GET`  
+**Endpoint:** `/customers/:customerId/invoices`  
+**Authentication:** Bearer Token (Required)  
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "invoice_number": "INV-2026-001",
+      "customer_id": 1,
+      "amount": 150000,
+      "status": "paid",
+      "created_at": "2026-02-07T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
 
 ---
 
 ## Items & Inventory
+
+### Water Company Item Examples
+
+For a water company business, typical items include:
+
+**Example 1: 500ml Plastic Bottle**
+```json
+{
+  "name": "500ml Drinking Water Bottle - PET",
+  "type": "product",
+  "brand_id": 1,
+  "manufacturer_id": 1,
+  "unit": "piece",
+  "item_details": {
+    "sku": "WTR-BOT-500ML",
+    "barcode": "8904220025641",
+    "hsn_code": "3923.30",
+    "description": "500ml PET plastic drinking water bottle with tamper-proof cap",
+    "item_type": "beverage_container",
+    "weight_grams": 25,
+    "dimensions": "Height: 18cm, Diameter: 7cm"
+  },
+  "sales_info": {
+    "sales_account": "Water Sales Revenue",
+    "sales_tax_id": 1,
+    "sales_tax_rate": 5,
+    "selling_price": 15,
+    "mrp": 20
+  },
+  "purchase_info": {
+    "purchase_account": "Cost of Water Bottles",
+    "purchase_tax_id": 1,
+    "purchase_tax_rate": 5,
+    "purchase_price": 8
+  },
+  "variants": [
+    {
+      "variant_name": "Regular Cap",
+      "sku_suffix": "-REG",
+      "cost_price": 8,
+      "selling_price": 15
+    },
+    {
+      "variant_name": "Sports Cap",
+      "sku_suffix": "-SPORT",
+      "cost_price": 9,
+      "selling_price": 18
+    }
+  ],
+  "is_active": true,
+  "track_inventory": true
+}
+```
+
+**Example 2: 20L Water Bottle (Bulk)**
+```json
+{
+  "name": "20 Litre Polycarbonate Water Bottle",
+  "type": "product",
+  "brand_id": 1,
+  "unit": "piece",
+  "item_details": {
+    "sku": "WTR-BOT-20L",
+    "hsn_code": "3923.30",
+    "description": "20 litre polycarbonate water bottle for water coolers",
+    "item_type": "bulk_container",
+    "weight_grams": 800
+  },
+  "sales_info": {
+    "sales_account": "Water Sales Revenue",
+    "sales_tax_id": 1,
+    "sales_tax_rate": 5,
+    "selling_price": 150,
+    "mrp": 200
+  },
+  "purchase_info": {
+    "purchase_account": "Cost of Bottles",
+    "purchase_tax_id": 1,
+    "purchase_tax_rate": 5,
+    "purchase_price": 80
+  },
+  "is_active": true,
+  "track_inventory": true
+}
+```
+
+**Example 3: Plastic Caps & Lids**
+```json
+{
+  "name": "Tamper-Proof Plastic Cap - Set of 100",
+  "type": "product",
+  "manufacturer_id": 2,
+  "unit": "set",
+  "item_details": {
+    "sku": "CAP-100-TAM",
+    "barcode": "8904220025642",
+    "hsn_code": "3923.40",
+    "description": "100 piece set of tamper-proof bottle caps, diameter 20mm",
+    "item_type": "packaging_accessory",
+    "weight_grams": 150
+  },
+  "sales_info": {
+    "sales_tax_rate": 5,
+    "selling_price": 45
+  },
+  "purchase_info": {
+    "purchase_tax_rate": 5,
+    "purchase_price": 25
+  },
+  "is_active": true,
+  "track_inventory": true
+}
+```
+
+**Example 4: Water Labels & Stickers**
+```json
+{
+  "name": "Custom Water Bottle Labels - 1000 pieces",
+  "type": "product",
+  "unit": "pack",
+  "item_details": {
+    "sku": "LBL-1000-WAT",
+    "hsn_code": "4816.40",
+    "description": "Custom printed water bottle labels, waterproof, 1000 pieces per pack",
+    "item_type": "packaging_label",
+    "weight_grams": 200
+  },
+  "sales_info": {
+    "sales_tax_rate": 18,
+    "selling_price": 500
+  },
+  "purchase_info": {
+    "purchase_tax_rate": 0,
+    "purchase_price": 300
+  },
+  "is_active": true,
+  "track_inventory": true
+}
+```
 
 ### 1. Create Item
 - **Method:** `POST`
@@ -539,23 +1836,48 @@
 - **Request Body:**
 ```json
 {
-  "name": "Laptop",
+  "name": "500ml Drinking Water Bottle - PET",
   "type": "product",
-  "brand": "Dell",
+  "brand_id": 1,
   "manufacturer_id": 1,
+  "unit": "piece",
   "item_details": {
-    "sku": "LAP-001",
-    "hsn_code": "8471.30",
-    "description": "Dell Laptop 15 inch"
+    "sku": "WTR-BOT-500ML",
+    "barcode": "8904220025641",
+    "hsn_code": "3923.30",
+    "description": "500ml PET plastic drinking water bottle with tamper-proof cap",
+    "item_type": "beverage_container",
+    "weight_grams": 25
   },
   "sales_info": {
-    "sales_account": "Sales",
-    "sales_tax": 18
+    "sales_account": "Water Sales Revenue",
+    "sales_tax_id": 1,
+    "sales_tax_rate": 5,
+    "selling_price": 15,
+    "mrp": 20
   },
   "purchase_info": {
-    "purchase_account": "Purchases",
-    "purchase_tax": 5
-  }
+    "purchase_account": "Cost of Water Bottles",
+    "purchase_tax_id": 1,
+    "purchase_tax_rate": 5,
+    "purchase_price": 8
+  },
+  "variants": [
+    {
+      "variant_name": "Regular Cap",
+      "sku_suffix": "-REG",
+      "cost_price": 8,
+      "selling_price": 15
+    },
+    {
+      "variant_name": "Sports Cap",
+      "sku_suffix": "-SPORT",
+      "cost_price": 9,
+      "selling_price": 18
+    }
+  ],
+  "is_active": true,
+  "track_inventory": true
 }
 ```
 
@@ -616,34 +1938,46 @@
 ## Item Groups (BOM)
 
 Item Groups represent Bill of Materials (BOM) - combinations of items that form finished products.
-**Example:** "300ml Water Bottle" = 1 × Bottle (300ml) + 1 × Cap (20mm)
+
+### Water Company BOM Examples
+
+**Example 1:** "500ml Complete Water Bottle" = 1 × 500ml Bottle + 1 × Cap + 1 × Label
+
+**Example 2:** "20L Water Bottle Set" = 1 × 20L Bottle + 1 × Large Cap + Cleaning supplies
 
 ### 1. Create Item Group
 - **Method:** `POST`
 - **Endpoint:** `/api/item-groups`
 - **Authentication:** Bearer Token + Admin Role (Required)
-- **Request Body:**
+- **Request Body (500ml Packaged Water Bottle):**
 ```json
 {
-  "name": "300ml Water Bottle",
-  "description": "300ml plastic water bottle with cap",
+  "name": "500ml Packaged Water Bottle",
+  "description": "Complete 500ml water bottle with cap and label - ready for sale",
   "is_active": true,
   "components": [
     {
-      "item_id": "item_bottle_001",
+      "item_id": "wtr-bot-500ml",
       "variant_id": 1,
       "quantity": 1,
       "variant_details": {
-        "capacity": "300ml",
-        "material": "plastic"
+        "capacity": "500ml",
+        "material": "PET"
       }
     },
     {
-      "item_id": "item_cap_001",
-      "variant_id": 2,
+      "item_id": "cap-100-tam",
       "quantity": 1,
       "variant_details": {
-        "size": "20mm"
+        "size": "20mm",
+        "type": "tamper-proof"
+      }
+    },
+    {
+      "item_id": "lbl-1000-wat",
+      "quantity": 0.001,
+      "variant_details": {
+        "type": "water_label"
       }
     }
   ]
@@ -1066,8 +2400,18 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 ```json
 {
   "name": "Dell Inc.",
-  "description": "Computer manufacturer",
-  "country": "USA"
+  "description": "Leading global computer and technology manufacturer",
+  "country": "USA",
+  "state_region": "Texas",
+  "city": "Round Rock",
+  "address_line1": "1 Dell Way",
+  "address_line2": "Round Rock Office",
+  "postal_code": "78682",
+  "email": "contact@dell.com",
+  "phone": "+1-512-338-4400",
+  "website_url": "https://www.dell.com",
+  "logo_url": "https://example.com/dell-logo.png",
+  "is_active": true
 }
 ```
 
@@ -1099,8 +2443,14 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 ```json
 {
   "name": "Dell",
-  "description": "Dell brand products",
-  "logo_url": "https://example.com/dell-logo.png"
+  "description": "Premium quality computer and technology products",
+  "logo_url": "https://example.com/dell-logo.png",
+  "website_url": "https://www.dell.com",
+  "manufacturer_id": 1,
+  "is_active": true,
+  "established_year": 1984,
+  "country": "USA",
+  "email": "brand@dell.com"
 }
 ```
 
@@ -1126,25 +2476,482 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 
 ---
 
+## Banks
+
+Bank Master table for managing bank information centrally. This is the master reference data for banks used throughout the system.
+
+### 1. Create Bank
+- **Method:** `POST`
+- **Endpoint:** `/banks`
+- **Authentication:** Bearer Token + SuperAdmin Role (Required)
+- **Description:** Create a new bank master record. Banks created here can then be linked to companies, vendors, or customers.
+- **Request Body:**
+```json
+{
+  "bank_name": "HDFC Bank",
+  "ifsc_code": "HDFC0001234",
+  "branch_name": "Mumbai Main Branch",
+  "branch_code": "HDFC123",
+  "address": "123 Banking Street",
+  "city": "Mumbai",
+  "state": "Maharashtra",
+  "postal_code": "400001",
+  "country": "India",
+  "is_active": true
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "bank_name": "HDFC Bank",
+    "ifsc_code": "HDFC0001234",
+    "branch_name": "Mumbai Main Branch",
+    "branch_code": "HDFC123",
+    "address": "123 Banking Street",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "postal_code": "400001",
+    "country": "India",
+    "is_active": true,
+    "created_at": "2026-02-17T10:00:00Z",
+    "updated_at": "2026-02-17T10:00:00Z"
+  }
+}
+```
+
+### 2. Get All Banks
+- **Method:** `GET`
+- **Endpoint:** `/banks?limit=10&offset=0`
+- **Authentication:** None (Public)
+- **Query Parameters:**
+  - `limit` (optional): Number of records to return (default: 10)
+  - `offset` (optional): Number of records to skip (default: 0)
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "banks": [
+      {
+        "id": 1,
+        "bank_name": "HDFC Bank",
+        "ifsc_code": "HDFC0001234",
+        "branch_name": "Mumbai Main Branch",
+        "is_active": true,
+        "created_at": "2026-02-17T10:00:00Z",
+        "updated_at": "2026-02-17T10:00:00Z"
+      },
+      {
+        "id": 2,
+        "bank_name": "ICICI Bank",
+        "ifsc_code": "ICIC0000001",
+        "branch_name": "Delhi Main Branch",
+        "is_active": true,
+        "created_at": "2026-02-17T10:00:00Z",
+        "updated_at": "2026-02-17T10:00:00Z"
+      }
+    ],
+    "total": 2
+  }
+}
+```
+
+### 3. Get Bank by ID
+- **Method:** `GET`
+- **Endpoint:** `/banks/:id`
+- **Authentication:** None (Public)
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "bank_name": "HDFC Bank",
+    "ifsc_code": "HDFC0001234",
+    "branch_name": "Mumbai Main Branch",
+    "branch_code": "HDFC123",
+    "address": "123 Banking Street",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "postal_code": "400001",
+    "country": "India",
+    "is_active": true,
+    "created_at": "2026-02-17T10:00:00Z",
+    "updated_at": "2026-02-17T10:00:00Z"
+  }
+}
+```
+
+### 4. Update Bank
+- **Method:** `PUT`
+- **Endpoint:** `/banks/:id`
+- **Authentication:** Bearer Token + SuperAdmin Role (Required)
+- **Description:** Update an existing bank master record. All fields are optional.
+- **Request Body:**
+```json
+{
+  "bank_name": "HDFC Bank Limited",
+  "branch_name": "Mumbai New Branch",
+  "city": "Mumbai",
+  "is_active": true
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "bank_name": "HDFC Bank Limited",
+    "ifsc_code": "HDFC0001234",
+    "branch_name": "Mumbai New Branch",
+    "branch_code": "HDFC123",
+    "address": "123 Banking Street",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "postal_code": "400001",
+    "country": "India",
+    "is_active": true,
+    "created_at": "2026-02-17T10:00:00Z",
+    "updated_at": "2026-02-17T10:30:00Z"
+  }
+}
+```
+
+### 5. Delete Bank
+- **Method:** `DELETE`
+- **Endpoint:** `/banks/:id`
+- **Authentication:** Bearer Token + SuperAdmin Role (Required)
+- **Response:**
+```json
+{
+  "success": true,
+  "message": "Bank deleted successfully"
+}
+```
+
+---
+
 ## Companies
 
-### 1. Complete Company Setup
+### 1. Complete Company Setup (Step-by-Step)
+
+#### Step 1a: Create Basic Company (No Dependencies)
 - **Method:** `POST`
-- **Endpoint:** `/companies/setup`
+- **Endpoint:** `/companies`
+- **Authentication:** Bearer Token (Required)
+- **Description:** Start with basic company information. Bank details will be added after company creation.
+- **Request Body:**
+```json
+{
+  "company_name": "ABC Corporation Pvt. Ltd.",
+  "display_name": "ABC Corp",
+  "gstin": "18AABCT1234H1Z0",
+  "pan": "AAACT1234H",
+  "business_type_id": 1,
+  "email": "info@abccorp.com",
+  "phone": "9876543210",
+  "phone_code": "+91"
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "company_name": "ABC Corporation Pvt. Ltd.",
+    "gstin": "18AABCT1234H1Z0",
+    "created_at": "2026-02-07T10:00:00Z"
+  },
+  "message": "Company created successfully"
+}
+```
+
+---
+
+#### Step 1b: Create/Get Available Banks
+- **Create Bank (if not exists):**
+  - **Method:** `POST`
+  - **Endpoint:** `/banks`
+  - **Authentication:** Bearer Token + SuperAdmin Role (Required)
+  - **Request Body:**
+  ```json
+  {
+    "bank_name": "HDFC Bank",
+    "ifsc_code": "HDFC0001234",
+    "branch_name": "Mumbai Main Branch",
+    "branch_code": "HDFC123",
+    "address": "123 Banking Street",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "postal_code": "400001",
+    "country": "India",
+    "is_active": true
+  }
+  ```
+  - **Response:** Bank object with `id` (save this for Step 1e)
+
+- **Or Get Existing Banks:**
+  - **Method:** `GET`
+  - **Endpoint:** `/banks`
+  - **Authentication:** Not Required
+  - **Description:** Retrieve list of all available banks in the system
+  - **Response Example:**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "banks": [
+        {
+          "id": 1,
+          "bank_name": "HDFC Bank",
+          "ifsc_code": "HDFC0001234",
+          "branch_name": "Mumbai Main Branch",
+          "is_active": true
+        },
+        {
+          "id": 2,
+          "bank_name": "ICICI Bank",
+          "ifsc_code": "ICIC0000001",
+          "branch_name": "Delhi Main Branch",
+          "is_active": true
+        }
+      ],
+      "total": 2
+    }
+  }
+  ```
+
+---
+
+#### Step 1c: Add Company Contact
+- **Method:** `PUT`
+- **Endpoint:** `/companies/:id/contact`
 - **Authentication:** Bearer Token (Required)
 - **Request Body:**
 ```json
 {
-  "company_name": "ABC Corporation",
-  "gstin": "18AABCT1234H1Z0",
-  "pan": "AAACT1234H",
-  "email": "info@abc.com",
+  "contact_person": "Rajesh Kumar",
+  "email": "rajesh@abccorp.com",
   "phone": "9876543210",
-  "business_type_id": 1,
-  "country": "India",
-  "state": "Maharashtra",
-  "city": "Mumbai"
+  "phone_code": "+91"
 }
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "company_id": 1,
+    "contact_person": "Rajesh Kumar",
+    "email": "rajesh@abccorp.com"
+  },
+  "message": "Contact added successfully"
+}
+```
+
+---
+
+#### Step 1d: Add Company Address
+- **Method:** `PUT`
+- **Endpoint:** `/companies/:id/address`
+- **Authentication:** Bearer Token (Required)
+- **Request Body:**
+```json
+{
+  "street": "123 Business Street",
+  "address_line2": "Floor 5, Building A",
+  "city": "Mumbai",
+  "state": "Maharashtra",
+  "country": "India",
+  "postal_code": "400001"
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "company_id": 1,
+    "street": "123 Business Street",
+    "city": "Mumbai"
+  },
+  "message": "Address added successfully"
+}
+```
+
+---
+
+#### Step 1e: Add Bank Detail to Company
+- **Method:** `POST`
+- **Endpoint:** `/companies/:id/bank-details`
+- **Authentication:** Bearer Token (Required)
+- **Description:** Link a bank account to the company. The bank must already exist in the database (from Step 1b). Provide the bank_id that corresponds to your chosen bank.
+- **Request Body:**
+```json
+{
+  "bank_id": 1,
+  "account_holder_name": "ABC Corporation",
+  "account_number": "1234567890",
+  "is_primary": true
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "company_id": 1,
+    "bank_id": 1,
+    "account_holder_name": "ABC Corporation",
+    "account_number": "1234567890",
+    "is_primary": true,
+    "is_active": true,
+    "created_at": "2026-02-07T10:00:00Z"
+  },
+  "message": "Bank detail created successfully"
+}
+```
+
+---
+
+#### Step 1f: Add UPI Detail (Optional)
+- **Method:** `PUT`
+- **Endpoint:** `/companies/:id/upi-details`
+- **Authentication:** Bearer Token (Required)
+- **Request Body:**
+```json
+{
+  "upi_id": "abc@hdfc"
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "company_id": 1,
+    "upi_id": "abc@hdfc"
+  },
+  "message": "UPI detail updated successfully"
+}
+```
+
+---
+
+#### Step 1g: Configure Tax Settings (Optional)
+- **Method:** `PUT`
+- **Endpoint:** `/companies/:id/tax-settings`
+- **Authentication:** Bearer Token (Required)
+- **Request Body:**
+```json
+{
+  "gst_enabled": true,
+  "tax_type_id": 1
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "company_id": 1,
+    "gst_enabled": true,
+    "tax_type_id": 1
+  },
+  "message": "Tax settings updated successfully"
+}
+```
+
+---
+
+#### Step 1h: Configure Invoice Settings (Optional)
+- **Method:** `PUT`
+- **Endpoint:** `/companies/:id/invoice-settings`
+- **Authentication:** Bearer Token (Required)
+- **Request Body:**
+```json
+{
+  "invoice_prefix": "INV",
+  "invoice_start_number": 1,
+  "show_logo": true,
+  "show_signature": false,
+  "round_off_total": true
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "company_id": 1,
+    "invoice_prefix": "INV",
+    "invoice_start_number": 1
+  },
+  "message": "Invoice settings updated successfully"
+}
+```
+
+---
+
+#### Step 1i: Configure Regional Settings (Optional)
+- **Method:** `PUT`
+- **Endpoint:** `/companies/:id/regional-settings`
+- **Authentication:** Bearer Token (Required)
+- **Request Body:**
+```json
+{
+  "default_currency": "INR",
+  "timezone": "Asia/Kolkata",
+  "date_format": "DD/MM/YYYY"
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "company_id": 1,
+    "default_currency": "INR",
+    "timezone": "Asia/Kolkata"
+  },
+  "message": "Regional settings updated successfully"
+}
+```
+
+---
+
+### Complete Company Setup Workflow Summary
+
+```
+1. POST /companies ─── Create basic company
+                  │
+                  ├─→ 2. PUT /companies/:id/contact ─── Add contact info
+                  │
+                  ├─→ 3. PUT /companies/:id/address ─── Add address
+                  │
+                  ├─→ 4. POST /banks (if needed) ─── Create bank master data
+                  │         │
+                  │         └─→ 5. POST /companies/:id/bank-details ─── Link bank to company
+                  │
+                  ├─→ 6. PUT /companies/:id/upi-details ─── Add UPI (optional)
+                  │
+                  ├─→ 7. PUT /companies/:id/tax-settings ─── Configure taxes (optional)
+                  │
+                  ├─→ 8. PUT /companies/:id/invoice-settings ─── Configure invoicing (optional)
+                  │
+                  └─→ 9. PUT /companies/:id/regional-settings ─── Configure regional (optional)
 ```
 
 ### 2. Create Company
@@ -1214,13 +3021,32 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 - **Method:** `POST`
 - **Endpoint:** `/companies/:id/bank-details`
 - **Authentication:** Bearer Token (Required)
+- **Description:** Link bank account to company
 - **Request Body:**
 ```json
 {
-  "bank_name": "HDFC Bank",
-  "account_holder": "ABC Corporation",
+  "bank_id": 1,
+  "account_holder_name": "ABC Corporation",
   "account_number": "1234567890",
-  "ifsc_code": "HDFC0001234"
+  "is_primary": true
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "company_id": 1,
+    "bank_id": 1,
+    "account_holder_name": "ABC Corporation",
+    "account_number": "1234567890",
+    "is_primary": true,
+    "is_active": true,
+    "created_at": "2026-02-17T10:00:00Z",
+    "updated_at": "2026-02-17T10:00:00Z"
+  },
+  "message": "Bank detail created successfully"
 }
 ```
 
@@ -1228,11 +3054,22 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 - **Method:** `GET`
 - **Endpoint:** `/companies/:id/bank-details`
 - **Authentication:** Bearer Token (Required)
+- **Response:** Returns all bank details linked to the company
 
 ### 13. Update Bank Detail
 - **Method:** `PUT`
 - **Endpoint:** `/companies/bank-details/:id`
 - **Authentication:** Bearer Token (Required)
+- **Request Body:**
+```json
+{
+  "bank_id": 1,
+  "account_holder_name": "ABC Corporation",
+  "account_number": "9876543210",
+  "is_primary": true,
+  "is_active": true
+}
+```
 
 ### 14. Delete Bank Detail
 - **Method:** `DELETE`
@@ -1242,6 +3079,7 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 ### 15. Upsert UPI Detail
 - **Method:** `PUT`
 - **Endpoint:** `/companies/:id/upi-details`
+- **Authentication:** Bearer Token (Required)
 - **Request Body:**
 ```json
 {
@@ -1252,6 +3090,7 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 ### 16. Get UPI Detail
 - **Method:** `GET`
 - **Endpoint:** `/companies/:id/upi-details`
+- **Authentication:** Bearer Token (Required)
 
 ### 17. Upsert Invoice Settings
 - **Method:** `PUT`
@@ -1270,6 +3109,7 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 ### 18. Get Invoice Settings
 - **Method:** `GET`
 - **Endpoint:** `/companies/:id/invoice-settings`
+- **Authentication:** Bearer Token (Required)
 
 ### 19. Upsert Tax Settings
 - **Method:** `PUT`
@@ -1285,6 +3125,7 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 ### 20. Get Tax Settings
 - **Method:** `GET`
 - **Endpoint:** `/companies/:id/tax-settings`
+- **Authentication:** Bearer Token (Required)
 
 ### 21. Upsert Regional Settings
 - **Method:** `PUT`
@@ -1301,37 +3142,128 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 ### 22. Get Regional Settings
 - **Method:** `GET`
 - **Endpoint:** `/companies/:id/regional-settings`
+- **Authentication:** Bearer Token (Required)
 
 ---
 
 ## Invoices
 
-### 1. Create Invoice
+### 1. Create Invoice (Step-by-Step)
+
+#### Prerequisites:
+- Customer must exist (create via `POST /customers`)
+- Item(s) must exist (create via `POST /items`)
+- Salesperson must exist (create via `POST /salespersons`) - Optional
+- Tax configuration must exist (create via `POST /taxes`)
+- Company must exist (create via `POST /companies`)
+- (Optional) Sales Order must exist (create via `POST /sales-orders`)
+
+#### Step 1: Create Invoice
 - **Method:** `POST`
 - **Endpoint:** `/invoices`
 - **Authentication:** Bearer Token + Admin Role (Required)
+- **Description:** Create basic invoice without line items first
 - **Request Body:**
 ```json
 {
   "customer_id": 1,
+  "company_id": 1,
+  "invoice_number": "INV-2026-001",
+  "reference_number": "REF-001",
   "invoice_date": "2026-02-07",
   "due_date": "2026-03-07",
   "terms": "net_30",
-  "subject": "Invoice for services",
-  "salesperson_id": 1,
-  "line_items": [
-    {
-      "item_id": "ITEM-001",
-      "quantity": 2,
-      "rate": 5000,
-      "description": "Consulting services"
-    }
-  ],
+  "subject": "Invoice for IT Services & Products",
+  "salesperson_id": 1
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "INV-2026-001",
+    "invoice_number": "INV-2026-001",
+    "customer_id": 1,
+    "invoice_date": "2026-02-07",
+    "due_date": "2026-03-07",
+    "total": 0,
+    "status": "draft",
+    "created_at": "2026-02-07T10:00:00Z"
+  },
+  "message": "Invoice created successfully"
+}
+```
+
+#### Step 2: Add Line Items to Invoice
+- **Method:** `POST`
+- **Endpoint:** `/invoices/:invoice_id/line-items`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body (Water Bottle Sales):**
+```json
+{
+  "item_id": "wtr-bot-500ml",
+  "quantity": 2000,
+  "rate": 15,
+  "description": "500ml Packaged Drinking Water Bottles (2000 units)",
+  "tax_id": 1
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "invoice_id": "INV-2026-001",
+    "item_id": "wtr-bot-500ml",
+    "quantity": 2000,
+    "rate": 15,
+    "amount": 30000,
+    "tax_amount": 1500,
+    "created_at": "2026-02-07T10:00:00Z"
+  },
+  "message": "Line item added successfully"
+}
+```
+
+#### Step 3: Add Multiple Line Items (Repeat Step 2)
+```json
+{
+  "item_id": "wtr-bot-20l",
+  "quantity": 100,
+  "rate": 150,
+  "description": "20 Litre Water Cooler Bottles - Bulk Supply (100 units)",
+  "tax_id": 1
+}
+```
+
+**Alternative Line Item (Packaging Refund/Deposit):**
+```json
+{
+  "item_id": "bottle-deposit",
+  "quantity": 100,
+  "rate": -50,
+  "description": "Refund for returned 20L bottles (100 units @ ₹50 each)",
+  "tax_id": 1
+}
+```
+
+#### Step 4: Set Tax, Shipping & Discount (Optional)
+- **Method:** `PUT`
+- **Endpoint:** `/invoices/:invoice_id`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
   "shipping_charges": 500,
+  "discount": 500,
   "tax_id": 1,
   "adjustment": 100,
-  "customer_notes": "Thank you for your business",
-  "terms_and_conditions": "Net 30 payment terms"
+  "customer_notes": "Thank you for your business. Please remit payment by due date.",
+  "terms_and_conditions": "Payment terms: Net 30 days from invoice date. Late payment interest: 2% per month.",
+  "delivery_address": "123 Business Park, Mumbai",
+  "is_inclusive_tax": false
 }
 ```
 - **Response:**
@@ -1339,18 +3271,74 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 {
   "success": true,
   "data": {
-    "id": "INV-123456",
-    "invoice_number": "INV-001",
-    "customer_id": 1,
-    "invoice_date": "2026-02-07",
-    "due_date": "2026-03-07",
-    "sub_total": 10000,
-    "tax_amount": 1800,
-    "total": 12400,
-    "status": "draft",
-    "created_at": "2026-02-07T10:00:00Z"
+    "id": "INV-2026-001",
+    "sub_total": 22500,
+    "shipping_charges": 500,
+    "discount": 500,
+    "tax_amount": 4050,
+    "adjustment": 100,
+    "total": 26650,
+    "status": "draft"
   },
-  "message": "Invoice created successfully"
+  "message": "Invoice updated successfully"
+}
+```
+
+#### Step 5: Submit Invoice
+- **Method:** `PATCH`
+- **Endpoint:** `/invoices/:invoice_id/status`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "status": "sent"
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "INV-2026-001",
+    "status": "sent",
+    "updated_at": "2026-02-07T10:30:00Z"
+  },
+  "message": "Invoice status updated to sent"
+}
+```
+
+#### Step 6: Record Payment (Optional)
+- **Method:** `POST`
+- **Endpoint:** `/payments`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "invoice_id": "INV-2026-001",
+  "amount": 26650,
+  "payment_date": "2026-02-10",
+  "payment_method": "bank_transfer",
+  "reference_number": "TXN-12345",
+  "bank_id": 1,
+  "transaction_id": "NEFT-2026-00123",
+  "notes": "Payment received for Invoice INV-2026-001"
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "invoice_id": "INV-2026-001",
+    "amount": 26650,
+    "payment_date": "2026-02-10",
+    "payment_method": "bank_transfer",
+    "reference_number": "TXN-12345",
+    "status": "completed",
+    "created_at": "2026-02-10T09:00:00Z"
+  },
+  "message": "Payment created successfully"
 }
 ```
 
@@ -1405,33 +3393,109 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 
 ## Bills
 
-### 1. Create Bill
+### 1. Create Bill (Step-by-Step)
+
+#### Prerequisites:
+- Vendor must exist (create via `POST /vendors`)
+- Item(s) must exist (create via `POST /items`)
+- Tax configuration must exist (create via `POST /taxes`)
+- Company must exist (create via `POST /companies`)
+- (Optional) Purchase Order must exist (create via `POST /purchase-orders`)
+
+#### Step 1: Create Bill
 - **Method:** `POST`
 - **Endpoint:** `/bills`
 - **Authentication:** Bearer Token + Admin Role (Required)
+- **Description:** Create basic bill without line items first
 - **Request Body:**
 ```json
 {
   "vendor_id": 1,
-  "billing_address": "123 Vendor Street",
-  "order_number": "PO-12345",
+  "company_id": 1,
+  "bill_number": "BILL-2026-001",
+  "reference_number": "REF-BILL-001",
+  "billing_address": "123 Vendor Street, Bangalore",
+  "po_number": "PO-12345",
   "bill_date": "2026-02-07",
   "due_date": "2026-03-07",
   "payment_terms": "net_30",
-  "subject": "Bill for materials",
-  "line_items": [
-    {
-      "item_id": "ITEM-001",
-      "quantity": 100,
-      "rate": 150,
-      "description": "Raw materials",
-      "account": "Purchases"
-    }
-  ],
+  "subject": "Bill for Raw Materials Supply"
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "BILL-2026-001",
+    "bill_number": "BILL-2026-001",
+    "vendor_id": 1,
+    "bill_date": "2026-02-07",
+    "due_date": "2026-03-07",
+    "total": 0,
+    "status": "draft",
+    "created_at": "2026-02-07T10:00:00Z"
+  },
+  "message": "Bill created successfully"
+}
+```
+
+#### Step 2: Add Line Items to Bill
+- **Method:** `POST`
+- **Endpoint:** `/bills/:bill_id/line-items`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "item_id": "ITEM-001",
+  "quantity": 100,
+  "rate": 150,
+  "description": "High-quality plastic raw materials",
+  "account": "Cost of Materials",
+  "tax_id": 1
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "bill_id": "BILL-2026-001",
+    "item_id": "ITEM-001",
+    "quantity": 100,
+    "rate": 150,
+    "amount": 15000,
+    "created_at": "2026-02-07T10:00:00Z"
+  },
+  "message": "Line item added successfully"
+}
+```
+
+#### Step 3: Add Multiple Line Items (Repeat Step 2)
+```json
+{
+  "item_id": "ITEM-002",
+  "quantity": 50,
+  "rate": 200,
+  "description": "Metal components for assembly",
+  "account": "Cost of Materials",
+  "tax_id": 1
+}
+```
+
+#### Step 4: Set Tax, Shipping & Discount (Optional)
+- **Method:** `PUT`
+- **Endpoint:** `/bills/:bill_id`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "shipping_charges": 2000,
   "discount": 1000,
   "tax_id": 1,
   "adjustment": 500,
-  "notes": "Thank you for your supply"
+  "notes": "Thank you for your supply. Please note the delivery was on schedule."
 }
 ```
 - **Response:**
@@ -1439,19 +3503,74 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 {
   "success": true,
   "data": {
-    "id": "BILL-123456",
-    "bill_number": "BILL-1707298800",
-    "vendor_id": 1,
-    "bill_date": "2026-02-07",
-    "due_date": "2026-03-07",
-    "sub_total": 15000,
+    "id": "BILL-2026-001",
+    "sub_total": 25000,
+    "shipping_charges": 2000,
     "discount": 1000,
-    "tax_amount": 2520,
-    "total": 17020,
-    "status": "draft",
-    "created_at": "2026-02-07T10:00:00Z"
+    "tax_amount": 4500,
+    "adjustment": 500,
+    "total": 31000,
+    "status": "draft"
   },
-  "message": "Bill created successfully"
+  "message": "Bill updated successfully"
+}
+```
+
+#### Step 5: Submit Bill
+- **Method:** `PATCH`
+- **Endpoint:** `/bills/:bill_id/status`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "status": "sent"
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "BILL-2026-001",
+    "status": "sent",
+    "updated_at": "2026-02-07T10:30:00Z"
+  },
+  "message": "Bill status updated to sent"
+}
+```
+
+#### Step 6: Record Payment
+- **Method:** `POST`
+- **Endpoint:** `/payments`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "bill_id": "BILL-2026-001",
+  "amount": 31000,
+  "payment_date": "2026-02-12",
+  "payment_method": "bank_transfer",
+  "reference_number": "TXN-12345",
+  "bank_id": 1,
+  "transaction_id": "NEFT-2026-00123",
+  "notes": "Payment made for Bill BILL-2026-001"
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "bill_id": "BILL-2026-001",
+    "amount": 31000,
+    "payment_date": "2026-02-12",
+    "payment_method": "bank_transfer",
+    "reference_number": "TXN-12345",
+    "status": "completed",
+    "created_at": "2026-02-12T09:00:00Z"
+  },
+  "message": "Payment created successfully"
 }
 ```
 
@@ -1509,11 +3628,17 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 ```json
 {
   "invoice_id": "INV-123456",
+  "bill_id": null,
   "amount": 5000,
   "payment_date": "2026-02-07",
   "payment_method": "bank_transfer",
   "reference_number": "TXN-12345",
-  "notes": "Payment received"
+  "bank_id": 1,
+  "cheque_number": "CHQ-12345",
+  "cheque_date": "2026-02-07",
+  "transaction_id": "NEFT-2026-00123",
+  "notes": "Payment received - Invoice INV-123456",
+  "description": "Customer payment for February supplies"
 }
 ```
 - **Response:**
@@ -1561,7 +3686,13 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 {
   "name": "CGST 9%",
   "tax_type": "CGST",
-  "rate": 9
+  "rate": 9,
+  "description": "Central Goods and Services Tax at 9% rate",
+  "tax_code": "CGST-9",
+  "is_compound": false,
+  "is_active": true,
+  "effective_from": "2026-01-01",
+  "priority": 1
 }
 ```
 - **Response:**
@@ -1609,11 +3740,23 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 - **Request Body:**
 ```json
 {
-  "name": "Raj Kumar",
-  "email": "raj@example.com",
+  "first_name": "Raj",
+  "last_name": "Kumar",
+  "salutation": "Mr.",
+  "email": "raj.kumar@example.com",
   "phone": "9876543210",
+  "phone_code": "+91",
+  "mobile": "9876543210",
+  "mobile_code": "+91",
   "department": "Sales",
-  "target_revenue": 1000000
+  "designation": "Senior Sales Executive",
+  "employee_id": "EMP-001",
+  "target_revenue": 1000000,
+  "target_currency": "INR",
+  "commission_percentage": 5,
+  "reporting_manager_id": 2,
+  "is_active": true,
+  "date_of_joining": "2020-06-15"
 }
 ```
 
@@ -1641,29 +3784,161 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 
 ## Purchase Orders
 
-### 1. Create Purchase Order
+### 1. Create Purchase Order (Step-by-Step)
+
+#### Prerequisites:
+- Vendor must exist (create via `POST /vendors`)
+- Item(s) must exist (create via `POST /items`)
+- Tax configuration must exist (create via `POST /taxes`)
+- Company must exist (create via `POST /companies`)
+
+#### Step 1: Create Purchase Order
 - **Method:** `POST`
 - **Endpoint:** `/purchase-orders`
 - **Authentication:** Bearer Token + Admin Role (Required)
+- **Description:** Create basic PO without line items first
 - **Request Body:**
 ```json
 {
   "vendor_id": 1,
+  "company_id": 1,
+  "po_number": "PO-2026-001",
   "reference_no": "REF-001",
   "po_date": "2026-02-07",
   "expected_delivery_date": "2026-02-14",
+  "delivery_address": "123 Warehouse Street, Bangalore",
   "payment_terms": "net_30",
-  "line_items": [
-    {
-      "item_id": "ITEM-001",
-      "quantity": 100,
-      "rate": 150
-    }
-  ],
-  "shipping_charges": 500,
+  "incoterms": "FOB",
+  "shipping_via": "Ground Transport",
+  "notes": "Please ensure timely delivery as per schedule."
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "PO-2026-001",
+    "purchase_order_no": "PO-2026-001",
+    "vendor_id": 1,
+    "po_date": "2026-02-07",
+    "expected_delivery_date": "2026-02-14",
+    "total": 0,
+    "status": "draft",
+    "created_at": "2026-02-07T10:00:00Z"
+  },
+  "message": "Purchase Order created successfully"
+}
+```
+
+#### Step 2: Add Line Items to Purchase Order
+- **Method:** `POST`
+- **Endpoint:** `/purchase-orders/:po_id/line-items`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body (Water Bottles):**
+```json
+{
+  "item_id": "wtr-bot-500ml",
+  "quantity": 5000,
+  "rate": 8,
+  "description": "500ml PET drinking water bottles (5000 units)",
   "tax_id": 1,
-  "adjustment": 100,
-  "vendor_notes": "Notes for vendor"
+  "warehouse_id": 1
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "purchase_order_id": "PO-2026-001",
+    "item_id": "wtr-bot-500ml",
+    "quantity": 5000,
+    "rate": 8,
+    "amount": 40000,
+    "tax_amount": 2000,
+    "created_at": "2026-02-07T10:00:00Z"
+  },
+  "message": "Line item added successfully"
+}
+```
+
+#### Step 3: Add Multiple Line Items (Repeat Step 2)
+```json
+{
+  "item_id": "cap-100-tam",
+  "quantity": 50,
+  "rate": 25,
+  "description": "Tamper-proof caps (50 packs × 100 pieces)",
+  "tax_id": 1,
+  "warehouse_id": 1
+}
+```
+
+**Alternative Step 3 (Water Cooler Bottles):**
+```json
+{
+  "item_id": "wtr-bot-20l",
+  "quantity": 100,
+  "rate": 80,
+  "description": "20 litre polycarbonate water cooler bottles (100 units)",
+  "tax_id": 1,
+  "warehouse_id": 1
+}
+```
+
+#### Step 4: Set Tax, Shipping & Adjustment (Optional)
+- **Method:** `PUT`
+- **Endpoint:** `/purchase-orders/:po_id`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "shipping_charges": 500,
+  "discount": 500,
+  "tax_id": 1,
+  "adjustment": 100
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "PO-2026-001",
+    "sub_total": 25000,
+    "shipping_charges": 500,
+    "discount": 500,
+    "tax_amount": 4500,
+    "adjustment": 100,
+    "total": 29600,
+    "status": "draft"
+  },
+  "message": "Purchase Order updated successfully"
+}
+```
+
+#### Step 5: Submit PO
+- **Method:** `PATCH`
+- **Endpoint:** `/purchase-orders/:po_id/status`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "status": "sent"
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "PO-2026-001",
+    "status": "sent",
+    "updated_at": "2026-02-07T10:30:00Z"
+  },
+  "message": "Purchase Order status updated to sent"
 }
 ```
 
@@ -1712,31 +3987,274 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 
 ## Sales Orders
 
-### 1. Create Sales Order
+### 1. Create Sales Order (Step-by-Step)
+
+#### Prerequisites:
+- Customer must exist (create via `POST /customers`)
+- Item(s) must exist (create via `POST /items`)
+- Salesperson must exist (create via `POST /salespersons`)
+- Tax configuration must exist (create via `POST /taxes`)
+- Company must exist (create via `POST /companies`)
+
+#### Step 1: Create Sales Order
 - **Method:** `POST`
 - **Endpoint:** `/sales-orders`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Description:** Create basic SO without line items first
+- **Request Body:**
+```json
+{
+  "customer_id": 1,
+  "company_id": 1,
+  "so_number": "SO-2026-001",
+  "reference_no": "CUST-REF-001",
+  "sales_order_date": "2026-02-07",
+  "expected_shipment_date": "2026-02-14",
+  "delivery_address": "789 Customer Plaza, New Delhi",
+  "payment_terms": "net_30",
+  "delivery_method": "courier",
+  "courier_company": "FedEx",
+  "salesperson_id": 1
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "SO-2026-001",
+    "sales_order_no": "SO-2026-001",
+    "customer_id": 1,
+    "sales_order_date": "2026-02-07",
+    "expected_shipment_date": "2026-02-14",
+    "total": 0,
+    "status": "draft",
+    "created_at": "2026-02-07T10:00:00Z"
+  },
+  "message": "Sales Order created successfully"
+}
+```
+
+#### Step 2: Add Line Items to Sales Order
+- **Method:** `POST`
+- **Endpoint:** `/sales-orders/:so_id/line-items`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body (Water Bottles):**
+```json
+{
+  "item_id": "wtr-bot-500ml",
+  "quantity": 1000,
+  "rate": 15,
+  "description": "500ml PET Drinking Water Bottles (1000 units)",
+  "tax_id": 1,
+  "warehouse_id": 1
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "sales_order_id": "SO-2026-001",
+    "item_id": "wtr-bot-500ml",
+    "quantity": 1000,
+    "rate": 15,
+    "amount": 15000,
+    "tax_amount": 750,
+    "created_at": "2026-02-07T10:00:00Z"
+  },
+  "message": "Line item added successfully"
+}
+```
+
+#### Step 3: Add Multiple Line Items (Repeat Step 2)
+```json
+{
+  "item_id": "wtr-bot-20l",
+  "quantity": 50,
+  "rate": 150,
+  "description": "20 Litre Water Cooler Bottles (50 units)",
+  "tax_id": 1,
+  "warehouse_id": 1
+}
+```
+
+**Alternative Option (Delivery with Bottles):**
+```json
+{
+  "item_id": "cap-100-tam",
+  "quantity": 10,
+  "rate": 45,
+  "description": "Tamper-proof caps - 10 packs (1000 total)",
+  "tax_id": 1,
+  "warehouse_id": 1
+}
+```
+
+#### Step 4: Set Tax, Shipping & Adjustment (Optional)
+- **Method:** `PUT`
+- **Endpoint:** `/sales-orders/:so_id`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "shipping_charges": 500,
+  "discount": 500,
+  "tax_id": 1,
+  "adjustment": 100,
+  "customer_notes": "Handle with care. Fragile items. Please call before delivery."
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "SO-2026-001",
+    "sub_total": 62500,
+    "shipping_charges": 500,
+    "discount": 500,
+    "tax_amount": 11250,
+    "adjustment": 100,
+    "total": 73850,
+    "status": "draft"
+  },
+  "message": "Sales Order updated successfully"
+}
+```
+
+#### Step 5: Reserve Inventory (Optional)
+- **Method:** `PUT`
+- **Endpoint:** `/sales-orders/:so_id/reserve-inventory`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "SO-2026-001",
+    "inventory_reserved": true,
+    "reserved_date": "2026-02-07T10:30:00Z"
+  },
+  "message": "Inventory reserved successfully"
+}
+```
+
+#### Step 6: Confirm and Submit SO
+- **Method:** `PATCH`
+- **Endpoint:** `/sales-orders/:so_id/status`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "status": "confirmed"
+}
+```
+- **Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "SO-2026-001",
+    "status": "confirmed",
+    "updated_at": "2026-02-07T10:45:00Z"
+  },
+  "message": "Sales Order status updated to confirmed"
+}
+```
+
+#### Step 7: Create Package from SO
+- **Method:** `POST`
+- **Endpoint:** `/packages`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "sales_order_id": "SO-2026-001",
+  "customer_id": 1
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "PKG-2026-001",
+    "package_slip_no": "PKG-2026-001",
+    "sales_order_id": "SO-2026-001",
+    "customer_id": 1,
+    "status": "created",
+    "created_at": "2026-02-07T11:00:00Z"
+  },
+  "message": "Package created successfully"
+}
+```
+
+#### Step 8: Create Shipment from Package
+- **Method:** `POST`
+- **Endpoint:** `/shipments`
+- **Authentication:** Bearer Token + Admin Role (Required)
+- **Request Body:**
+```json
+{
+  "package_id": "PKG-2026-001",
+  "sales_order_id": "SO-2026-001",
+  "customer_id": 1,
+  "shipment_date": "2026-02-07",
+  "expected_delivery": "2026-02-14",
+  "carrier": "FedEx",
+  "carrier_service_type": "Express",
+  "tracking_number": "FEDEX123456"
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "SHIP-2026-001",
+    "shipment_no": "SHIP-2026-001",
+    "package_id": "PKG-2026-001",
+    "carrier": "FedEx",
+    "tracking_number": "FEDEX123456",
+    "status": "created",
+    "created_at": "2026-02-07T11:15:00Z"
+  },
+  "message": "Shipment created successfully"
+}
+```
+
+#### Step 9: Create Invoice from SO
+- **Method:** `POST`
+- **Endpoint:** `/invoices`
 - **Authentication:** Bearer Token + Admin Role (Required)
 - **Request Body:**
 ```json
 {
   "customer_id": 1,
-  "reference_no": "REF-001",
-  "sales_order_date": "2026-02-07",
-  "expected_shipment_date": "2026-02-14",
-  "payment_terms": "net_30",
-  "delivery_method": "courier",
-  "salesperson_id": 1,
-  "line_items": [
-    {
-      "item_id": "ITEM-001",
-      "quantity": 10,
-      "rate": 5000
-    }
-  ],
-  "shipping_charges": 500,
-  "tax_id": 1,
-  "adjustment": 100,
-  "customer_notes": "Handle with care"
+  "company_id": 1,
+  "sales_order_id": "SO-2026-001",
+  "invoice_date": "2026-02-07",
+  "due_date": "2026-03-07",
+  "terms": "net_30",
+  "subject": "Invoice for Order SO-2026-001"
+}
+```
+- **Response (201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "INV-2026-001",
+    "invoice_number": "INV-2026-001",
+    "customer_id": 1,
+    "sales_order_id": "SO-2026-001",
+    "total": 73850,
+    "status": "draft",
+    "created_at": "2026-02-07T11:30:00Z"
+  },
+  "message": "Invoice created successfully"
 }
 ```
 
@@ -1789,15 +4307,31 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 {
   "sales_order_id": "SO-123456",
   "customer_id": 1,
+  "package_number": "PKG-2026-001",
+  "package_type": "box",
   "package_items": [
     {
       "item_id": "ITEM-001",
       "quantity": 10,
-      "item_description": "Laptops"
+      "item_description": "Dell Inspiron 15 Laptops",
+      "sku": "LAP-DELL-001"
+    },
+    {
+      "item_id": "ITEM-002",
+      "quantity": 5,
+      "item_description": "Monitor Accessories",
+      "sku": "ACC-MON-001"
     }
   ],
   "package_weight": 25,
-  "package_dimensions": "50x40x30"
+  "weight_unit": "kg",
+  "package_dimensions": "50x40x30",
+  "dimension_unit": "cm",
+  "volume": 60000,
+  "packaging_material": "cardboard",
+  "fragile": true,
+  "contents_description": "Electronic equipment - Handle with care",
+  "package_status": "created"
 }
 ```
 
@@ -1846,21 +4380,77 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 
 ## Shipments
 
+### Water Company Shipment Examples
+
 ### 1. Create Shipment
 - **Method:** `POST`
 - **Endpoint:** `/shipments`
 - **Authentication:** Bearer Token + Admin Role (Required)
-- **Request Body:**
+- **Request Body (500ml Water Bottles):**
 ```json
 {
-  "package_id": "PKG-123456",
-  "sales_order_id": "SO-123456",
-  "customer_id": 1,
+  "package_id": "PKG-2026-WATER-001",
+  "sales_order_id": "SO-2026-001",
+  "customer_id": 15,
+  "shipment_number": "SHIP-2026-W001",
   "shipment_date": "2026-02-07",
-  "expected_delivery": "2026-02-14",
-  "carrier": "FedEx",
-  "tracking_number": "FEDEX123456",
-  "shipping_address": "123 Main Street, Mumbai"
+  "expected_delivery": "2026-02-09",
+  "actual_delivery": null,
+  "carrier": "Blue Dart Express",
+  "carrier_service_type": "Standard",
+  "tracking_number": "BDE2026W001450",
+  "shipping_address": "456 Market Street, Building B, Bangalore, Karnataka 560001",
+  "shipping_address_full": {
+    "attention": "Retail Manager",
+    "address_line1": "456 Market Street",
+    "address_line2": "Building B",
+    "city": "Bangalore",
+    "state": "Karnataka",
+    "country": "India",
+    "postal_code": "560001",
+    "phone": "9123456789"
+  },
+  "weight": 30,
+  "weight_unit": "kg",
+  "shipment_cost": 800,
+  "insurance_amount": 50000,
+  "insured": true,
+  "shipping_mode": "ground",
+  "shipment_status": "created",
+  "notes": "Water bottles - Handle with care. Check for damages upon receipt. Maintain cool storage."
+}
+```
+
+**Alternative (20L Water Cooler Bottles - Refrigerated/Special Handling):**
+```json
+{
+  "package_id": "PKG-2026-COOLER-001",
+  "sales_order_id": "SO-2026-002",
+  "customer_id": 18,
+  "shipment_number": "SHIP-2026-W002",
+  "shipment_date": "2026-02-07",
+  "expected_delivery": "2026-02-08",
+  "carrier": "Local Logistics - AquaDeliver",
+  "carrier_service_type": "Express",
+  "tracking_number": "AQA2026002500",
+  "shipping_address": "Office Complex, 789 Business Park, Hyderabad, Telangana 500001",
+  "shipping_address_full": {
+    "attention": "Admin Department",
+    "address_line1": "Office Complex, 789 Business Park",
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "country": "India",
+    "postal_code": "500001",
+    "phone": "9876543215"
+  },
+  "weight": 800,
+  "weight_unit": "kg",
+  "shipment_cost": 2500,
+  "insurance_amount": 100000,
+  "insured": true,
+  "shipping_mode": "ground",
+  "shipment_status": "created",
+  "notes": "20L bulk water bottles - Refrigerated transport required. Handle upright only. Delivery between 10 AM - 4 PM preferred. Call 1 hour before arrival."
 }
 ```
 
@@ -1980,9 +4570,21 @@ Comprehensive inventory tracking across purchases, manufacturing, and sales.
 {
   "name": "John Doe",
   "email": "john@example.com",
-  "subject": "Technical Issue",
-  "description": "I'm facing an issue with...",
-  "priority": "high"
+  "phone": "9876543210",
+  "phone_code": "+91",
+  "company_name": "ABC Corporation",
+  "subject": "Technical Issue - Purchase Order Not Processing",
+  "category": "technical",
+  "description": "I'm facing an issue with the purchase order module. When I try to create a PO, the system shows an error preventing the submission.",
+  "priority": "high",
+  "attachments": [
+    {
+      "filename": "error_screenshot.png",
+      "file_url": "https://example.com/uploads/error_screenshot.png"
+    }
+  ],
+  "expected_resolution_date": "2026-02-09",
+  "ticket_status": "open"
 }
 ```
 - **Response:**

@@ -47,7 +47,6 @@ type PaymentService interface {
 	DeletePayment(id uint) error
 }
 
-// invoiceService implements InvoiceService
 type invoiceService struct {
 	invoiceRepo     repo.InvoiceRepository
 	itemRepo        repo.ItemRepository
@@ -77,13 +76,11 @@ func NewInvoiceService(
 }
 
 func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID string) (*output.InvoiceOutput, error) {
-	// Validate customer exists
 	_, err := s.customerRepo.FindByID(input.CustomerID)
 	if err != nil {
 		return nil, fmt.Errorf("customer not found")
 	}
 
-	// Validate salesperson if provided
 	if input.SalespersonID != nil {
 		_, err := s.salespersonRepo.FindByID(*input.SalespersonID)
 		if err != nil {
@@ -91,7 +88,6 @@ func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID s
 		}
 	}
 
-	// Validate tax if provided
 	var tax *models.Tax
 	if input.TaxID != nil {
 		tax, err = s.taxRepo.FindByID(*input.TaxID)
@@ -100,25 +96,21 @@ func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID s
 		}
 	}
 
-	// Generate invoice ID and number
 	id := fmt.Sprintf("inv_%s", uuid.New().String()[:8])
 	invoiceNumber, err := s.invoiceRepo.GetNextInvoiceNumber()
 	if err != nil {
 		return nil, err
 	}
 
-	// Build line items and calculate subtotal
 	lineItems := make([]models.InvoiceLineItem, len(input.LineItems))
 	var subTotal float64
 
 	for i, itemInput := range input.LineItems {
-		// Validate item exists
 		item, err := s.itemRepo.FindByID(itemInput.ItemID)
 		if err != nil {
 			return nil, fmt.Errorf("item %s not found", itemInput.ItemID)
 		}
 
-		// Validate variant if provided
 		if itemInput.VariantID != nil {
 			variantFound := false
 			for _, variant := range item.ItemDetails.Variants {
@@ -146,16 +138,13 @@ func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID s
 		}
 	}
 
-	// Calculate tax amount
 	var taxAmount float64
 	if tax != nil {
 		taxAmount = (subTotal + input.ShippingCharges) * tax.Rate / 100
 	}
 
-	// Calculate total
 	total := subTotal + input.ShippingCharges + taxAmount + input.Adjustment
 
-	// Create invoice
 	invoice := &models.Invoice{
 		ID:                 id,
 		InvoiceNumber:      invoiceNumber,
@@ -190,7 +179,6 @@ func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID s
 		return nil, err
 	}
 
-	// Fetch created invoice with all associations
 	createdInvoice, err := s.invoiceRepo.FindByID(id)
 	if err != nil {
 		return nil, err
@@ -235,12 +223,10 @@ func (s *invoiceService) UpdateInvoice(id string, input *input.UpdateInvoiceInpu
 		return nil, err
 	}
 
-	// Don't allow updates to sent or paid invoices
 	if invoice.Status == domain.InvoiceStatusSent || invoice.Status == domain.InvoiceStatusPaid {
 		return nil, fmt.Errorf("cannot update invoice with status %s", invoice.Status)
 	}
 
-	// Update fields if provided
 	if input.CustomerID != nil {
 		_, err := s.customerRepo.FindByID(*input.CustomerID)
 		if err != nil {
@@ -289,19 +275,16 @@ func (s *invoiceService) UpdateInvoice(id string, input *input.UpdateInvoiceInpu
 		invoice.Attachments = input.Attachments
 	}
 
-	// Update line items if provided
 	if len(input.LineItems) > 0 {
 		lineItems := make([]models.InvoiceLineItem, len(input.LineItems))
 		var subTotal float64
 
 		for i, itemInput := range input.LineItems {
-			// Validate item exists
 			item, err := s.itemRepo.FindByID(itemInput.ItemID)
 			if err != nil {
 				return nil, fmt.Errorf("item %s not found", itemInput.ItemID)
 			}
 
-			// Validate variant if provided
 			if itemInput.VariantID != nil {
 				variantFound := false
 				for _, variant := range item.ItemDetails.Variants {
@@ -333,12 +316,10 @@ func (s *invoiceService) UpdateInvoice(id string, input *input.UpdateInvoiceInpu
 		invoice.SubTotal = subTotal
 	}
 
-	// Update shipping charges
 	if input.ShippingCharges != nil {
 		invoice.ShippingCharges = *input.ShippingCharges
 	}
 
-	// Update tax if provided
 	if input.TaxID != nil {
 		tax, err := s.taxRepo.FindByID(*input.TaxID)
 		if err != nil {
@@ -352,12 +333,10 @@ func (s *invoiceService) UpdateInvoice(id string, input *input.UpdateInvoiceInpu
 		invoice.TaxType = domain.TaxType(*input.TaxType)
 	}
 
-	// Update adjustment
 	if input.Adjustment != nil {
 		invoice.Adjustment = *input.Adjustment
 	}
 
-	// Recalculate total
 	invoice.Total = invoice.SubTotal + invoice.ShippingCharges + invoice.TaxAmount + invoice.Adjustment
 	invoice.UpdatedAt = time.Now()
 	invoice.UpdatedBy = userID
@@ -366,7 +345,6 @@ func (s *invoiceService) UpdateInvoice(id string, input *input.UpdateInvoiceInpu
 		return nil, err
 	}
 
-	// Fetch updated invoice
 	updatedInvoice, err := s.invoiceRepo.FindByID(id)
 	if err != nil {
 		return nil, err
@@ -381,7 +359,6 @@ func (s *invoiceService) DeleteInvoice(id string) error {
 		return errors.New("invoice not found")
 	}
 
-	// Don't allow deletion of sent or paid invoices
 	if invoice.Status == domain.InvoiceStatusSent || invoice.Status == domain.InvoiceStatusPaid {
 		return fmt.Errorf("cannot delete invoice with status %s", invoice.Status)
 	}
@@ -442,7 +419,6 @@ func (s *invoiceService) UpdateInvoiceStatus(id string, status domain.InvoiceSta
 	return output.ToInvoiceOutput(updatedInvoice)
 }
 
-// salespersonService implements SalespersonService
 type salespersonService struct {
 	repo repo.SalespersonRepository
 }
@@ -452,7 +428,6 @@ func NewSalespersonService(repo repo.SalespersonRepository) SalespersonService {
 }
 
 func (s *salespersonService) CreateSalesperson(input *input.CreateSalespersonInput) (*output.SalespersonOutput, error) {
-	// Check if email already exists
 	existing, _ := s.repo.FindByEmail(input.Email)
 	if existing != nil {
 		return nil, fmt.Errorf("salesperson with email %s already exists", input.Email)
@@ -508,7 +483,6 @@ func (s *salespersonService) UpdateSalesperson(id uint, input *input.UpdateSales
 	}
 
 	if input.Email != nil {
-		// Check if new email is already taken by another salesperson
 		existing, _ := s.repo.FindByEmail(*input.Email)
 		if existing != nil && existing.ID != id {
 			return nil, fmt.Errorf("email %s is already taken", *input.Email)
@@ -534,7 +508,6 @@ func (s *salespersonService) DeleteSalesperson(id uint) error {
 	return s.repo.Delete(id)
 }
 
-// taxService implements TaxService
 type taxService struct {
 	repo repo.TaxRepository
 }
@@ -620,7 +593,6 @@ func (s *taxService) DeleteTax(id uint) error {
 	return s.repo.Delete(id)
 }
 
-// paymentService implements PaymentService
 type paymentService struct {
 	paymentRepo repo.PaymentRepository
 	invoiceRepo repo.InvoiceRepository
@@ -634,13 +606,11 @@ func NewPaymentService(paymentRepo repo.PaymentRepository, invoiceRepo repo.Invo
 }
 
 func (s *paymentService) CreatePayment(input *input.CreatePaymentInput, userID string) (*output.PaymentOutput, error) {
-	// Validate invoice exists
 	invoice, err := s.invoiceRepo.FindByID(input.InvoiceID)
 	if err != nil {
 		return nil, fmt.Errorf("invoice not found")
 	}
 
-	// Validate payment amount doesn't exceed invoice total
 	existingPayments, err := s.paymentRepo.FindByInvoiceID(input.InvoiceID)
 	if err != nil {
 		return nil, err
@@ -670,7 +640,6 @@ func (s *paymentService) CreatePayment(input *input.CreatePaymentInput, userID s
 		return nil, err
 	}
 
-	// Update invoice status based on payments
 	totalPaid += input.Amount
 	if totalPaid >= invoice.Total {
 		invoice.Status = domain.InvoiceStatusPaid
@@ -710,7 +679,6 @@ func (s *paymentService) DeletePayment(id uint) error {
 		return errors.New("payment not found")
 	}
 
-	// Recalculate invoice status after deleting payment
 	invoice, err := s.invoiceRepo.FindByID(payment.InvoiceID)
 	if err != nil {
 		return err
@@ -720,7 +688,6 @@ func (s *paymentService) DeletePayment(id uint) error {
 		return err
 	}
 
-	// Get remaining payments
 	payments, err := s.paymentRepo.FindByInvoiceID(payment.InvoiceID)
 	if err != nil {
 		return err

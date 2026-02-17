@@ -30,20 +30,16 @@ type UpsertCompanyAddressInput struct {
 }
 
 type CreateBankDetailInput struct {
-	BankName          string `json:"bank_name" validate:"required,min=1,max=255"`
+	BankID            uint   `json:"bank_id" validate:"required"`
 	AccountHolderName string `json:"account_holder_name" validate:"required,min=1,max=255"`
 	AccountNumber     string `json:"account_number" validate:"required,min=1,max=50"`
-	IFSCCode          string `json:"ifsc_code" validate:"required,len=11"`
-	BranchName        string `json:"branch_name,omitempty" validate:"omitempty,max=255"`
 	IsPrimary         bool   `json:"is_primary"`
 }
 
 type UpdateBankDetailInput struct {
-	BankName          *string `json:"bank_name,omitempty" validate:"omitempty,min=1,max=255"`
+	BankID            *uint   `json:"bank_id,omitempty" validate:"omitempty"`
 	AccountHolderName *string `json:"account_holder_name,omitempty" validate:"omitempty,min=1,max=255"`
 	AccountNumber     *string `json:"account_number,omitempty" validate:"omitempty,min=1,max=50"`
-	IFSCCode          *string `json:"ifsc_code,omitempty" validate:"omitempty,len=11"`
-	BranchName        *string `json:"branch_name,omitempty" validate:"omitempty,max=255"`
 	IsPrimary         *bool   `json:"is_primary,omitempty"`
 	IsActive          *bool   `json:"is_active,omitempty"`
 }

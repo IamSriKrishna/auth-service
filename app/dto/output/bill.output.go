@@ -64,7 +64,6 @@ func ToBillOutput(bill *models.Bill) (*BillOutput, error) {
 			Amount:      item.Amount,
 		}
 
-		// Add item info
 		if item.Item != nil {
 			lineItemOutput.Item = &ItemInfo{
 				ID:   item.Item.ID,
@@ -73,7 +72,6 @@ func ToBillOutput(bill *models.Bill) (*BillOutput, error) {
 			}
 		}
 
-		// Add variant info if available
 		if item.Variant != nil {
 			attributeMap := make(map[string]string)
 			for _, attr := range item.Variant.Attributes {

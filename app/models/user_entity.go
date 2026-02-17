@@ -39,12 +39,11 @@ func (EntityOtherDetails) TableName() string {
 	return "entity_other_details"
 }
 
-// EntityAddress - Shared table for addresses
 type EntityAddress struct {
 	ID            uint           `gorm:"primaryKey" json:"id"`
 	EntityID      uint           `gorm:"not null;index:idx_entity_address" json:"entity_id"`
-	EntityType    string         `gorm:"type:varchar(20);not null;index:idx_entity_address" json:"entity_type"` // 'vendor' or 'customer'
-	AddressType   string         `gorm:"type:varchar(20);not null" json:"address_type"`                          // 'billing' or 'shipping'
+	EntityType    string         `gorm:"type:varchar(20);not null;index:idx_entity_address" json:"entity_type"`
+	AddressType   string         `gorm:"type:varchar(20);not null" json:"address_type"`
 	Attention     string         `gorm:"type:varchar(255)" json:"attention"`
 	CountryRegion string         `gorm:"type:varchar(100)" json:"country_region"`
 	AddressLine1  string         `gorm:"type:text" json:"address_line1"`
@@ -64,11 +63,10 @@ func (EntityAddress) TableName() string {
 	return "entity_addresses"
 }
 
-// EntityContactPerson - Shared table for contact persons
 type EntityContactPerson struct {
 	ID            uint           `gorm:"primaryKey" json:"id"`
 	EntityID      uint           `gorm:"not null;index:idx_entity_contact" json:"entity_id"`
-	EntityType    string         `gorm:"type:varchar(20);not null;index:idx_entity_contact" json:"entity_type"` // 'vendor' or 'customer'
+	EntityType    string         `gorm:"type:varchar(20);not null;index:idx_entity_contact" json:"entity_type"`
 	Salutation    string         `gorm:"type:varchar(10)" json:"salutation"`
 	FirstName     string         `gorm:"type:varchar(100)" json:"first_name"`
 	LastName      string         `gorm:"type:varchar(100)" json:"last_name"`

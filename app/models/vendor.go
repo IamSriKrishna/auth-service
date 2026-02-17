@@ -19,12 +19,11 @@ type Vendor struct {
 	Mobile         string         `gorm:"type:varchar(20)" json:"mobile"`
 	MobileCode     string         `gorm:"type:varchar(5);default:'+91'" json:"mobile_code"`
 	VendorLanguage string         `gorm:"type:varchar(50);default:'English'" json:"vendor_language"`
-	GSTIN          string         `gorm:"type:varchar(15)" json:"gstin"` // For GST portal prefill
+	GSTIN          string         `gorm:"type:varchar(15)" json:"gstin"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 
-	// Relationships using polymorphic associations
 	OtherDetails    *EntityOtherDetails   `gorm:"polymorphic:Entity;polymorphicValue:vendor" json:"other_details,omitempty"`
 	BillingAddress  *EntityAddress        `gorm:"polymorphic:Entity;polymorphicValue:vendor" json:"billing_address,omitempty"`
 	ShippingAddress *EntityAddress        `gorm:"polymorphic:Entity;polymorphicValue:vendor" json:"shipping_address,omitempty"`
