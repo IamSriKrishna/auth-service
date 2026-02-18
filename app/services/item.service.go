@@ -36,32 +36,17 @@ func NewItemService(itemRepo repo.ItemRepository, vendorRepo repo.VendorReposito
 }
 
 func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutput, error) {
+	// Validate variant attributes first
+	if err := input.ValidateVariantAttributes(); err != nil {
+		return nil, err
+	}
+
 	id := fmt.Sprintf("item_%s", uuid.New().String()[:8])
 
 	if input.PurchaseInfo != nil && input.PurchaseInfo.PreferredVendorID != nil {
 		_, err := s.vendorRepo.FindByID(*input.PurchaseInfo.PreferredVendorID)
 		if err != nil {
 			return nil, fmt.Errorf("preferred vendor not found")
-		}
-	}
-
-	if input.PurchaseInfo != nil && input.PurchaseInfo.PreferredVendorID != nil {
-		_, err := s.vendorRepo.FindByID(*input.PurchaseInfo.PreferredVendorID)
-		if err != nil {
-			return nil, fmt.Errorf("preferred vendor not found")
-		}
-	}
-
-	if input.ItemDetails.Structure == "single" {
-		if len(input.ItemDetails.Variants) > 0 {
-			return nil, fmt.Errorf("single items cannot have variants")
-		}
-	} else if input.ItemDetails.Structure == "variants" {
-		if len(input.ItemDetails.Variants) == 0 {
-			return nil, fmt.Errorf("variant items must have at least one variant")
-		}
-		if len(input.ItemDetails.Attributes) == 0 {
-			return nil, fmt.Errorf("variant items must define attributes")
 		}
 	}
 
@@ -144,9 +129,9 @@ func buildItemDetails(itemID string, input *input.CreateItemInput) models.ItemDe
 		Description: input.ItemDetails.Description,
 	}
 
-	if input.ItemDetails.Structure == "variants" && len(input.ItemDetails.Attributes) > 0 {
-		itemDetails.AttributeDefinitions = make(models.AttributeDefinitions, len(input.ItemDetails.Attributes))
-		for i, attr := range input.ItemDetails.Attributes {
+	if input.ItemDetails.Structure == "variants" && len(input.ItemDetails.AttributeDefinitions) > 0 {
+		itemDetails.AttributeDefinitions = make(models.AttributeDefinitions, len(input.ItemDetails.AttributeDefinitions))
+		for i, attr := range input.ItemDetails.AttributeDefinitions {
 			itemDetails.AttributeDefinitions[i] = models.AttributeDefinition{
 				Key:     attr.Key,
 				Options: attr.Options,
@@ -302,9 +287,9 @@ func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*outp
 			}
 		}
 
-		if len(input.ItemDetails.Attributes) > 0 {
-			item.ItemDetails.AttributeDefinitions = make(models.AttributeDefinitions, len(input.ItemDetails.Attributes))
-			for i, attr := range input.ItemDetails.Attributes {
+		if len(input.ItemDetails.AttributeDefinitions) > 0 {
+			item.ItemDetails.AttributeDefinitions = make(models.AttributeDefinitions, len(input.ItemDetails.AttributeDefinitions))
+			for i, attr := range input.ItemDetails.AttributeDefinitions {
 				item.ItemDetails.AttributeDefinitions[i] = models.AttributeDefinition{
 					Key:     attr.Key,
 					Options: attr.Options,

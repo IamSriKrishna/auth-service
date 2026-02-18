@@ -45,6 +45,9 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	shipmentRepo := repo.NewShipmentRepository(db)
 	billRepo := repo.NewBillRepository(db)
 	bankRepo := repo.NewBankRepository(db)
+	inventoryBalanceRepo := repo.NewInventoryBalanceRepository(db)
+	itemGroupRepo := repo.NewItemGroupRepository(db)
+
 	authService := services.NewAuthService(userRepo, roleRepo, refreshTokenRepo, sessionRepo)
 	adminService := services.NewAdminService(userRepo, roleRepo)
 	supportService := services.NewSupportService(supportRepo)
@@ -62,12 +65,13 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	salespersonService := services.NewSalespersonService(salespersonRepo)
 	taxService := services.NewTaxService(taxRepo)
 	paymentService := services.NewPaymentService(paymentRepo, invoiceRepo)
-	purchaseOrderService := services.NewPurchaseOrderService(purchaseOrderRepo, vendorRepo, customerRepo, itemRepo, taxRepo)
-	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo)
+	purchaseOrderService := services.NewPurchaseOrderService(purchaseOrderRepo, vendorRepo, customerRepo, itemRepo, taxRepo, inventoryBalanceRepo)
+	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo, inventoryBalanceRepo)
 	packageService := services.NewPackageService(packageRepo, salesOrderRepo, customerRepo, itemRepo)
 	shipmentService := services.NewShipmentService(shipmentRepo, packageRepo, salesOrderRepo, customerRepo)
 	billService := services.NewBillService(billRepo, vendorRepo, itemRepo, taxRepo)
 	bankService := services.NewBankService(bankRepo)
+	itemGroupService := services.NewItemGroupService(itemGroupRepo, itemRepo)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	adminHandler := handlers.NewAdminHandler(adminService)
@@ -91,6 +95,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	shipmentHandler := handlers.NewShipmentHandler(shipmentService)
 	billHandler := handlers.NewBillHandler(billService)
 	bankHandler := handlers.NewBankHandler(bankService)
+	itemGroupHandler := handlers.NewItemGroupHandler(itemGroupService)
 
 	app.Get("/docs/*", swagger.HandlerDefault)
 
@@ -107,6 +112,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		authGroup.Post("/login/password", authHandler.LoginPassword)
 
 		authGroup.Post("/validate-token", authHandler.ValidateToken)
+		authGroup.Post("/create-super-admin", adminHandler.CreateSuperAdmin)
 	}
 
 	protectedAuthGroup := app.Group("/auth")
@@ -258,6 +264,18 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		itemRoutes.Put("/:id/variants/opening-stock", middleware.AuthMiddleware(), middleware.AdminMiddleware(), openStockHandler.UpdateVariantsOpeningStock)
 		itemRoutes.Get("/:id/variants/opening-stock", middleware.AuthMiddleware(), middleware.AdminMiddleware(), openStockHandler.GetVariantsOpeningStock)
 		itemRoutes.Get("/:id/stock-summary", middleware.AuthMiddleware(), middleware.AdminMiddleware(), openStockHandler.GetStockSummary)
+	}
+
+	itemGroupRoutes := app.Group("/item-groups")
+	{
+		itemGroupRoutes.Get("/", itemGroupHandler.GetAllItemGroups)
+		itemGroupRoutes.Get("/:id", itemGroupHandler.GetItemGroupByID)
+
+		itemGroupRoutes.Post("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemGroupHandler.CreateItemGroup)
+		itemGroupRoutes.Put("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemGroupHandler.UpdateItemGroup)
+		itemGroupRoutes.Delete("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), itemGroupHandler.DeleteItemGroup)
+
+		itemGroupRoutes.Get("/search/by-name", itemGroupHandler.GetItemGroupByName)
 	}
 
 	invoiceRoutes := app.Group("/invoices")

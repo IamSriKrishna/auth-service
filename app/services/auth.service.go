@@ -41,6 +41,7 @@ type AuthService interface {
 
 type AdminService interface {
 	CreateUser(ctx context.Context, createdBy uint, req *input.CreateUserRequest) (*output.UserInfo, error)
+	CreateSuperAdmin(ctx context.Context, createdBy *uint, req *input.CreateSuperAdminRequest) (*output.UserInfo, error)
 	ResetPassword(ctx context.Context, req *input.ResetPasswordRequest) error
 	ResetUserPassword(ctx context.Context, req *input.ResetUserPasswordRequest, userID uint64) error
 	GetUsers(ctx context.Context, page, limit int, search string) (*output.PaginatedResponse, error)

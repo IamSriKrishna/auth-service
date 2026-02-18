@@ -1,6 +1,9 @@
 package input
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/bbapp-org/auth-service/app/domain"
 	"github.com/bbapp-org/auth-service/app/models"
 )
@@ -25,8 +28,8 @@ type ItemDetailsInput struct {
 	ISBN        string               `json:"isbn"`
 	Description string               `json:"description"`
 
-	Attributes []AttributeDefinitionInput `json:"attributes"`
-	Variants   []VariantInput             `json:"variants"`
+	AttributeDefinitions []AttributeDefinitionInput `json:"attribute_definitions"`
+	Variants             []VariantInput             `json:"variants"`
 }
 
 type AttributeDefinitionInput struct {
@@ -105,9 +108,9 @@ func (c *CreateItemInput) ToItemDetails() models.ItemDetails {
 		Description: c.ItemDetails.Description,
 	}
 
-	if len(c.ItemDetails.Attributes) > 0 {
-		itemDetails.AttributeDefinitions = make([]models.AttributeDefinition, len(c.ItemDetails.Attributes))
-		for i, attr := range c.ItemDetails.Attributes {
+	if len(c.ItemDetails.AttributeDefinitions) > 0 {
+		itemDetails.AttributeDefinitions = make([]models.AttributeDefinition, len(c.ItemDetails.AttributeDefinitions))
+		for i, attr := range c.ItemDetails.AttributeDefinitions {
 			itemDetails.AttributeDefinitions[i] = models.AttributeDefinition{
 				Key:     attr.Key,
 				Options: attr.Options,
@@ -182,4 +185,61 @@ func (c *CreateItemInput) ToReturnPolicy() models.ReturnPolicy {
 	return models.ReturnPolicy{
 		Returnable: c.ReturnPolicy.Returnable,
 	}
+}
+
+// ValidateVariantAttributes validates that variants have proper attribute mappings
+func (c *CreateItemInput) ValidateVariantAttributes() error {
+	if c.ItemDetails.Structure != "variants" {
+		return nil
+	}
+
+	if len(c.ItemDetails.AttributeDefinitions) == 0 {
+		return errors.New("variant items must define attributes")
+	}
+
+	if len(c.ItemDetails.Variants) == 0 {
+		return errors.New("variant items must have at least one variant")
+	}
+
+	// Create a map of valid attribute keys
+	validKeys := make(map[string][]string)
+	for _, attr := range c.ItemDetails.AttributeDefinitions {
+		validKeys[attr.Key] = attr.Options
+	}
+
+	// Validate each variant
+	for i, variant := range c.ItemDetails.Variants {
+		if len(variant.AttributeMap) == 0 {
+			return fmt.Errorf("variant %d (%s) must have attribute_map defined", i+1, variant.SKU)
+		}
+
+		// Check that all defined attributes are in the variant's attribute_map
+		for attrKey, validOptions := range validKeys {
+			variantValue, exists := variant.AttributeMap[attrKey]
+			if !exists {
+				return fmt.Errorf("variant %d (%s) missing required attribute '%s'", i+1, variant.SKU, attrKey)
+			}
+
+			// Check that the value is one of the valid options
+			valid := false
+			for _, option := range validOptions {
+				if variantValue == option {
+					valid = true
+					break
+				}
+			}
+			if !valid {
+				return fmt.Errorf("variant %d (%s) has invalid value '%s' for attribute '%s'. Valid options: %v", i+1, variant.SKU, variantValue, attrKey, validOptions)
+			}
+		}
+
+		// Check for extra attributes not defined
+		for variantKey := range variant.AttributeMap {
+			if _, exists := validKeys[variantKey]; !exists {
+				return fmt.Errorf("variant %d (%s) has undefined attribute '%s'", i+1, variant.SKU, variantKey)
+			}
+		}
+	}
+
+	return nil
 }

@@ -21,8 +21,7 @@ type ItemGroupComponent struct {
 	ItemGroupID    string         `json:"item_group_id" gorm:"type:varchar(255);index;not null"`
 	ItemID         string         `json:"item_id" gorm:"type:varchar(255);not null;index"`
 	Item           *Item          `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	VariantID      *uint          `json:"variant_id,omitempty" gorm:"index"`
-	Variant        *Variant       `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	VariantSku     *string        `json:"variant_sku,omitempty" gorm:"type:varchar(255);index"`
 	Quantity       float64        `json:"quantity" gorm:"not null"`
 	VariantDetails VariantDetails `json:"variant_details,omitempty" gorm:"type:json"`
 	CreatedAt      time.Time      `json:"created_at"`

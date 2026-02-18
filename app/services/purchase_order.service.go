@@ -26,11 +26,12 @@ type PurchaseOrderService interface {
 }
 
 type purchaseOrderService struct {
-	poRepo       repo.PurchaseOrderRepository
-	vendorRepo   repo.VendorRepository
-	customerRepo repo.CustomerRepository
-	itemRepo     repo.ItemRepository
-	taxRepo      repo.TaxRepository
+	poRepo        repo.PurchaseOrderRepository
+	vendorRepo    repo.VendorRepository
+	customerRepo  repo.CustomerRepository
+	itemRepo      repo.ItemRepository
+	taxRepo       repo.TaxRepository
+	inventoryRepo repo.InventoryBalanceRepository
 }
 
 func NewPurchaseOrderService(
@@ -39,13 +40,15 @@ func NewPurchaseOrderService(
 	customerRepo repo.CustomerRepository,
 	itemRepo repo.ItemRepository,
 	taxRepo repo.TaxRepository,
+	inventoryRepo repo.InventoryBalanceRepository,
 ) PurchaseOrderService {
 	return &purchaseOrderService{
-		poRepo:       poRepo,
-		vendorRepo:   vendorRepo,
-		customerRepo: customerRepo,
-		itemRepo:     itemRepo,
-		taxRepo:      taxRepo,
+		poRepo:        poRepo,
+		vendorRepo:    vendorRepo,
+		customerRepo:  customerRepo,
+		itemRepo:      itemRepo,
+		taxRepo:       taxRepo,
+		inventoryRepo: inventoryRepo,
 	}
 }
 
@@ -433,6 +436,50 @@ func (s *purchaseOrderService) UpdatePurchaseOrderStatus(id string, status domai
 	po, err := s.poRepo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("purchase order not found")
+	}
+
+	// When PO is received, update inventory
+	if status == domain.PurchaseOrderStatusReceived && po.Status != domain.PurchaseOrderStatusReceived {
+		for _, lineItem := range po.LineItems {
+			// Update inventory balance
+			balance, err := s.inventoryRepo.GetBalance(lineItem.ItemID, lineItem.VariantID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get inventory balance for item %s: %w", lineItem.ItemID, err)
+			}
+
+			// Add received quantity to current and available inventory
+			balance.CurrentQuantity += lineItem.Quantity
+			balance.AvailableQuantity += lineItem.Quantity
+			balance.LastReceivedDate = &time.Time{}
+			*balance.LastReceivedDate = time.Now()
+			balance.UpdatedAt = time.Now()
+
+			if err := s.inventoryRepo.UpdateBalance(balance); err != nil {
+				return nil, fmt.Errorf("failed to update inventory balance: %w", err)
+			}
+
+			// Create journal entry for inventory received
+			entry := &models.InventoryJournal{
+				ItemID:          lineItem.ItemID,
+				VariantID:       lineItem.VariantID,
+				TransactionType: "PURCHASE_ORDER_RECEIVED",
+				Quantity:        lineItem.Quantity,
+				ReferenceType:   "PurchaseOrder",
+				ReferenceID:     po.ID,
+				ReferenceNo:     po.PurchaseOrderNumber,
+				Notes:           fmt.Sprintf("Received from %s - PO: %s", po.Vendor.DisplayName, po.PurchaseOrderNumber),
+				CreatedBy:       userID,
+			}
+
+			if err := s.inventoryRepo.CreateJournalEntry(entry); err != nil {
+				return nil, fmt.Errorf("failed to create inventory journal: %w", err)
+			}
+		}
+
+		// Mark inventory as synced
+		po.InventorySynced = true
+		now := time.Now()
+		po.InventorySyncDate = &now
 	}
 
 	po.Status = status

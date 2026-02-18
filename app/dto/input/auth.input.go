@@ -63,6 +63,14 @@ type CreateUserRequest struct {
 	Phone    string `json:"phone,omitempty"`
 }
 
+type CreateSuperAdminRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password" validate:"required,min=8"`
+	RoleName string `json:"role_name" validate:"required"`
+	Phone    string `json:"phone,omitempty"`
+}
+
 type UpdateUserRequest struct {
 	Email    *string `json:"email,omitempty" validate:"omitempty,email"`
 	Username *string `json:"username,omitempty"`

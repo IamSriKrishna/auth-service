@@ -75,6 +75,49 @@ func (s *adminService) CreateUser(ctx context.Context, createdBy uint, req *inpu
 	}, nil
 }
 
+func (s *adminService) CreateSuperAdmin(ctx context.Context, createdBy *uint, req *input.CreateSuperAdminRequest) (*output.UserInfo, error) {
+	existingUser, err := s.userRepo.GetByEmail(req.Email)
+	if err == nil && existingUser != nil {
+		return nil, errors.New("user already exists with this email")
+	}
+
+	role, err := s.roleRepo.GetByName(req.RoleName)
+	if err != nil {
+		return nil, errors.New("invalid role name")
+	}
+
+	passwordHash, err := utils.HashPassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	user := &models.User{
+		Email:        &req.Email,
+		Username:     &req.Username,
+		PasswordHash: &passwordHash,
+		UserType:     models.UserTypeSuperAdmin,
+		RoleID:       role.ID,
+		Status:       models.UserStatusActive,
+		Phone:        &req.Phone,
+		CreatedBy:    createdBy,
+	}
+
+	if err := s.userRepo.Create(user); err != nil {
+		return nil, err
+	}
+
+	return &output.UserInfo{
+		ID:        user.ID,
+		Email:     user.Email,
+		Phone:     user.Phone,
+		Username:  user.Username,
+		UserType:  string(user.UserType),
+		Role:      role.RoleName,
+		Status:    string(user.Status),
+		CreatedAt: user.CreatedAt,
+	}, nil
+}
+
 func (s *adminService) ResetPassword(ctx context.Context, req *input.ResetPasswordRequest) error {
 	user, err := s.userRepo.GetByID(req.UserID)
 	if err != nil {

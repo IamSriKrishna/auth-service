@@ -1128,13 +1128,15 @@ Water bottle caps are sold separately by size:
 
 ---
 
-## Step 6: Create Item Groups (BOM)
+## Step 8: Create Item Groups (BOM)
 
-Item Groups combine multiple items into a finished product ready for sale.
+Item Groups (Bill of Materials) combine multiple items into a finished product ready for sale. This allows you to define how a complete water bottle is assembled from individual components (bottle + cap + label).
 
-### 6.1 500ml Complete Water Bottle (Bottle + Cap + Label)
+**Authentication:** Bearer Token + Admin Role
 
-**Endpoint:** `POST /api/item-groups`
+### 8.1 500ml Complete Water Bottle (Bottle + Cap + Label)
+
+**Endpoint:** `POST /item-groups`
 
 #### DTO Input Request
 
@@ -1145,8 +1147,8 @@ Item Groups combine multiple items into a finished product ready for sale.
   "is_active": true,
   "components": [
     {
-      "item_id": "ITEM-WTR-500-001",
-      "variant_id": 1,
+      "item_id": "item_26673b1a",
+      "variant_sku": "WTR-BOT-500-REG",
       "quantity": 1,
       "variant_details": {
         "type": "bottle",
@@ -1155,8 +1157,8 @@ Item Groups combine multiple items into a finished product ready for sale.
       }
     },
     {
-      "item_id": "ITEM-CAP-20MM-003",
-      "variant_id": 1,
+      "item_id": "item_386700c6",
+      "variant_sku": "CAP-20MM-WHITE",
       "quantity": 0.01,
       "variant_details": {
         "type": "cap",
@@ -1164,7 +1166,7 @@ Item Groups combine multiple items into a finished product ready for sale.
       }
     },
     {
-      "item_id": "ITEM-LBL-1K-006",
+      "item_id": "item_8195d60a",
       "quantity": 0.001,
       "variant_details": {
         "type": "label"
@@ -1182,45 +1184,63 @@ Item Groups combine multiple items into a finished product ready for sale.
 {
   "success": true,
   "data": {
-    "id": "grp-500ml-complete",
+    "id": "ig_a1b2c3d4",
     "name": "500ml Complete Water Bottle Packaged",
     "description": "Complete packaged 500ml water bottle including cap and label. Ready for retail sale.",
     "is_active": true,
     "components": [
       {
         "id": 1,
-        "item_group_id": "grp-500ml-complete",
-        "item_id": "ITEM-WTR-500-001",
-        "variant_id": 1,
+        "item_group_id": "ig_a1b2c3d4",
+        "item_id": "item_26673b1a",
+        "item": {
+          "id": "item_26673b1a",
+          "name": "500ml Premium Drinking Water Bottle",
+          "sku": "WTR-BOT-500-BASE"
+        },
+        "variant_sku": "WTR-BOT-500-REG",
         "quantity": 1,
         "variant_details": {
           "type": "bottle",
           "capacity": "500ml",
           "cap_type": "Regular Cap"
         },
-        "created_at": "2026-02-17T11:30:00Z"
+        "created_at": "2026-02-17T11:30:00Z",
+        "updated_at": "2026-02-17T11:30:00Z"
       },
       {
         "id": 2,
-        "item_group_id": "grp-500ml-complete",
-        "item_id": "ITEM-CAP-20MM-003",
-        "variant_id": 1,
+        "item_group_id": "ig_a1b2c3d4",
+        "item_id": "item_386700c6",
+        "item": {
+          "id": "item_386700c6",
+          "name": "20mm Tamper-proof Bottle Cap - Pack of 100",
+          "sku": "CAP-20MM-BASE"
+        },
+        "variant_sku": "CAP-20MM-WHITE",
         "quantity": 0.01,
         "variant_details": {
           "type": "cap",
           "color": "White"
         },
-        "created_at": "2026-02-17T11:30:00Z"
+        "created_at": "2026-02-17T11:30:00Z",
+        "updated_at": "2026-02-17T11:30:00Z"
       },
       {
         "id": 3,
-        "item_group_id": "grp-500ml-complete",
-        "item_id": "ITEM-LBL-1K-006",
+        "item_group_id": "ig_a1b2c3d4",
+        "item_id": "item_8195d60a",
+        "item": {
+          "id": "item_8195d60a",
+          "name": "Custom Water Bottle Labels - 1000 pieces",
+          "sku": "LBL-1000-CUSTOM"
+        },
         "quantity": 0.001,
         "variant_details": {
           "type": "label"
         },
-        "created_at": "2026-02-17T11:30:00Z"
+        "created_at": "2026-02-17T11:30:00Z",
+        "updated_at": "2026-02-17T11:30:00Z"
       }
     ],
     "created_at": "2026-02-17T11:30:00Z",
@@ -1230,7 +1250,9 @@ Item Groups combine multiple items into a finished product ready for sale.
 }
 ```
 
-### 6.2 20L Water Cooler Complete Set
+### 8.2 20L Water Cooler Complete Set
+
+**Endpoint:** `PUT /item-groups/{id}` (Update) or `POST /item-groups` (Create)
 
 #### DTO Input Request
 
@@ -1241,7 +1263,7 @@ Item Groups combine multiple items into a finished product ready for sale.
   "is_active": true,
   "components": [
     {
-      "item_id": "ITEM-WTR-20L-002",
+      "item_id": "item_e4c9a5c8",
       "quantity": 1,
       "variant_details": {
         "type": "bottle",
@@ -1249,7 +1271,7 @@ Item Groups combine multiple items into a finished product ready for sale.
       }
     },
     {
-      "item_id": "ITEM-CAP-90MM-005",
+      "item_id": "item_3382c1ab",
       "quantity": 1,
       "variant_details": {
         "type": "cap",
@@ -1257,7 +1279,7 @@ Item Groups combine multiple items into a finished product ready for sale.
       }
     },
     {
-      "item_id": "ITEM-LBL-1K-006",
+      "item_id": "item_8195d60a",
       "quantity": 0.005,
       "variant_details": {
         "type": "large_label"
@@ -1273,42 +1295,64 @@ Item Groups combine multiple items into a finished product ready for sale.
 {
   "success": true,
   "data": {
-    "id": "grp-20l-cooler",
+    "id": "ig_x9y8z7w6",
     "name": "20L Water Cooler Complete Set",
     "description": "20L polycarbonate bottle with large cap and labels. Complete for water cooler use.",
     "is_active": true,
     "components": [
       {
         "id": 1,
-        "item_group_id": "grp-20l-cooler",
-        "item_id": "ITEM-WTR-20L-002",
+        "item_group_id": "ig_x9y8z7w6",
+        "item_id": "item_e4c9a5c8",
+        "item": {
+          "id": "item_e4c9a5c8",
+          "name": "20 Litre Polycarbonate Water Cooler Bottle",
+          "sku": "WTR-COOLER-20L"
+        },
         "quantity": 1,
         "variant_details": {
           "type": "bottle",
           "capacity": "20L"
-        }
+        },
+        "created_at": "2026-02-17T11:45:00Z",
+        "updated_at": "2026-02-17T11:45:00Z"
       },
       {
         "id": 2,
-        "item_group_id": "grp-20l-cooler",
-        "item_id": "ITEM-CAP-90MM-005",
+        "item_group_id": "ig_x9y8z7w6",
+        "item_id": "item_3382c1ab",
+        "item": {
+          "id": "item_3382c1ab",
+          "name": "90mm Large Water Cooler Cap",
+          "sku": "CAP-90MM-LARGE"
+        },
         "quantity": 1,
         "variant_details": {
           "type": "cap",
           "size": "90mm"
-        }
+        },
+        "created_at": "2026-02-17T11:45:00Z",
+        "updated_at": "2026-02-17T11:45:00Z"
       },
       {
         "id": 3,
-        "item_group_id": "grp-20l-cooler",
-        "item_id": "ITEM-LBL-1K-006",
+        "item_group_id": "ig_x9y8z7w6",
+        "item_id": "item_8195d60a",
+        "item": {
+          "id": "item_8195d60a",
+          "name": "Custom Water Bottle Labels - 1000 pieces",
+          "sku": "LBL-1000-CUSTOM"
+        },
         "quantity": 0.005,
         "variant_details": {
           "type": "large_label"
-        }
+        },
+        "created_at": "2026-02-17T11:45:00Z",
+        "updated_at": "2026-02-17T11:45:00Z"
       }
     ],
-    "created_at": "2026-02-17T11:45:00Z"
+    "created_at": "2026-02-17T11:45:00Z",
+    "updated_at": "2026-02-17T11:45:00Z"
   },
   "message": "Item Group created successfully"
 }
@@ -1316,28 +1360,138 @@ Item Groups combine multiple items into a finished product ready for sale.
 
 ---
 
-## Step 9: Create Purchase Order
+## Step 9: Additional ItemGroup Operations
 
-### 9.1 Purchase Order for Bulk Water Bottles
+### 9.1 Get All Item Groups with Search & Pagination
+
+**Endpoint:** `GET /item-groups?limit=10&offset=0&search=500ml`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "ig_a1b2c3d4",
+      "name": "500ml Complete Water Bottle Packaged",
+      "description": "Complete packaged 500ml water bottle...",
+      "is_active": true,
+      "components": [...],
+      "created_at": "2026-02-17T11:30:00Z",
+      "updated_at": "2026-02-17T11:30:00Z"
+    }
+  ],
+  "total": 2,
+  "page": 1,
+  "page_size": 10
+}
+```
+
+### 9.2 Get Item Group by ID
+
+**Endpoint:** `GET /item-groups/{id}`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "ig_a1b2c3d4",
+    "name": "500ml Complete Water Bottle Packaged",
+    "description": "Complete packaged 500ml water bottle...",
+    "is_active": true,
+    "components": [...],
+    "created_at": "2026-02-17T11:30:00Z",
+    "updated_at": "2026-02-17T11:30:00Z"
+  }
+}
+```
+
+### 9.3 Update Item Group
+
+**Endpoint:** `PUT /item-groups/{id}`
+
+**Request:**
+```json
+{
+  "name": "500ml Complete Water Bottle Updated",
+  "description": "Updated description",
+  "is_active": true,
+  "components": [
+    {
+      "item_id": "ITEM-WTR-500-001",
+      "variant_id": 1,
+      "quantity": 1
+    }
+  ]
+}
+```
+
+### 9.4 Search Item Group by Name
+
+**Endpoint:** `GET /item-groups/search/by-name?name=500ml`
+
+### 9.5 Delete Item Group
+
+**Endpoint:** `DELETE /item-groups/{id}`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Item Group deleted successfully"
+}
+```
+
+---
+
+## Step 10: Create Purchase Order
+
+### 10.1 Purchase Order for Bulk Water Bottles
 
 **Endpoint:** `POST /purchase-orders`  
 **Authentication:** Bearer Token + Admin Role
 
-#### 9.2 DTO Input Request
+#### 10.2 DTO Input Request (With Multiple Line Items)
 
 ```json
 {
   "vendor_id": 5,
-  "company_id": 1,
-  "po_number": "PO-2026-WTR-001",
+  "delivery_address_type": "organization",
+  "organization_name": "AquaPlast Industries",
+  "organization_address": "Warehouse #1, 123 Industrial Park, Bangalore",
   "reference_no": "BOTTLE-BULK-FEB",
-  "po_date": "2026-02-17",
-  "expected_delivery_date": "2026-03-03",
-  "delivery_address": "Warehouse #1, 123 Industrial Park, Bangalore",
+  "date": "2026-02-17",
+  "delivery_date": "2026-03-03",
   "payment_terms": "net_45",
-  "incoterms": "FOB",
-  "shipping_via": "Truck Transport",
-  "notes": "Bulk order for retail stock. Regular Cap and Sports Cap variants."
+  "shipment_preference": "Truck Transport",
+  "discount": 0,
+  "discount_type": "amount",
+  "tax_type": "SGST",
+  "tax_id": 1,
+  "notes": "Bulk order for retail stock. Regular Cap and Sports Cap variants.",
+  "line_items": [
+    {
+      "item_id": "item_1a2b3c4d",
+      "variant_id": 1,
+      "account": "Cost of Goods Purchased",
+      "quantity": 5000,
+      "rate": 8.00,
+      "variant_details": {
+        "Cap Type": "Regular Cap"
+      }
+    },
+    {
+      "item_id": "item_1a2b3c4d",
+      "variant_id": 2,
+      "account": "Cost of Goods Purchased",
+      "quantity": 3000,
+      "rate": 9.50,
+      "variant_details": {
+        "Cap Type": "Sports Cap"
+      }
+    }
+  ]
 }
 ```
 
@@ -1349,28 +1503,61 @@ Item Groups combine multiple items into a finished product ready for sale.
 {
   "success": true,
   "data": {
-    "id": 1,
-    "po_number": "PO-2026-WTR-001",
+    "id": "12345678-1234-1234-1234-123456789012",
+    "po_number": "PO-20260217-0001",
     "reference_no": "BOTTLE-BULK-FEB",
     "vendor_id": 5,
     "vendor_name": "AquaPlast Industries",
-    "company_id": 1,
+    "delivery_address_type": "organization",
+    "organization_name": "AquaPlast Industries",
+    "organization_address": "Warehouse #1, 123 Industrial Park, Bangalore",
     "po_date": "2026-02-17",
-    "expected_delivery_date": "2026-03-03",
-    "delivery_address": "Warehouse #1, 123 Industrial Park, Bangalore",
+    "delivery_date": "2026-03-03",
     "payment_terms": "net_45",
-    "incoterms": "FOB",
-    "shipping_via": "Truck Transport",
-    "status": "Draft",
+    "shipment_preference": "Truck Transport",
+    "status": "draft",
     "notes": "Bulk order for retail stock. Regular Cap and Sports Cap variants.",
-    "line_items": [],
-    "total_amount": 0,
-    "tax_total": 0,
-    "grand_total": 0,
+    "line_items": [
+      {
+        "id": 1,
+        "item_id": "item_1a2b3c4d",
+        "item_name": "500ml Premium Drinking Water Bottle",
+        "variant_id": 1,
+        "variant_name": "Regular Cap",
+        "quantity": 5000,
+        "rate": 8.00,
+        "amount": 40000,
+        "account": "Cost of Goods Purchased",
+        "variant_details": {
+          "Cap Type": "Regular Cap"
+        },
+        "created_at": "2026-02-17T12:00:00Z"
+      },
+      {
+        "id": 2,
+        "item_id": "item_1a2b3c4d",
+        "item_name": "500ml Premium Drinking Water Bottle",
+        "variant_id": 2,
+        "variant_name": "Sports Cap",
+        "quantity": 3000,
+        "rate": 9.50,
+        "amount": 28500,
+        "account": "Cost of Goods Purchased",
+        "variant_details": {
+          "Cap Type": "Sports Cap"
+        },
+        "created_at": "2026-02-17T12:01:00Z"
+      }
+    ],
+    "sub_total": 68500,
+    "discount": 0,
+    "tax_amount": 0,
+    "adjustment": 0,
+    "total": 68500,
     "created_at": "2026-02-17T12:00:00Z",
     "updated_at": "2026-02-17T12:00:00Z"
   },
-  "message": "Purchase order created successfully"
+  "message": "Purchase order created successfully with 2 line items"
 }
 ```
 
@@ -1524,6 +1711,73 @@ Item Groups combine multiple items into a finished product ready for sale.
     "confirmed_at": "2026-02-17T12:10:00Z"
   },
   "message": "Purchase order confirmed successfully"
+}
+```
+
+### 9.7 Inventory Tracking for Purchase Order
+
+When a Purchase Order is **confirmed**, inventory is automatically tracked and updated in the system.
+
+#### Inventory Updates on PO Confirmation
+
+**Endpoint:** `GET /inventory-balance?item_id=item_1a2b3c4d`
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "item_id": "item_1a2b3c4d",
+      "item_name": "500ml Premium Drinking Water Bottle",
+      "variant_id": 1,
+      "variant_name": "Regular Cap",
+      "current_quantity": 5000,
+      "reserved_quantity": 0,
+      "available_quantity": 5000,
+      "in_transit_quantity": 0,
+      "average_rate": 8.00,
+      "last_received_date": "2026-02-17",
+      "last_sold_date": null,
+      "updated_at": "2026-02-17T12:00:00Z"
+    },
+    {
+      "id": 2,
+      "item_id": "item_1a2b3c4d",
+      "item_name": "500ml Premium Drinking Water Bottle",
+      "variant_id": 2,
+      "variant_name": "Sports Cap",
+      "current_quantity": 3000,
+      "reserved_quantity": 0,
+      "available_quantity": 3000,
+      "in_transit_quantity": 0,
+      "average_rate": 9.50,
+      "last_received_date": "2026-02-17",
+      "last_sold_date": null,
+      "updated_at": "2026-02-17T12:00:00Z"
+    }
+  ],
+  "message": "Inventory balance retrieved successfully"
+}
+```
+
+#### Inventory Journal Entry
+
+When PO is received, this entry is created:
+
+```json
+{
+  "id": 1,
+  "item_id": "item_1a2b3c4d",
+  "variant_id": 1,
+  "transaction_type": "PURCHASE_ORDER_RECEIVED",
+  "quantity": 5000,
+  "reference_type": "PurchaseOrder",
+  "reference_id": "12345678-1234-1234-1234-123456789012",
+  "reference_no": "PO-20260217-0001",
+  "notes": "500ml Regular Cap - Received from AquaPlast Industries",
+  "created_at": "2026-02-17T12:00:00Z",
+  "created_by": "admin_user"
 }
 ```
 
@@ -1822,107 +2076,189 @@ Create a sales order for the retail customer to purchase water bottles.
 }
 ```
 
-### 12.4 Add Line Items to Sales Order
+### 12.4 Add Multiple Line Items to Sales Order (With Inventory Validation)
 
-**Endpoint:** `POST /sales-orders/SO-2026-WTR-001/line-items`
+**Endpoint:** `POST /sales-orders`  
+**Authentication:** Bearer Token + Admin Role
 
-#### DTO Input Request
+#### DTO Input Request (With Multiple Line Items)
 
 ```json
 {
-  "item_id": "ITEM-WTR-500-001",
+  "customer_id": 12,
+  "sales_order_date": "2026-02-17",
+  "expected_shipment_date": "2026-02-19",
+  "payment_terms": "net_30",
+  "delivery_method": "courier",
+  "courier_company": "FedEx",
+  "salesperson_id": 3,
+  "notes": "Retail order for water bottles. Please ship within 2 days.",
+  "line_items": [
+    {
+      "item_id": "item_1a2b3c4d",
+      "variant_id": 1,
+      "quantity": 1000,
+      "rate": 15.00,
+      "variant_details": {
+        "Cap Type": "Regular Cap"
+      }
+    },
+    {
+      "item_id": "item_1a2b3c4d",
+      "variant_id": 2,
+      "quantity": 500,
+      "rate": 18.00,
+      "variant_details": {
+        "Cap Type": "Sports Cap"
+      }
+    }
+  ]
+}
+```
+
+#### DTO Output Response (Inventory Validation Success)
+
+**Status:** 201 Created
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "87654321-4321-4321-4321-210987654321",
+    "so_number": "SO-20260217-0001",
+    "customer_id": 12,
+    "customer_name": "Fresh Water Retail",
+    "sales_order_date": "2026-02-17",
+    "expected_shipment_date": "2026-02-19",
+    "status": "draft",
+    "payment_terms": "net_30",
+    "delivery_method": "courier",
+    "courier_company": "FedEx",
+    "salesperson_id": 3,
+    "salesperson_name": "Rajesh Sharma",
+    "notes": "Retail order for water bottles. Please ship within 2 days.",
+    "line_items": [
+      {
+        "id": 1,
+        "item_id": "item_1a2b3c4d",
+        "item_name": "500ml Premium Drinking Water Bottle",
+        "variant_id": 1,
+        "variant_name": "Regular Cap",
+        "quantity": 1000,
+        "rate": 15.00,
+        "amount": 15000,
+        "available_inventory": 5000,
+        "variant_details": {
+          "Cap Type": "Regular Cap"
+        },
+        "created_at": "2026-02-17T12:15:00Z"
+      },
+      {
+        "id": 2,
+        "item_id": "item_1a2b3c4d",
+        "item_name": "500ml Premium Drinking Water Bottle",
+        "variant_id": 2,
+        "variant_name": "Sports Cap",
+        "quantity": 500,
+        "rate": 18.00,
+        "amount": 9000,
+        "available_inventory": 3000,
+        "variant_details": {
+          "Cap Type": "Sports Cap"
+        },
+        "created_at": "2026-02-17T12:16:00Z"
+      }
+    ],
+    "sub_total": 24000,
+    "tax_amount": 0,
+    "adjustment": 0,
+    "total": 24000,
+    "created_at": "2026-02-17T12:15:00Z",
+    "updated_at": "2026-02-17T12:16:00Z"
+  },
+  "message": "Sales order created successfully with 2 line items. Inventory validated."
+}
+```
+
+#### Error Response (Insufficient Inventory)
+
+**Status:** 400 Bad Request
+
+```json
+{
+  "success": false,
+  "error": "Insufficient inventory for variant_id 1. Required: 1000 units, Available: 500 units, Item: 500ml Premium Drinking Water Bottle (Regular Cap)"
+}
+```
+
+### 12.5 Inventory Reservation on Sales Order Confirmation
+
+When a Sales Order is **confirmed**, inventory is reserved for the order.
+
+**Endpoint:** `PUT /sales-orders/{id}/confirm`
+
+```json
+{
+  "success": true,
+  "message": "Sales order confirmed successfully. Inventory reserved for 1000 units (Regular Cap) and 500 units (Sports Cap)"
+}
+```
+
+#### Inventory Balance After Reservation
+
+```json
+{
+  "id": 1,
+  "item_id": "item_1a2b3c4d",
   "variant_id": 1,
-  "quantity": 1000,
-  "rate": 15.00,
-  "description": "500ml Regular Cap bottles retail sale (1000 units)",
-  "tax_id": 1,
-  "warehouse_id": 1
+  "variant_name": "Regular Cap",
+  "current_quantity": 5000,
+  "reserved_quantity": 1000,
+  "available_quantity": 4000,
+  "in_transit_quantity": 0,
+  "updated_at": "2026-02-17T13:00:00Z"
 }
 ```
 
-#### DTO Output Response
+### 12.6 Inventory Tracking Summary
 
-**Status:** 201 Created
+#### Endpoint: `GET /inventory-journal?item_id=item_1a2b3c4d`
 
 ```json
 {
   "success": true,
-  "data": {
-    "id": 1,
-    "sales_order_id": "SO-2026-WTR-001",
-    "line_item_number": 1,
-    "item_id": "ITEM-WTR-500-001",
-    "item_name": "500ml Premium Drinking Water Bottle",
-    "variant_id": 1,
-    "variant_name": "Regular Cap",
-    "quantity": 1000,
-    "unit": "piece",
-    "rate": 15.00,
-    "amount": 15000,
-    "tax_id": 1,
-    "tax_percentage": 5,
-    "tax_amount": 750,
-    "total": 15750,
-    "warehouse_id": 1,
-    "warehouse_name": "Warehouse #1",
-    "description": "500ml Regular Cap bottles retail sale (1000 units)",
-    "created_at": "2026-02-17T12:15:00Z"
-  },
-  "message": "Line item added successfully"
+  "data": [
+    {
+      "id": 2,
+      "item_id": "item_1a2b3c4d",
+      "variant_id": 1,
+      "transaction_type": "SALES_ORDER_RESERVED",
+      "quantity": 1000,
+      "reference_type": "SalesOrder",
+      "reference_id": "87654321-4321-4321-4321-210987654321",
+      "reference_no": "SO-20260217-0001",
+      "notes": "Regular Cap variant reserved for retail order",
+      "created_at": "2026-02-17T13:00:00Z",
+      "created_by": "admin_user"
+    },
+    {
+      "id": 1,
+      "item_id": "item_1a2b3c4d",
+      "variant_id": 1,
+      "transaction_type": "PURCHASE_ORDER_RECEIVED",
+      "quantity": 5000,
+      "reference_type": "PurchaseOrder",
+      "reference_id": "12345678-1234-1234-1234-123456789012",
+      "reference_no": "PO-20260217-0001",
+      "notes": "500ml Regular Cap - Received from AquaPlast Industries",
+      "created_at": "2026-02-17T12:00:00Z",
+      "created_by": "admin_user"
+    }
+  ]
 }
 ```
 
-### 12.5 Add Second Line Item (Sports Cap Variant)
-
-**Endpoint:** `POST /sales-orders/SO-2026-WTR-001/line-items`
-
-#### DTO Input Request
-
-```json
-{
-  "item_id": "ITEM-WTR-500-001",
-  "variant_id": 2,
-  "quantity": 500,
-  "rate": 18.00,
-  "description": "500ml Sports Cap bottles retail sale (500 units)",
-  "tax_id": 1,
-  "warehouse_id": 1
-}
-```
-
-#### DTO Output Response
-
-**Status:** 201 Created
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 2,
-    "sales_order_id": "SO-2026-WTR-001",
-    "line_item_number": 2,
-    "item_id": "ITEM-WTR-500-001",
-    "item_name": "500ml Premium Drinking Water Bottle",
-    "variant_id": 2,
-    "variant_name": "Sports Cap",
-    "quantity": 500,
-    "unit": "piece",
-    "rate": 18.00,
-    "amount": 9000,
-    "tax_id": 1,
-    "tax_percentage": 5,
-    "tax_amount": 450,
-    "total": 9450,
-    "warehouse_id": 1,
-    "warehouse_name": "Warehouse #1",
-    "description": "500ml Sports Cap bottles retail sale (500 units)",
-    "created_at": "2026-02-17T12:20:00Z"
-  },
-  "message": "Line item added successfully"
-}
-```
-
-### 12.6 Confirm Sales Order
+### 12.7 Confirm Sales Order
 
 **Endpoint:** `PUT /sales-orders/SO-2026-WTR-001/confirm`
 
@@ -2421,7 +2757,12 @@ Record the payment received from the customer for the invoice.
 | Update Item | PUT | `/items/{id}` | Update pricing, description |
 | Set Opening Stock | PUT | `/items/{id}/opening-stock` | Initialize inventory |
 | Set Variant Stock | PUT | `/items/{id}/variants/opening-stock` | Initialize per-variant stock |
-| Create Item Group | POST | `/api/item-groups` | Create BOM (bottle + cap + label) |
+| Create Item Group | POST | `/item-groups` | Create BOM (bottle + cap + label) |
+| Get Item Groups | GET | `/item-groups` | List all item groups with search |
+| Get Item Group | GET | `/item-groups/{id}` | Retrieve item group details |
+| Update Item Group | PUT | `/item-groups/{id}` | Update BOM components |
+| Delete Item Group | DELETE | `/item-groups/{id}` | Remove item group |
+| Search Item Group | GET | `/item-groups/search/by-name` | Find by name |
 | Create Purchase Order | POST | `/purchase-orders` | Order from suppliers |
 | Add PO Items | POST | `/purchase-orders/{po_id}/line-items` | Add bottles/caps to order |
 | Create Sales Order | POST | `/sales-orders` | Sell to customers |
@@ -2453,6 +2794,9 @@ For water company products, use:
 4. **Inventory Tracking:** Enable for all water bottles and packaging
 5. **Reorder Points:** Set minimum stock levels (e.g., 1000 units for 500ml)
 6. **Item Groups:** Create BOMs for packaged products (bottle + cap + label)
+   - Defines which components are needed to create finished product
+   - Supports exact ingredient tracking for manufacturing
+   - Enables costing and profitability analysis
 7. **Tax Configuration:** Water is typically 5% GST in India
 
 ---
@@ -2461,7 +2805,7 @@ For water company products, use:
 
 1. ✅ Create all water company products (bottles, caps, labels)
 2. ✅ Set opening stock in warehouse
-3. ✅ Create item groups for packaged products
+3. ✅ Create Item Groups (BOMs) for packaged products
 4. 📋 Create Purchase Orders with suppliers
 5. 📋 Create Sales Orders with customers
 6. 📋 Generate Invoices and track shipments

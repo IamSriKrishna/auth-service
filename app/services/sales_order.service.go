@@ -30,6 +30,7 @@ type salesOrderService struct {
 	itemRepo        repo.ItemRepository
 	taxRepo         repo.TaxRepository
 	salespersonRepo repo.SalespersonRepository
+	inventoryRepo   repo.InventoryBalanceRepository
 }
 
 func NewSalesOrderService(
@@ -38,6 +39,7 @@ func NewSalesOrderService(
 	itemRepo repo.ItemRepository,
 	taxRepo repo.TaxRepository,
 	salespersonRepo repo.SalespersonRepository,
+	inventoryRepo repo.InventoryBalanceRepository,
 ) SalesOrderService {
 	return &salesOrderService{
 		soRepo:          soRepo,
@@ -45,6 +47,7 @@ func NewSalesOrderService(
 		itemRepo:        itemRepo,
 		taxRepo:         taxRepo,
 		salespersonRepo: salespersonRepo,
+		inventoryRepo:   inventoryRepo,
 	}
 }
 
@@ -77,6 +80,26 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 		item, err := s.itemRepo.FindByID(itemInput.ItemID)
 		if err != nil {
 			return nil, errors.New("item not found: " + itemInput.ItemID)
+		}
+
+		// Check inventory availability
+		inventoryBalance, err := s.inventoryRepo.GetBalance(itemInput.ItemID, itemInput.VariantID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check inventory for item %s: %v", itemInput.ItemID, err)
+		}
+
+		if inventoryBalance.AvailableQuantity < itemInput.Quantity {
+			variantName := "N/A"
+			if itemInput.VariantID != nil && item.ItemDetails.Variants != nil {
+				for _, v := range item.ItemDetails.Variants {
+					if v.ID == *itemInput.VariantID {
+						variantName = v.SKU
+						break
+					}
+				}
+			}
+			return nil, fmt.Errorf("insufficient inventory for %s (%s). Required: %f units, Available: %f units",
+				item.Name, variantName, itemInput.Quantity, inventoryBalance.AvailableQuantity)
 		}
 
 		amount := itemInput.Quantity * itemInput.Rate

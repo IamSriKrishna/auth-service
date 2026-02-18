@@ -42,6 +42,33 @@ func (h *AdminHandler) CreateUser(c *fiber.Ctx) error {
 	return c.JSON(resp)
 }
 
+func (h *AdminHandler) CreateSuperAdmin(c *fiber.Ctx) error {
+	var req input.CreateSuperAdminRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
+			Error:   true,
+			Message: "Invalid request body",
+		})
+	}
+
+	// For public endpoint, createdBy may be nil if no authenticated user
+	var createdBy *uint
+	if userID := c.Locals("user_id"); userID != nil {
+		id := userID.(uint)
+		createdBy = &id
+	}
+
+	resp, err := h.adminService.CreateSuperAdmin(c.Context(), createdBy, &req)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
+			Error:   true,
+			Message: err.Error(),
+		})
+	}
+
+	return c.JSON(resp)
+}
+
 func (h *AdminHandler) ResetAdminPassword(c *fiber.Ctx) error {
 	var req input.ResetPasswordRequest
 	if err := c.BodyParser(&req); err != nil {

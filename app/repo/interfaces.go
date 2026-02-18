@@ -209,3 +209,13 @@ type BankRepository interface {
 	Update(bank *models.Bank) error
 	Delete(id uint) error
 }
+
+type InventoryBalanceRepository interface {
+	GetBalance(itemID string, variantID *uint) (*models.InventoryBalance, error)
+	GetBalances(itemID string) ([]models.InventoryBalance, error)
+	UpdateBalance(balance *models.InventoryBalance) error
+	CreateJournalEntry(entry *models.InventoryJournal) error
+	GetJournalEntries(itemID string, limit, offset int) ([]models.InventoryJournal, int64, error)
+	ReserveInventory(itemID string, variantID *uint, quantity float64, referenceID, referenceNo string) error
+	ReleaseReservation(itemID string, variantID *uint, quantity float64, referenceID string) error
+}
