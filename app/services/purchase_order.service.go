@@ -95,13 +95,13 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 		subTotal += amount
 
 		lineItem := models.PurchaseOrderLineItem{
-			ItemID:    itemInput.ItemID,
-			Item:      item,
-			VariantID: itemInput.VariantID,
-			Account:   itemInput.Account,
-			Quantity:  itemInput.Quantity,
-			Rate:      itemInput.Rate,
-			Amount:    amount,
+			ItemID:     itemInput.ItemID,
+			Item:       item,
+			VariantSKU: itemInput.VariantSKU,
+			Account:    itemInput.Account,
+			Quantity:   itemInput.Quantity,
+			Rate:       itemInput.Rate,
+			Amount:     amount,
 		}
 
 		if itemInput.VariantDetails != nil {
@@ -282,13 +282,13 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 			subTotal += amount
 
 			lineItem := models.PurchaseOrderLineItem{
-				ItemID:    itemInput.ItemID,
-				Item:      item,
-				VariantID: itemInput.VariantID,
-				Account:   itemInput.Account,
-				Quantity:  itemInput.Quantity,
-				Rate:      itemInput.Rate,
-				Amount:    amount,
+				ItemID:     itemInput.ItemID,
+				Item:       item,
+				VariantSKU: itemInput.VariantSKU,
+				Account:    itemInput.Account,
+				Quantity:   itemInput.Quantity,
+				Rate:       itemInput.Rate,
+				Amount:     amount,
 			}
 
 			if itemInput.VariantDetails != nil {
@@ -442,7 +442,7 @@ func (s *purchaseOrderService) UpdatePurchaseOrderStatus(id string, status domai
 	if status == domain.PurchaseOrderStatusReceived && po.Status != domain.PurchaseOrderStatusReceived {
 		for _, lineItem := range po.LineItems {
 			// Update inventory balance
-			balance, err := s.inventoryRepo.GetBalance(lineItem.ItemID, lineItem.VariantID)
+			balance, err := s.inventoryRepo.GetBalance(lineItem.ItemID, lineItem.VariantSKU)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get inventory balance for item %s: %w", lineItem.ItemID, err)
 			}
@@ -461,7 +461,7 @@ func (s *purchaseOrderService) UpdatePurchaseOrderStatus(id string, status domai
 			// Create journal entry for inventory received
 			entry := &models.InventoryJournal{
 				ItemID:          lineItem.ItemID,
-				VariantID:       lineItem.VariantID,
+				VariantSKU:      lineItem.VariantSKU,
 				TransactionType: "PURCHASE_ORDER_RECEIVED",
 				Quantity:        lineItem.Quantity,
 				ReferenceType:   "PurchaseOrder",

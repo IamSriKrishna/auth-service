@@ -45,7 +45,7 @@ type InvoiceLineItemOutput struct {
 	ID             uint              `json:"id"`
 	ItemID         string            `json:"item_id"`
 	Item           *ItemInfo         `json:"item,omitempty"`
-	VariantID      *uint             `json:"variant_id,omitempty"`
+	VariantSKU     *string           `json:"variant_sku,omitempty"`
 	Variant        *VariantInfo      `json:"variant,omitempty"`
 	Description    string            `json:"description,omitempty"`
 	Quantity       float64           `json:"quantity"`
@@ -109,7 +109,7 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 		lineItemOutput := InvoiceLineItemOutput{
 			ID:             item.ID,
 			ItemID:         item.ItemID,
-			VariantID:      item.VariantID,
+			VariantSKU:     item.VariantSKU,
 			Description:    item.Description,
 			Quantity:       item.Quantity,
 			Rate:           item.Rate,

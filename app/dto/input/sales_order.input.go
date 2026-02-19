@@ -24,7 +24,7 @@ type CreateSalesOrderInput struct {
 
 type SalesOrderLineItemInput struct {
 	ItemID         string            `json:"item_id" validate:"required"`
-	VariantID      *uint             `json:"variant_id"`
+	VariantSKU     *string           `json:"variant_sku"`
 	Quantity       float64           `json:"quantity" validate:"required,gt=0"`
 	Rate           float64           `json:"rate" validate:"required,gt=0"`
 	VariantDetails map[string]string `json:"variant_details"`

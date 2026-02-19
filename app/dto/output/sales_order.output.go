@@ -41,7 +41,7 @@ type SalesOrderLineItemOutput struct {
 	ID             uint              `json:"id"`
 	ItemID         string            `json:"item_id"`
 	Item           *ItemInfo         `json:"item,omitempty"`
-	VariantID      *uint             `json:"variant_id,omitempty"`
+	VariantSKU     *string           `json:"variant_sku,omitempty"`
 	Variant        *VariantInfo      `json:"variant,omitempty"`
 	Quantity       float64           `json:"quantity"`
 	Rate           float64           `json:"rate"`
@@ -54,12 +54,12 @@ func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 
 	for _, item := range so.LineItems {
 		lineItemOutput := SalesOrderLineItemOutput{
-			ID:        item.ID,
-			ItemID:    item.ItemID,
-			VariantID: item.VariantID,
-			Quantity:  item.Quantity,
-			Rate:      item.Rate,
-			Amount:    item.Amount,
+			ID:         item.ID,
+			ItemID:     item.ItemID,
+			VariantSKU: item.VariantSKU,
+			Quantity:   item.Quantity,
+			Rate:       item.Rate,
+			Amount:     item.Amount,
 		}
 
 		if item.Item != nil {

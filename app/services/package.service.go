@@ -80,7 +80,7 @@ func (s *packageService) CreatePackage(pkgInput *input.CreatePackageInput, userI
 		packageItem := models.PackageItem{
 			SalesOrderItemID: itemInput.SalesOrderItemID,
 			ItemID:           itemInput.ItemID,
-			VariantID:        itemInput.VariantID,
+			VariantSKU:       itemInput.VariantSKU,
 			OrderedQty:       itemInput.OrderedQty,
 			PackedQty:        itemInput.PackedQty,
 		}
@@ -224,7 +224,7 @@ func (s *packageService) UpdatePackage(id string, pkgInput *input.UpdatePackageI
 			packageItem := models.PackageItem{
 				SalesOrderItemID: itemInput.SalesOrderItemID,
 				ItemID:           itemInput.ItemID,
-				VariantID:        itemInput.VariantID,
+				VariantSKU:       itemInput.VariantSKU,
 				OrderedQty:       itemInput.OrderedQty,
 				PackedQty:        itemInput.PackedQty,
 				Item:             item,

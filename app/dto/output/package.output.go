@@ -27,7 +27,7 @@ type PackageItemOutput struct {
 	ID             uint              `json:"id"`
 	ItemID         string            `json:"item_id"`
 	Item           *ItemInfo         `json:"item,omitempty"`
-	VariantID      *uint             `json:"variant_id,omitempty"`
+	VariantSKU     *string           `json:"variant_sku,omitempty"`
 	Variant        *VariantInfo      `json:"variant,omitempty"`
 	OrderedQty     float64           `json:"ordered_qty"`
 	PackedQty      float64           `json:"packed_qty"`
@@ -51,7 +51,7 @@ func ToPackageOutput(pkg *models.Package) (*PackageOutput, error) {
 		packageItemOutput := PackageItemOutput{
 			ID:         item.ID,
 			ItemID:     item.ItemID,
-			VariantID:  item.VariantID,
+			VariantSKU: item.VariantSKU,
 			OrderedQty: item.OrderedQty,
 			PackedQty:  item.PackedQty,
 		}

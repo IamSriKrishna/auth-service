@@ -83,16 +83,16 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 		}
 
 		// Check inventory availability
-		inventoryBalance, err := s.inventoryRepo.GetBalance(itemInput.ItemID, itemInput.VariantID)
+		inventoryBalance, err := s.inventoryRepo.GetBalance(itemInput.ItemID, itemInput.VariantSKU)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check inventory for item %s: %v", itemInput.ItemID, err)
 		}
 
 		if inventoryBalance.AvailableQuantity < itemInput.Quantity {
 			variantName := "N/A"
-			if itemInput.VariantID != nil && item.ItemDetails.Variants != nil {
+			if itemInput.VariantSKU != nil && item.ItemDetails.Variants != nil {
 				for _, v := range item.ItemDetails.Variants {
-					if v.ID == *itemInput.VariantID {
+					if v.SKU == *itemInput.VariantSKU {
 						variantName = v.SKU
 						break
 					}
@@ -106,12 +106,12 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 		subTotal += amount
 
 		lineItem := models.SalesOrderLineItem{
-			ItemID:    itemInput.ItemID,
-			Item:      item,
-			VariantID: itemInput.VariantID,
-			Quantity:  itemInput.Quantity,
-			Rate:      itemInput.Rate,
-			Amount:    amount,
+			ItemID:     itemInput.ItemID,
+			Item:       item,
+			VariantSKU: itemInput.VariantSKU,
+			Quantity:   itemInput.Quantity,
+			Rate:       itemInput.Rate,
+			Amount:     amount,
 		}
 
 		if itemInput.VariantDetails != nil {
@@ -290,12 +290,12 @@ func (s *salesOrderService) UpdateSalesOrder(id string, soInput *input.UpdateSal
 			subTotal += amount
 
 			lineItem := models.SalesOrderLineItem{
-				ItemID:    itemInput.ItemID,
-				Item:      item,
-				VariantID: itemInput.VariantID,
-				Quantity:  itemInput.Quantity,
-				Rate:      itemInput.Rate,
-				Amount:    amount,
+				ItemID:     itemInput.ItemID,
+				Item:       item,
+				VariantSKU: itemInput.VariantSKU,
+				Quantity:   itemInput.Quantity,
+				Rate:       itemInput.Rate,
+				Amount:     amount,
 			}
 
 			if itemInput.VariantDetails != nil {

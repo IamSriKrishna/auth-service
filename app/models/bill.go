@@ -43,8 +43,8 @@ type BillLineItem struct {
 	BillID          string         `json:"bill_id" gorm:"type:varchar(255);not null;index"`
 	ItemID          string         `json:"item_id" gorm:"type:varchar(255);not null;index"`
 	Item            *Item          `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	VariantID       *uint          `json:"variant_id,omitempty" gorm:"index"`
-	Variant         *Variant       `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	VariantSKU      *string        `json:"variant_sku,omitempty" gorm:"type:varchar(255);index"`
+	Variant         *Variant       `json:"variant,omitempty" gorm:"foreignKey:VariantSKU;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 	Description     string         `json:"description" gorm:"type:text"`
 	Account         string         `json:"account" gorm:"type:varchar(255)"`
 	Quantity        float64        `json:"quantity" gorm:"not null"`

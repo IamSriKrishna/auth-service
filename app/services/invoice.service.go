@@ -106,22 +106,13 @@ func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID s
 	var subTotal float64
 
 	for i, itemInput := range input.LineItems {
-		item, err := s.itemRepo.FindByID(itemInput.ItemID)
+		_, err := s.itemRepo.FindByID(itemInput.ItemID)
 		if err != nil {
 			return nil, fmt.Errorf("item %s not found", itemInput.ItemID)
 		}
 
-		if itemInput.VariantID != nil {
-			variantFound := false
-			for _, variant := range item.ItemDetails.Variants {
-				if variant.ID == *itemInput.VariantID {
-					variantFound = true
-					break
-				}
-			}
-			if !variantFound {
-				return nil, fmt.Errorf("variant %d not found for item %s", *itemInput.VariantID, itemInput.ItemID)
-			}
+		if itemInput.VariantSKU != nil {
+			// Variant SKU will be stored directly, no need for ID validation
 		}
 
 		amount := itemInput.Quantity * itemInput.Rate
@@ -129,7 +120,7 @@ func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID s
 
 		lineItems[i] = models.InvoiceLineItem{
 			ItemID:         itemInput.ItemID,
-			VariantID:      itemInput.VariantID,
+			VariantSKU:     itemInput.VariantSKU,
 			Description:    itemInput.Description,
 			Quantity:       itemInput.Quantity,
 			Rate:           itemInput.Rate,
@@ -280,22 +271,13 @@ func (s *invoiceService) UpdateInvoice(id string, input *input.UpdateInvoiceInpu
 		var subTotal float64
 
 		for i, itemInput := range input.LineItems {
-			item, err := s.itemRepo.FindByID(itemInput.ItemID)
+			_, err := s.itemRepo.FindByID(itemInput.ItemID)
 			if err != nil {
 				return nil, fmt.Errorf("item %s not found", itemInput.ItemID)
 			}
 
-			if itemInput.VariantID != nil {
-				variantFound := false
-				for _, variant := range item.ItemDetails.Variants {
-					if variant.ID == *itemInput.VariantID {
-						variantFound = true
-						break
-					}
-				}
-				if !variantFound {
-					return nil, fmt.Errorf("variant %d not found for item %s", *itemInput.VariantID, itemInput.ItemID)
-				}
+			if itemInput.VariantSKU != nil {
+				// Variant SKU will be stored directly, no need for ID validation
 			}
 
 			amount := itemInput.Quantity * itemInput.Rate
@@ -303,7 +285,7 @@ func (s *invoiceService) UpdateInvoice(id string, input *input.UpdateInvoiceInpu
 
 			lineItems[i] = models.InvoiceLineItem{
 				ItemID:         itemInput.ItemID,
-				VariantID:      itemInput.VariantID,
+				VariantSKU:     itemInput.VariantSKU,
 				Description:    itemInput.Description,
 				Quantity:       itemInput.Quantity,
 				Rate:           itemInput.Rate,

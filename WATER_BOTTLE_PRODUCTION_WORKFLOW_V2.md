@@ -107,10 +107,11 @@ The backend now includes comprehensive validation for variant items through the 
 1. [Step 1: Create Base Items](#step-1-create-base-items)
 2. [Step 2: Create Item Group (BOM)](#step-2-create-item-group-bom)
 3. [Step 3: Set Opening Stock](#step-3-set-opening-stock)
-4. [Step 4: Create Production Order](#step-4-create-production-order)
-5. [Step 5: Create Sales Order](#step-5-create-sales-order)
-6. [Step 6: Create Invoice](#step-6-create-invoice)
-7. [Step 7: Record Payment](#step-7-record-payment)
+4. [Step 4: Create Purchase Order](#step-4-create-purchase-order)
+5. [Step 5: Create Production Order](#step-5-create-production-order)
+6. [Step 6: Create Sales Order](#step-6-create-sales-order)
+7. [Step 7: Create Invoice](#step-7-create-invoice)
+8. [Step 8: Record Payment](#step-8-record-payment)
 
 ---
 
@@ -489,7 +490,251 @@ This combines the bottle, cap, and box into one finished product ready for sale.
 
 ---
 
-## Step 4: Create Production Order
+## Step 4: Create Purchase Order
+
+A Purchase Order (PO) is created to procure the components needed for production from a vendor. This establishes the commitment to buy materials at specific prices.
+
+### 4.1 Create Purchase Order for Components
+
+**Endpoint:** `POST /purchase-orders`
+
+**Backend Details:**
+- **Service:** `PurchaseOrderService.CreatePurchaseOrder()`
+- **Validation:** Checks vendor exists, validates items exist, calculates totals with tax
+- **Model:** `PurchaseOrder` with line items and status tracking
+- **Repository:** `PurchaseOrderRepository.Create()` persists order to database
+- **Handler:** `PurchaseOrderHandler.CreatePurchaseOrder()` handles HTTP request/response
+
+**API Request:**
+```json
+{
+  "vendor_id": 1,
+  "reference_no": "PO-2026-1L-V3-001",
+  "date": "2026-02-15",
+  "delivery_date": "2026-02-20",
+  "delivery_address_type": "organization",
+  "organization_name": "Our Manufacturing Facility",
+  "organization_address": "123 Industrial Park, Mumbai, Maharashtra 400001",
+  "payment_terms": "net_30",
+  "shipment_preference": "by_truck",
+  "discount": 50,
+  "discount_type": "amount",
+  "tax_id": 1,
+  "notes": "Order for 50 units of 1L water bottle production. Components needed: bottles, caps, boxes.",
+  "line_items": [
+    {
+      "item_id": "item_plt1l_v3",
+      "variant_sku": "WTR-PLT-1L-STD-V3",
+      "quantity": 60,
+      "rate": 12.5,
+      "account": "Raw Materials - Bottles",
+      "variant_details": {
+        "type": "bottle",
+        "capacity": "1 Liter"
+      }
+    },
+    {
+      "item_id": "item_cap28_v3",
+      "variant_sku": "CAP-28MM-STD-V3",
+      "quantity": 240,
+      "rate": 0.25,
+      "account": "Raw Materials - Caps",
+      "variant_details": {
+        "type": "cap",
+        "material": "Standard Plastic"
+      }
+    },
+    {
+      "item_id": "item_box1l_v3",
+      "quantity": 10,
+      "rate": 15,
+      "account": "Raw Materials - Boxes",
+      "variant_details": {
+        "type": "box"
+      }
+    }
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Purchase order created successfully",
+  "data": {
+    "id": "po_1lv3_001",
+    "purchase_order_no": "PO-2026-1L-V3-001",
+    "vendor_id": 1,
+    "vendor": {
+      "id": 1,
+      "display_name": "Bottle Manufacturer Ltd"
+    },
+    "reference_no": "PO-2026-1L-V3-001",
+    "date": "2026-02-15",
+    "delivery_date": "2026-02-20",
+    "delivery_address_type": "organization",
+    "organization_name": "Our Manufacturing Facility",
+    "organization_address": "123 Industrial Park, Mumbai, Maharashtra 400001",
+    "payment_terms": "net_30",
+    "shipment_preference": "by_truck",
+    "status": "draft",
+    "line_items": [
+      {
+        "id": 1,
+        "purchase_order_id": "po_1lv3_001",
+        "item_id": "item_plt1l_v3",
+        "item_name": "1L Premium Drinking Water Bottle - V3",
+        "quantity": 60,
+        "rate": 12.5,
+        "amount": 750,
+        "account": "Raw Materials - Bottles",
+        "variant_details": {
+          "type": "bottle",
+          "capacity": "1 Liter"
+        }
+      },
+      {
+        "id": 2,
+        "purchase_order_id": "po_1lv3_001",
+        "item_id": "item_cap28_v3",
+        "item_name": "28mm Twist-Lock Bottle Caps - V3",
+        "quantity": 240,
+        "rate": 0.25,
+        "amount": 60,
+        "account": "Raw Materials - Caps"
+      },
+      {
+        "id": 3,
+        "purchase_order_id": "po_1lv3_001",
+        "item_id": "item_box1l_v3",
+        "item_name": "1L Bottle Shipping Box - V3",
+        "quantity": 10,
+        "rate": 15,
+        "amount": 150,
+        "account": "Raw Materials - Boxes"
+      }
+    ],
+    "sub_total": 960,
+    "discount": 50,
+    "discount_type": "amount",
+    "tax_type": "SGST",
+    "tax_id": 1,
+    "tax_amount": 163.8,
+    "adjustment": 0,
+    "total": 1073.8,
+    "inventory_synced": false,
+    "created_at": "2026-02-15T09:00:00Z",
+    "created_by": "admin_user_123"
+  }
+}
+```
+
+### 4.2 Confirm Purchase Order
+
+**Endpoint:** `PATCH /purchase-orders/po_1lv3_001/status`
+
+**API Request:**
+```json
+{
+  "status": "confirmed"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Purchase order status updated successfully",
+  "data": {
+    "id": "po_1lv3_001",
+    "purchase_order_no": "PO-2026-1L-V3-001",
+    "status": "confirmed",
+    "updated_at": "2026-02-15T10:00:00Z"
+  }
+}
+```
+
+### 4.3 Record Material Receipt
+
+**Endpoint:** `PUT /purchase-orders/po_1lv3_001`
+
+**API Request:**
+```json
+{
+  "status": "received",
+  "line_items": [
+    {
+      "item_id": "item_plt1l_v3",
+      "received_quantity": 60,
+      "quantity": 60
+    },
+    {
+      "item_id": "item_cap28_v3",
+      "received_quantity": 240,
+      "quantity": 240
+    },
+    {
+      "item_id": "item_box1l_v3",
+      "received_quantity": 10,
+      "quantity": 10
+    }
+  ],
+  "notes": "All materials received and verified. Quality check completed."
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Purchase order updated successfully",
+  "data": {
+    "id": "po_1lv3_001",
+    "purchase_order_no": "PO-2026-1L-V3-001",
+    "status": "received",
+    "inventory_synced": true,
+    "inventory_sync_date": "2026-02-20T15:30:00Z",
+    "line_items": [
+      {
+        "id": 1,
+        "item_id": "item_plt1l_v3",
+        "item_name": "1L Premium Drinking Water Bottle - V3",
+        "quantity": 60,
+        "received_quantity": 60,
+        "rate": 12.5,
+        "amount": 750
+      },
+      {
+        "id": 2,
+        "item_id": "item_cap28_v3",
+        "item_name": "28mm Twist-Lock Bottle Caps - V3",
+        "quantity": 240,
+        "received_quantity": 240,
+        "rate": 0.25,
+        "amount": 60
+      },
+      {
+        "id": 3,
+        "item_id": "item_box1l_v3",
+        "item_name": "1L Bottle Shipping Box - V3",
+        "quantity": 10,
+        "received_quantity": 10,
+        "rate": 15,
+        "amount": 150
+      }
+    ],
+    "sub_total": 960,
+    "tax_amount": 163.8,
+    "total": 1073.8,
+    "updated_at": "2026-02-20T15:30:00Z"
+  }
+}
+```
+
+---
+
+## Step 5: Create Production Order
 
 ### 4.1 Create Production Order for 50 Units
 

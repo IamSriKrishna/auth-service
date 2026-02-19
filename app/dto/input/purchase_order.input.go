@@ -31,7 +31,7 @@ type CreatePurchaseOrderInput struct {
 
 type PurchaseOrderLineItemInput struct {
 	ItemID         string            `json:"item_id" validate:"required"`
-	VariantID      *uint             `json:"variant_id"`
+	VariantSKU     *string           `json:"variant_sku"`
 	Account        string            `json:"account" validate:"required"`
 	Quantity       float64           `json:"quantity" validate:"required,gt=0"`
 	Rate           float64           `json:"rate" validate:"required,gt=0"`

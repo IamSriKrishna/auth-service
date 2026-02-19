@@ -46,16 +46,19 @@ CREATE TABLE IF NOT EXISTS purchase_order_line_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     purchase_order_id varchar(255) NOT NULL,
     item_id varchar(255) NOT NULL,
-    variant_id INT,
+    variant_sku VARCHAR(255),
     account varchar(100),
     quantity DECIMAL(18, 4) NOT NULL,
     rate DECIMAL(18, 2) NOT NULL,
     amount DECIMAL(18, 2) NOT NULL,
+    received_quantity DECIMAL(18, 4) DEFAULT 0,
     variant_details JSON,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_po_id (purchase_order_id),
     INDEX idx_item_id (item_id),
-    INDEX idx_variant_id (variant_id),
+    INDEX idx_variant_sku (variant_sku),
     CONSTRAINT fk_poli_po FOREIGN KEY (purchase_order_id) REFERENCES purchase_orders(id) ON UPDATE CASCADE ON DELETE CASCADE,
     CONSTRAINT fk_poli_item FOREIGN KEY (item_id) REFERENCES items(id) ON UPDATE CASCADE ON DELETE RESTRICT,
-    CONSTRAINT fk_poli_variant FOREIGN KEY (variant_id) REFERENCES variants(id) ON UPDATE CASCADE ON DELETE SET NULL
+    CONSTRAINT fk_poli_variant FOREIGN KEY (variant_sku) REFERENCES variants(sku) ON UPDATE CASCADE ON DELETE SET NULL
 );

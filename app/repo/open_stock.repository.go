@@ -48,13 +48,13 @@ func (r *openingStockRepository) GetOpeningStock(itemID string) (*models.Opening
 	return &stock, err
 }
 
-func (r *openingStockRepository) CreateOrUpdateVariantOpeningStock(variantID uint, openingStock, ratePerUnit float64) error {
+func (r *openingStockRepository) CreateOrUpdateVariantOpeningStock(variantSKU string, openingStock, ratePerUnit float64) error {
 	var existing models.VariantOpeningStock
-	err := r.db.Where("variant_id = ?", variantID).First(&existing).Error
+	err := r.db.Where("variant_sku = ?", variantSKU).First(&existing).Error
 
 	if err == gorm.ErrRecordNotFound {
 		return r.db.Create(&models.VariantOpeningStock{
-			VariantID:               variantID,
+			VariantSKU:              variantSKU,
 			OpeningStock:            openingStock,
 			OpeningStockRatePerUnit: ratePerUnit,
 		}).Error
@@ -70,12 +70,12 @@ func (r *openingStockRepository) CreateOrUpdateVariantOpeningStock(variantID uin
 	}).Error
 }
 
-func (r *openingStockRepository) GetVariantOpeningStock(variantID uint) (*models.VariantOpeningStock, error) {
+func (r *openingStockRepository) GetVariantOpeningStock(variantSKU string) (*models.VariantOpeningStock, error) {
 	var stock models.VariantOpeningStock
-	err := r.db.Where("variant_id = ?", variantID).First(&stock).Error
+	err := r.db.Where("variant_sku = ?", variantSKU).First(&stock).Error
 	if err == gorm.ErrRecordNotFound {
 		return &models.VariantOpeningStock{
-			VariantID:               variantID,
+			VariantSKU:              variantSKU,
 			OpeningStock:            0,
 			OpeningStockRatePerUnit: 0,
 		}, nil

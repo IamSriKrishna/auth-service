@@ -143,8 +143,8 @@ type ItemRepository interface {
 type OpeningStockRepository interface {
 	CreateOrUpdateOpeningStock(itemID string, openingStock, ratePerUnit float64) error
 	GetOpeningStock(itemID string) (*models.OpeningStock, error)
-	CreateOrUpdateVariantOpeningStock(variantID uint, openingStock, ratePerUnit float64) error
-	GetVariantOpeningStock(variantID uint) (*models.VariantOpeningStock, error)
+	CreateOrUpdateVariantOpeningStock(variantSKU string, openingStock, ratePerUnit float64) error
+	GetVariantOpeningStock(variantSKU string) (*models.VariantOpeningStock, error)
 	GetAllVariantOpeningStocks(itemID string) ([]models.VariantOpeningStock, error)
 	RecordStockMovement(movement *models.StockMovement) error
 	GetStockMovements(itemID string) ([]models.StockMovement, error)
@@ -211,11 +211,11 @@ type BankRepository interface {
 }
 
 type InventoryBalanceRepository interface {
-	GetBalance(itemID string, variantID *uint) (*models.InventoryBalance, error)
+	GetBalance(itemID string, variantSKU *string) (*models.InventoryBalance, error)
 	GetBalances(itemID string) ([]models.InventoryBalance, error)
 	UpdateBalance(balance *models.InventoryBalance) error
 	CreateJournalEntry(entry *models.InventoryJournal) error
 	GetJournalEntries(itemID string, limit, offset int) ([]models.InventoryJournal, int64, error)
-	ReserveInventory(itemID string, variantID *uint, quantity float64, referenceID, referenceNo string) error
-	ReleaseReservation(itemID string, variantID *uint, quantity float64, referenceID string) error
+	ReserveInventory(itemID string, variantSKU *string, quantity float64, referenceID, referenceNo string) error
+	ReleaseReservation(itemID string, variantSKU *string, quantity float64, referenceID string) error
 }

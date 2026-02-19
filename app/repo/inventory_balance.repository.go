@@ -16,14 +16,14 @@ func NewInventoryBalanceRepository(db *gorm.DB) InventoryBalanceRepository {
 	return &inventoryBalanceRepository{db: db}
 }
 
-func (r *inventoryBalanceRepository) GetBalance(itemID string, variantID *uint) (*models.InventoryBalance, error) {
+func (r *inventoryBalanceRepository) GetBalance(itemID string, variantSKU *string) (*models.InventoryBalance, error) {
 	var balance models.InventoryBalance
 	query := r.db.Where("item_id = ?", itemID)
 
-	if variantID != nil {
-		query = query.Where("variant_id = ?", *variantID)
+	if variantSKU != nil {
+		query = query.Where("variant_sku = ?", *variantSKU)
 	} else {
-		query = query.Where("variant_id IS NULL")
+		query = query.Where("variant_sku IS NULL")
 	}
 
 	err := query.First(&balance).Error
@@ -32,7 +32,7 @@ func (r *inventoryBalanceRepository) GetBalance(itemID string, variantID *uint) 
 			// Create a new balance record if it doesn't exist
 			balance = models.InventoryBalance{
 				ItemID:              itemID,
-				VariantID:           variantID,
+				VariantSKU:          variantSKU,
 				CurrentQuantity:     0,
 				ReservedQuantity:    0,
 				AvailableQuantity:   0,
@@ -90,10 +90,10 @@ func (r *inventoryBalanceRepository) GetJournalEntries(itemID string, limit, off
 	return entries, total, err
 }
 
-func (r *inventoryBalanceRepository) ReserveInventory(itemID string, variantID *uint, quantity float64, referenceID, referenceNo string) error {
+func (r *inventoryBalanceRepository) ReserveInventory(itemID string, variantSKU *string, quantity float64, referenceID, referenceNo string) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		// Get current balance
-		balance, err := r.GetBalance(itemID, variantID)
+		balance, err := r.GetBalance(itemID, variantSKU)
 		if err != nil {
 			return err
 		}
@@ -115,7 +115,7 @@ func (r *inventoryBalanceRepository) ReserveInventory(itemID string, variantID *
 		// Create journal entry
 		entry := &models.InventoryJournal{
 			ItemID:          itemID,
-			VariantID:       variantID,
+			VariantSKU:      variantSKU,
 			TransactionType: "SALES_ORDER_RESERVED",
 			Quantity:        quantity,
 			ReferenceType:   "SalesOrder",
@@ -133,10 +133,10 @@ func (r *inventoryBalanceRepository) ReserveInventory(itemID string, variantID *
 	})
 }
 
-func (r *inventoryBalanceRepository) ReleaseReservation(itemID string, variantID *uint, quantity float64, referenceID string) error {
+func (r *inventoryBalanceRepository) ReleaseReservation(itemID string, variantSKU *string, quantity float64, referenceID string) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		// Get current balance
-		balance, err := r.GetBalance(itemID, variantID)
+		balance, err := r.GetBalance(itemID, variantSKU)
 		if err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ func (r *inventoryBalanceRepository) ReleaseReservation(itemID string, variantID
 		// Create journal entry
 		entry := &models.InventoryJournal{
 			ItemID:          itemID,
-			VariantID:       variantID,
+			VariantSKU:      variantSKU,
 			TransactionType: "SALES_ORDER_CANCELLED",
 			Quantity:        -quantity,
 			ReferenceType:   "SalesOrder",

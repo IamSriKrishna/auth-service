@@ -169,7 +169,7 @@ func (OpeningStock) TableName() string {
 
 type VariantOpeningStock struct {
 	ID                      uint      `gorm:"primaryKey;autoIncrement"`
-	VariantID               uint      `gorm:"uniqueIndex;not null"`
+	VariantSKU              string    `gorm:"type:varchar(255);uniqueIndex;not null"`
 	OpeningStock            float64   `json:"opening_stock" gorm:"default:0"`
 	OpeningStockRatePerUnit float64   `json:"opening_stock_rate_per_unit" gorm:"default:0"`
 	CreatedAt               time.Time `json:"created_at"`
@@ -183,7 +183,7 @@ func (VariantOpeningStock) TableName() string {
 type StockMovement struct {
 	ID            uint      `gorm:"primaryKey;autoIncrement"`
 	ItemID        string    `gorm:"type:varchar(255);index;not null"`
-	VariantID     *uint     `gorm:"index"`
+	VariantSKU    *string   `gorm:"type:varchar(255);index"`
 	MovementType  string    `gorm:"type:varchar(50);not null"`
 	Quantity      float64   `gorm:"type:decimal(18,2);not null"`
 	RatePerUnit   float64   `gorm:"not null"`

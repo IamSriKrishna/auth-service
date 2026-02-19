@@ -6,8 +6,8 @@ type InventoryBalance struct {
 	ID                  uint       `gorm:"primaryKey;autoIncrement"`
 	ItemID              string     `gorm:"type:varchar(255);index;not null"`
 	Item                *Item      `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	VariantID           *uint      `gorm:"index"`
-	Variant             *Variant   `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	VariantSKU          *string    `gorm:"type:varchar(255);index"`
+	Variant             *Variant   `json:"variant,omitempty" gorm:"foreignKey:VariantSKU;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 	CurrentQuantity     float64    `json:"current_quantity" gorm:"type:decimal(18,2);default:0"`
 	ReservedQuantity    float64    `json:"reserved_quantity" gorm:"type:decimal(18,2);default:0"`
 	AvailableQuantity   float64    `json:"available_quantity" gorm:"type:decimal(18,2);default:0"`
@@ -28,8 +28,8 @@ type InventoryAggregation struct {
 	ID                 uint      `gorm:"primaryKey;autoIncrement"`
 	ItemID             string    `gorm:"type:varchar(255);index;not null"`
 	Item               *Item     `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	VariantID          *uint     `gorm:"index"`
-	Variant            *Variant  `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	VariantSKU         *string   `gorm:"type:varchar(255);index"`
+	Variant            *Variant  `json:"variant,omitempty" gorm:"foreignKey:VariantSKU;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 	TotalPurchased     float64   `json:"total_purchased" gorm:"default:0"`
 	TotalManufactured  float64   `json:"total_manufactured" gorm:"default:0"`
 	TotalConsumedInMfg float64   `json:"total_consumed_in_mfg" gorm:"default:0"`
@@ -46,7 +46,7 @@ func (InventoryAggregation) TableName() string {
 type InventoryJournal struct {
 	ID              uint      `gorm:"primaryKey;autoIncrement"`
 	ItemID          string    `gorm:"type:varchar(255);index;not null"`
-	VariantID       *uint     `gorm:"index"`
+	VariantSKU      *string   `gorm:"type:varchar(255);index"`
 	TransactionType string    `json:"transaction_type" gorm:"type:varchar(50);not null"`
 	Quantity        float64   `json:"quantity" gorm:"not null"`
 	ReferenceType   string    `json:"reference_type" gorm:"type:varchar(50)"`
@@ -62,24 +62,24 @@ func (InventoryJournal) TableName() string {
 }
 
 type SupplyChainSummary struct {
-	ID        uint     `gorm:"primaryKey;autoIncrement"`
-	ItemID    string   `gorm:"type:varchar(255);uniqueIndex;not null"`
-	Item      *Item    `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	VariantID *uint    `gorm:"uniqueIndex:,type:UNIQUE,composite:variant_item"`
-	Variant   *Variant `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
-	OpeningStock               float64 `json:"opening_stock" gorm:"default:0"`
-	TotalPurchaseOrderQuantity float64 `json:"total_po_quantity" gorm:"default:0"`
-	TotalPurchaseOrderAmount   float64 `json:"total_po_amount" gorm:"default:0"`
-	AveragePurchaseRate        float64 `json:"avg_purchase_rate" gorm:"default:0"`
-	TotalProductionOrderQuantity float64 `json:"total_prod_qty" gorm:"default:0"`
-	TotalManufacturedQuantity    float64 `json:"total_mfg_qty" gorm:"default:0"`
-	TotalConsumedInProduction    float64 `json:"total_consumed_in_mfg" gorm:"default:0"`
-	TotalSalesOrderQuantity float64 `json:"total_so_quantity" gorm:"default:0"`
-	TotalSalesOrderAmount   float64 `json:"total_so_amount" gorm:"default:0"`
-	AverageSalesRate        float64 `json:"avg_sales_rate" gorm:"default:0"`
-	TotalInvoicedQuantity   float64 `json:"total_invoiced_qty" gorm:"default:0"`
-	CurrentQuantity float64   `json:"current_qty" gorm:"default:0"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID                           uint      `gorm:"primaryKey;autoIncrement"`
+	ItemID                       string    `gorm:"type:varchar(255);uniqueIndex;not null"`
+	Item                         *Item     `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	VariantSKU                   *string   `gorm:"type:varchar(255);uniqueIndex:,composite:variant_item"`
+	Variant                      *Variant  `json:"variant,omitempty" gorm:"foreignKey:VariantSKU;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	OpeningStock                 float64   `json:"opening_stock" gorm:"default:0"`
+	TotalPurchaseOrderQuantity   float64   `json:"total_po_quantity" gorm:"default:0"`
+	TotalPurchaseOrderAmount     float64   `json:"total_po_amount" gorm:"default:0"`
+	AveragePurchaseRate          float64   `json:"avg_purchase_rate" gorm:"default:0"`
+	TotalProductionOrderQuantity float64   `json:"total_prod_qty" gorm:"default:0"`
+	TotalManufacturedQuantity    float64   `json:"total_mfg_qty" gorm:"default:0"`
+	TotalConsumedInProduction    float64   `json:"total_consumed_in_mfg" gorm:"default:0"`
+	TotalSalesOrderQuantity      float64   `json:"total_so_quantity" gorm:"default:0"`
+	TotalSalesOrderAmount        float64   `json:"total_so_amount" gorm:"default:0"`
+	AverageSalesRate             float64   `json:"avg_sales_rate" gorm:"default:0"`
+	TotalInvoicedQuantity        float64   `json:"total_invoiced_qty" gorm:"default:0"`
+	CurrentQuantity              float64   `json:"current_qty" gorm:"default:0"`
+	UpdatedAt                    time.Time `json:"updated_at"`
 }
 
 func (SupplyChainSummary) TableName() string {

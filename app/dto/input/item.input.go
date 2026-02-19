@@ -87,7 +87,7 @@ type OpeningStockInput struct {
 }
 
 type VariantOpeningStockInput struct {
-	VariantID               uint    `json:"variant_id" validate:"required"`
+	VariantSKU              string  `json:"variant_sku" validate:"required"`
 	OpeningStock            float64 `json:"opening_stock" validate:"gte=0"`
 	OpeningStockRatePerUnit float64 `json:"opening_stock_rate_per_unit" validate:"gte=0"`
 }

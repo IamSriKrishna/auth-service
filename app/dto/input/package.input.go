@@ -15,7 +15,7 @@ type CreatePackageInput struct {
 type PackageItemInput struct {
 	SalesOrderItemID uint              `json:"sales_order_item_id" validate:"required"`
 	ItemID           string            `json:"item_id" validate:"required"`
-	VariantID        *uint             `json:"variant_id"`
+	VariantSKU       *string           `json:"variant_sku"`
 	OrderedQty       float64           `json:"ordered_qty" validate:"required,gt=0"`
 	PackedQty        float64           `json:"packed_qty" validate:"required,gte=0"`
 	VariantDetails   map[string]string `json:"variant_details"`

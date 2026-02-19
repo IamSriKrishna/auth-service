@@ -29,7 +29,7 @@ type CreateInvoiceInput struct {
 
 type InvoiceLineItemInput struct {
 	ItemID         string            `json:"item_id" validate:"required"`
-	VariantID      *uint             `json:"variant_id"`
+	VariantSKU     *string           `json:"variant_sku"`
 	Description    string            `json:"description"`
 	Quantity       float64           `json:"quantity" validate:"required,gt=0"`
 	Rate           float64           `json:"rate" validate:"required,gt=0"`

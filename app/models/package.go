@@ -30,8 +30,8 @@ type PackageItem struct {
 	SalesOrderItem   *SalesOrderLineItem `json:"sales_order_item,omitempty" gorm:"foreignKey:SalesOrderItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	ItemID           string              `json:"item_id" gorm:"type:varchar(255);not null;index"`
 	Item             *Item               `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	VariantID        *uint               `json:"variant_id,omitempty" gorm:"index"`
-	Variant          *Variant            `json:"variant,omitempty" gorm:"foreignKey:VariantID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	VariantSKU       *string             `json:"variant_sku,omitempty" gorm:"type:varchar(255);index"`
+	Variant          *Variant            `json:"variant,omitempty" gorm:"foreignKey:VariantSKU;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 	OrderedQty       float64             `json:"ordered_qty" gorm:"not null"`
 	PackedQty        float64             `json:"packed_qty" gorm:"not null;default:0"`
 	VariantDetails   VariantDetails      `json:"variant_details,omitempty" gorm:"type:json"`

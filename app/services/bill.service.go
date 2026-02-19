@@ -74,7 +74,7 @@ func (s *billService) CreateBill(billInput *input.CreateBillInput, userID string
 		lineItem := models.BillLineItem{
 			ItemID:      itemInput.ItemID,
 			Item:        item,
-			VariantID:   itemInput.VariantID,
+			VariantSKU:  itemInput.VariantSKU,
 			Description: itemInput.Description,
 			Account:     itemInput.Account,
 			Quantity:    itemInput.Quantity,
@@ -245,7 +245,7 @@ func (s *billService) UpdateBill(id string, billInput *input.UpdateBillInput, us
 			lineItem := models.BillLineItem{
 				ItemID:      itemInput.ItemID,
 				Item:        item,
-				VariantID:   itemInput.VariantID,
+				VariantSKU:  itemInput.VariantSKU,
 				Description: itemInput.Description,
 				Account:     itemInput.Account,
 				Quantity:    itemInput.Quantity,

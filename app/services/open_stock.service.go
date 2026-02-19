@@ -1,4 +1,3 @@
-
 package services
 
 import (
@@ -37,16 +36,16 @@ func (s *openingStockService) UpdateOpeningStock(itemID string, input *input.Ope
 	if err != nil {
 		return nil, fmt.Errorf("item not found")
 	}
-	
+
 	if item.ItemDetails.Structure != "single" {
 		return nil, fmt.Errorf("opening stock for variant items must be set per variant")
 	}
-	
+
 	err = s.stockRepo.CreateOrUpdateOpeningStock(itemID, input.OpeningStock, input.OpeningStockRatePerUnit)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if input.OpeningStock > 0 {
 		movement := &models.StockMovement{
 			ItemID:        itemID,
@@ -60,16 +59,16 @@ func (s *openingStockService) UpdateOpeningStock(itemID string, input *input.Ope
 		}
 		s.stockRepo.RecordStockMovement(movement)
 	}
-	
+
 	stock, err := s.stockRepo.GetOpeningStock(itemID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &output.OpeningStockOutput{
-		OpeningStock:          stock.OpeningStock,
+		OpeningStock:            stock.OpeningStock,
 		OpeningStockRatePerUnit: stock.OpeningStockRatePerUnit,
-		UpdatedAt:             stock.UpdatedAt,
+		UpdatedAt:               stock.UpdatedAt,
 	}, nil
 }
 
@@ -78,39 +77,39 @@ func (s *openingStockService) GetOpeningStock(itemID string) (*output.OpeningSto
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &output.OpeningStockOutput{
-		OpeningStock:          stock.OpeningStock,
+		OpeningStock:            stock.OpeningStock,
 		OpeningStockRatePerUnit: stock.OpeningStockRatePerUnit,
-		UpdatedAt:             stock.UpdatedAt,
+		UpdatedAt:               stock.UpdatedAt,
 	}, nil
 }
 
 func (s *openingStockService) UpdateVariantsOpeningStock(itemID string, input *input.UpdateVariantsOpeningStockInput, userID string) ([]output.VariantOpeningStockOutput, error) {
-	
+
 	item, err := s.itemRepo.FindByID(itemID)
 	if err != nil {
 		return nil, fmt.Errorf("item not found")
 	}
-	
+
 	if item.ItemDetails.Structure != "variants" {
 		return nil, fmt.Errorf("this endpoint is only for variant items")
 	}
-	
+
 	for _, variantInput := range input.Variants {
 		err := s.stockRepo.CreateOrUpdateVariantOpeningStock(
-			variantInput.VariantID,
+			variantInput.VariantSKU,
 			variantInput.OpeningStock,
 			variantInput.OpeningStockRatePerUnit,
 		)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		if variantInput.OpeningStock > 0 {
 			movement := &models.StockMovement{
 				ItemID:        itemID,
-				VariantID:     &variantInput.VariantID,
+				VariantSKU:    &variantInput.VariantSKU,
 				MovementType:  "opening_stock",
 				Quantity:      variantInput.OpeningStock,
 				RatePerUnit:   variantInput.OpeningStockRatePerUnit,
@@ -122,7 +121,7 @@ func (s *openingStockService) UpdateVariantsOpeningStock(itemID string, input *i
 			s.stockRepo.RecordStockMovement(movement)
 		}
 	}
-	
+
 	return s.GetVariantsOpeningStock(itemID)
 }
 
@@ -131,38 +130,38 @@ func (s *openingStockService) GetVariantsOpeningStock(itemID string) ([]output.V
 	if err != nil {
 		return nil, err
 	}
-	
+
 	stocks, err := s.stockRepo.GetAllVariantOpeningStocks(itemID)
 	if err != nil {
 		return nil, err
 	}
-	
-	stockMap := make(map[uint]*models.VariantOpeningStock)
+
+	stockMap := make(map[string]*models.VariantOpeningStock)
 	for i := range stocks {
-		stockMap[stocks[i].VariantID] = &stocks[i]
+		stockMap[stocks[i].VariantSKU] = &stocks[i]
 	}
-	
+
 	result := make([]output.VariantOpeningStockOutput, len(item.ItemDetails.Variants))
 	for i, variant := range item.ItemDetails.Variants {
-		stock, exists := stockMap[variant.ID]
+		stock, exists := stockMap[variant.SKU]
 		if exists {
 			result[i] = output.VariantOpeningStockOutput{
-				VariantID:             variant.ID,
-				VariantSKU:            variant.SKU,
-				OpeningStock:          stock.OpeningStock,
+				VariantID:               variant.ID,
+				VariantSKU:              variant.SKU,
+				OpeningStock:            stock.OpeningStock,
 				OpeningStockRatePerUnit: stock.OpeningStockRatePerUnit,
-				UpdatedAt:             stock.UpdatedAt,
+				UpdatedAt:               stock.UpdatedAt,
 			}
 		} else {
 			result[i] = output.VariantOpeningStockOutput{
-				VariantID:             variant.ID,
-				VariantSKU:            variant.SKU,
-				OpeningStock:          0,
+				VariantID:               variant.ID,
+				VariantSKU:              variant.SKU,
+				OpeningStock:            0,
 				OpeningStockRatePerUnit: 0,
 			}
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -171,7 +170,7 @@ func (s *openingStockService) GetStockSummary(itemID string) (*output.StockSumma
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &output.StockSummaryOutput{
 		StockOnHand:              stock.OpeningStock,
 		CommittedStock:           0,
