@@ -32,8 +32,27 @@ func NewItemGroupService(itemGroupRepo repo.ItemGroupRepository, itemRepo repo.I
 }
 
 func (s *itemGroupService) Create(input *input.CreateItemGroupInput) (*output.ItemGroupOutput, error) {
-	// Validate all items exist
-	for _, comp := range input.Components {
+	// Validate all items exist and quantities are valid
+	if len(input.Components) == 0 {
+		return nil, fmt.Errorf("item group must have at least one component")
+	}
+
+	// Check that all component quantities are equal and whole numbers (integers)
+	firstQuantity := input.Components[0].Quantity
+	for i, comp := range input.Components {
+		// Validate all quantities are whole numbers
+		if comp.Quantity != float64(int64(comp.Quantity)) {
+			return nil, fmt.Errorf("component %d quantity must be a whole number (no decimals). Got: %f", i+1, comp.Quantity)
+		}
+
+		if comp.Quantity != firstQuantity {
+			return nil, fmt.Errorf("all component quantities must be equal. Component 1 has quantity %d, but component %d has quantity %d", int64(firstQuantity), i+1, int64(comp.Quantity))
+		}
+
+		if comp.Quantity <= 0 {
+			return nil, fmt.Errorf("quantity must be greater than 0 for item %s: got %d", comp.ItemID, int64(comp.Quantity))
+		}
+
 		item, err := s.itemRepo.FindByID(comp.ItemID)
 		if err != nil {
 			return nil, fmt.Errorf("item %s not found", comp.ItemID)
@@ -269,4 +288,51 @@ func (s *itemGroupService) toOutput(itemGroup *models.ItemGroup) (*output.ItemGr
 		CreatedAt:   itemGroup.CreatedAt,
 		UpdatedAt:   itemGroup.UpdatedAt,
 	}, nil
+}
+
+// ValidateStockAvailability checks if there is enough stock to fulfill item group usage
+// quantityToCreate: number of item groups to create/consume
+func (s *itemGroupService) ValidateStockAvailability(itemGroupID string, quantityToCreate float64) ([]string, error) {
+	itemGroup, err := s.itemGroupRepo.FindByID(itemGroupID)
+	if err != nil {
+		return nil, fmt.Errorf("item group not found: %v", err)
+	}
+
+	warnings := []string{}
+
+	for _, comp := range itemGroup.Components {
+		totalRequired := comp.Quantity * quantityToCreate
+
+		item, err := s.itemRepo.FindByID(comp.ItemID)
+		if err != nil {
+			return nil, fmt.Errorf("item %s not found: %v", comp.ItemID, err)
+		}
+
+		// For item groups, variant SKU is required
+		if comp.VariantSku == nil || *comp.VariantSku == "" {
+			return nil, fmt.Errorf("variant SKU required for item %s in item group", comp.ItemID)
+		}
+
+		// Check variant stock
+		variant, err := s.itemRepo.GetVariantBySKU(*comp.VariantSku)
+		if err != nil {
+			return nil, fmt.Errorf("variant %s not found: %v", *comp.VariantSku, err)
+		}
+
+		available := variant.StockQuantity
+
+		// Check if would go below reorder level
+		if variant.ReorderLevel > 0 && (available-totalRequired) <= variant.ReorderLevel {
+			warnings = append(warnings,
+				fmt.Sprintf("WARNING: %s (variant: %s) stock would reach reorder level. Current: %f, Required: %f, Reorder Level: %f",
+					item.Name, *comp.VariantSku, available, totalRequired, variant.ReorderLevel))
+		}
+
+		if available < totalRequired {
+			return nil, fmt.Errorf("insufficient stock for %s (variant: %s): available=%f, required=%f",
+				item.Name, *comp.VariantSku, available, totalRequired)
+		}
+	}
+
+	return warnings, nil
 }

@@ -370,7 +370,19 @@ func (s *salesOrderService) UpdateSalesOrder(id string, soInput *input.UpdateSal
 }
 
 func (s *salesOrderService) UpdateSalesOrderStatus(id string, status string, userID string) (*output.SalesOrderOutput, error) {
-	err := s.soRepo.UpdateStatus(id, status)
+	so, err := s.soRepo.FindByID(id)
+	if err != nil {
+		return nil, errors.New("sales order not found")
+	}
+
+	// Reserve inventory when SO is confirmed
+	if status == "confirmed" && so.Status != "confirmed" {
+		if err := s.reserveInventoryForSalesOrder(so, userID); err != nil {
+			return nil, fmt.Errorf("failed to reserve inventory: %w", err)
+		}
+	}
+
+	err = s.soRepo.UpdateStatus(id, status)
 	if err != nil {
 		return nil, errors.New("failed to update status: " + err.Error())
 	}
@@ -380,6 +392,50 @@ func (s *salesOrderService) UpdateSalesOrderStatus(id string, status string, use
 
 func (s *salesOrderService) DeleteSalesOrder(id string) error {
 	return s.soRepo.Delete(id)
+}
+
+// reserveInventoryForSalesOrder marks inventory as reserved when sales order is confirmed
+func (s *salesOrderService) reserveInventoryForSalesOrder(so *models.SalesOrder, userID string) error {
+	for _, lineItem := range so.LineItems {
+		// Get current inventory balance
+		balance, err := s.inventoryRepo.GetBalance(lineItem.ItemID, lineItem.VariantSKU)
+		if err != nil {
+			return fmt.Errorf("failed to get inventory balance for item %s: %w", lineItem.ItemID, err)
+		}
+
+		// Check if sufficient inventory is available
+		if balance.AvailableQuantity < lineItem.Quantity {
+			return fmt.Errorf("insufficient inventory for item %s. Required: %f, Available: %f", lineItem.ItemID, lineItem.Quantity, balance.AvailableQuantity)
+		}
+
+		// Reserve inventory (mark as reserved, don't deduct yet)
+		balance.ReservedQuantity = balance.ReservedQuantity + lineItem.Quantity
+		balance.AvailableQuantity = balance.AvailableQuantity - lineItem.Quantity
+		balance.UpdatedAt = time.Now()
+
+		if err := s.inventoryRepo.UpdateBalance(balance); err != nil {
+			return fmt.Errorf("failed to update inventory balance: %w", err)
+		}
+
+		// Create inventory journal entry for reservation
+		entry := &models.InventoryJournal{
+			ItemID:          lineItem.ItemID,
+			VariantSKU:      lineItem.VariantSKU,
+			TransactionType: "SALES_ORDER_RESERVED",
+			Quantity:        -lineItem.Quantity,
+			ReferenceType:   "SalesOrder",
+			ReferenceID:     so.ID,
+			ReferenceNo:     so.SalesOrderNumber,
+			Notes:           fmt.Sprintf("Inventory reserved for sales order - SO: %s", so.SalesOrderNumber),
+			CreatedBy:       userID,
+		}
+
+		if err := s.inventoryRepo.CreateJournalEntry(entry); err != nil {
+			return fmt.Errorf("failed to create inventory journal: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (s *salesOrderService) generateSOSequence() int {

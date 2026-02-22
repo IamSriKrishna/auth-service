@@ -5,9 +5,6 @@ import "time"
 type BankOutput struct {
 	ID         uint      `json:"id"`
 	BankName   string    `json:"bank_name"`
-	IFSCCode   string    `json:"ifsc_code"`
-	BranchName string    `json:"branch_name,omitempty"`
-	BranchCode string    `json:"branch_code,omitempty"`
 	Address    string    `json:"address,omitempty"`
 	City       string    `json:"city,omitempty"`
 	State      string    `json:"state,omitempty"`

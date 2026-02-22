@@ -5,20 +5,22 @@ import (
 )
 
 type CreateBillInput struct {
-	VendorID       uint                `json:"vendor_id" validate:"required"`
-	BillingAddress string              `json:"billing_address"`
-	OrderNumber    string              `json:"order_number"`
-	BillDate       time.Time           `json:"bill_date" validate:"required"`
-	DueDate        time.Time           `json:"due_date" validate:"required"`
-	PaymentTerms   string              `json:"payment_terms" validate:"required"`
-	Subject        string              `json:"subject"`
-	LineItems      []BillLineItemInput `json:"line_items" validate:"required,min=1,dive"`
-	Discount       float64             `json:"discount" validate:"gte=0"`
-	TaxType        *string             `json:"tax_type"`
-	TaxID          *uint               `json:"tax_id"`
-	Adjustment     float64             `json:"adjustment" validate:"gte=0"`
-	Notes          string              `json:"notes"`
-	Attachments    []string            `json:"attachments"`
+	VendorID        uint                `json:"vendor_id" validate:"required"`
+	BillNumber      string              `json:"bill_number" validate:"required"`
+	PurchaseOrderID *string             `json:"purchase_order_id"`
+	BillingAddress  string              `json:"billing_address"`
+	OrderNumber     string              `json:"order_number"`
+	BillDate        time.Time           `json:"bill_date" validate:"required"`
+	DueDate         time.Time           `json:"due_date" validate:"required"`
+	PaymentTerms    string              `json:"payment_terms" validate:"required"`
+	Subject         string              `json:"subject"`
+	LineItems       []BillLineItemInput `json:"line_items" validate:"required,min=1,dive"`
+	Discount        float64             `json:"discount" validate:"gte=0"`
+	TaxType         *string             `json:"tax_type"`
+	TaxID           *uint               `json:"tax_id"`
+	Adjustment      float64             `json:"adjustment" validate:"gte=0"`
+	Notes           string              `json:"notes"`
+	Attachments     []string            `json:"attachments"`
 }
 
 type BillLineItemInput struct {
@@ -32,20 +34,22 @@ type BillLineItemInput struct {
 }
 
 type UpdateBillInput struct {
-	VendorID       *uint               `json:"vendor_id"`
-	BillingAddress *string             `json:"billing_address"`
-	OrderNumber    *string             `json:"order_number"`
-	BillDate       *time.Time          `json:"bill_date"`
-	DueDate        *time.Time          `json:"due_date"`
-	PaymentTerms   *string             `json:"payment_terms"`
-	Subject        *string             `json:"subject"`
-	LineItems      []BillLineItemInput `json:"line_items" validate:"omitempty,dive"`
-	Discount       *float64            `json:"discount" validate:"omitempty,gte=0"`
-	TaxType        *string             `json:"tax_type"`
-	TaxID          *uint               `json:"tax_id"`
-	Adjustment     *float64            `json:"adjustment" validate:"omitempty,gte=0"`
-	Notes          *string             `json:"notes"`
-	Attachments    []string            `json:"attachments"`
+	VendorID        *uint               `json:"vendor_id"`
+	BillNumber      *string             `json:"bill_number"`
+	PurchaseOrderID *string             `json:"purchase_order_id"`
+	BillingAddress  *string             `json:"billing_address"`
+	OrderNumber     *string             `json:"order_number"`
+	BillDate        *time.Time          `json:"bill_date"`
+	DueDate         *time.Time          `json:"due_date"`
+	PaymentTerms    *string             `json:"payment_terms"`
+	Subject         *string             `json:"subject"`
+	LineItems       []BillLineItemInput `json:"line_items" validate:"omitempty,dive"`
+	Discount        *float64            `json:"discount" validate:"omitempty,gte=0"`
+	TaxType         *string             `json:"tax_type"`
+	TaxID           *uint               `json:"tax_id"`
+	Adjustment      *float64            `json:"adjustment" validate:"omitempty,gte=0"`
+	Notes           *string             `json:"notes"`
+	Attachments     []string            `json:"attachments"`
 }
 
 type UpdateBillStatusInput struct {

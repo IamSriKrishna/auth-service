@@ -2,7 +2,6 @@ package services
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/domain"
@@ -88,6 +87,11 @@ func (s *billService) CreateBill(billInput *input.CreateBillInput, userID string
 				variantDetails[k] = v
 			}
 			lineItem.VariantDetails = variantDetails
+		} else if itemInput.VariantSKU != nil {
+			// Create variant_details with just variant_sku if no details provided
+			variantDetails := make(models.VariantDetails)
+			variantDetails["variant_sku"] = *itemInput.VariantSKU
+			lineItem.VariantDetails = variantDetails
 		}
 
 		lineItems = append(lineItems, lineItem)
@@ -101,32 +105,33 @@ func (s *billService) CreateBill(billInput *input.CreateBillInput, userID string
 	total := subTotal - billInput.Discount + taxAmount + billInput.Adjustment
 
 	bill := &models.Bill{
-		ID:             uuid.New().String(),
-		BillNumber:     fmt.Sprintf("BILL-%d", time.Now().Unix()),
-		VendorID:       billInput.VendorID,
-		Vendor:         vendor,
-		BillingAddress: billInput.BillingAddress,
-		OrderNumber:    billInput.OrderNumber,
-		BillDate:       billInput.BillDate,
-		DueDate:        billInput.DueDate,
-		PaymentTerms:   domain.PaymentTerms(billInput.PaymentTerms),
-		Subject:        billInput.Subject,
-		LineItems:      lineItems,
-		SubTotal:       subTotal,
-		Discount:       billInput.Discount,
-		TaxType:        (*domain.TaxType)(billInput.TaxType),
-		TaxID:          billInput.TaxID,
-		Tax:            tax,
-		TaxAmount:      taxAmount,
-		Adjustment:     billInput.Adjustment,
-		Total:          total,
-		Notes:          billInput.Notes,
-		Status:         domain.BillStatusDraft,
-		Attachments:    billInput.Attachments,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-		CreatedBy:      userID,
-		UpdatedBy:      userID,
+		ID:              uuid.New().String(),
+		BillNumber:      billInput.BillNumber,
+		VendorID:        billInput.VendorID,
+		Vendor:          vendor,
+		PurchaseOrderID: billInput.PurchaseOrderID,
+		BillingAddress:  billInput.BillingAddress,
+		OrderNumber:     billInput.OrderNumber,
+		BillDate:        billInput.BillDate,
+		DueDate:         billInput.DueDate,
+		PaymentTerms:    domain.PaymentTerms(billInput.PaymentTerms),
+		Subject:         billInput.Subject,
+		LineItems:       lineItems,
+		SubTotal:        subTotal,
+		Discount:        billInput.Discount,
+		TaxType:         (*domain.TaxType)(billInput.TaxType),
+		TaxID:           billInput.TaxID,
+		Tax:             tax,
+		TaxAmount:       taxAmount,
+		Adjustment:      billInput.Adjustment,
+		Total:           total,
+		Notes:           billInput.Notes,
+		Status:          domain.BillStatusDraft,
+		Attachments:     billInput.Attachments,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+		CreatedBy:       userID,
+		UpdatedBy:       userID,
 	}
 
 	savedBill, err := s.billRepo.Create(bill)

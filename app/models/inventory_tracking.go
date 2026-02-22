@@ -7,7 +7,6 @@ type InventoryBalance struct {
 	ItemID              string     `gorm:"type:varchar(255);index;not null"`
 	Item                *Item      `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	VariantSKU          *string    `gorm:"type:varchar(255);index"`
-	Variant             *Variant   `json:"variant,omitempty" gorm:"foreignKey:VariantSKU;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 	CurrentQuantity     float64    `json:"current_quantity" gorm:"type:decimal(18,2);default:0"`
 	ReservedQuantity    float64    `json:"reserved_quantity" gorm:"type:decimal(18,2);default:0"`
 	AvailableQuantity   float64    `json:"available_quantity" gorm:"type:decimal(18,2);default:0"`
@@ -29,7 +28,6 @@ type InventoryAggregation struct {
 	ItemID             string    `gorm:"type:varchar(255);index;not null"`
 	Item               *Item     `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	VariantSKU         *string   `gorm:"type:varchar(255);index"`
-	Variant            *Variant  `json:"variant,omitempty" gorm:"foreignKey:VariantSKU;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 	TotalPurchased     float64   `json:"total_purchased" gorm:"default:0"`
 	TotalManufactured  float64   `json:"total_manufactured" gorm:"default:0"`
 	TotalConsumedInMfg float64   `json:"total_consumed_in_mfg" gorm:"default:0"`

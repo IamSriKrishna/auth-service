@@ -27,10 +27,11 @@ type ShipmentService interface {
 }
 
 type shipmentService struct {
-	shipRepo     repo.ShipmentRepository
-	pkgRepo      repo.PackageRepository
-	soRepo       repo.SalesOrderRepository
-	customerRepo repo.CustomerRepository
+	shipRepo      repo.ShipmentRepository
+	pkgRepo       repo.PackageRepository
+	soRepo        repo.SalesOrderRepository
+	customerRepo  repo.CustomerRepository
+	inventoryRepo repo.InventoryBalanceRepository
 }
 
 func NewShipmentService(
@@ -38,12 +39,14 @@ func NewShipmentService(
 	pkgRepo repo.PackageRepository,
 	soRepo repo.SalesOrderRepository,
 	customerRepo repo.CustomerRepository,
+	inventoryRepo repo.InventoryBalanceRepository,
 ) ShipmentService {
 	return &shipmentService{
-		shipRepo:     shipRepo,
-		pkgRepo:      pkgRepo,
-		soRepo:       soRepo,
-		customerRepo: customerRepo,
+		shipRepo:      shipRepo,
+		pkgRepo:       pkgRepo,
+		soRepo:        soRepo,
+		customerRepo:  customerRepo,
+		inventoryRepo: inventoryRepo,
 	}
 }
 
@@ -100,6 +103,11 @@ func (s *shipmentService) CreateShipment(shipInput *input.CreateShipmentInput, u
 	createdShip, err := s.shipRepo.Create(shipment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create shipment: %w", err)
+	}
+
+	// Deduct inventory for shipped items
+	if err := s.deductInventoryForShipment(so, userID); err != nil {
+		return nil, fmt.Errorf("failed to deduct inventory for shipment: %w", err)
 	}
 
 	return output.ToShipmentOutput(createdShip)
@@ -269,4 +277,47 @@ func (s *shipmentService) UpdateShipmentStatus(id string, status string, userID 
 
 func (s *shipmentService) DeleteShipment(id string) error {
 	return s.shipRepo.Delete(id)
+}
+
+// deductInventoryForShipment reduces available inventory when shipment is created
+func (s *shipmentService) deductInventoryForShipment(so *models.SalesOrder, userID string) error {
+	for _, lineItem := range so.LineItems {
+		// Get current inventory balance
+		balance, err := s.inventoryRepo.GetBalance(lineItem.ItemID, lineItem.VariantSKU)
+		if err != nil {
+			return fmt.Errorf("failed to get inventory balance for item %s: %w", lineItem.ItemID, err)
+		}
+
+		// Deduct shipped quantity from available inventory
+		if balance.AvailableQuantity < lineItem.Quantity {
+			return fmt.Errorf("insufficient inventory for item %s. Required: %f, Available: %f", lineItem.ItemID, lineItem.Quantity, balance.AvailableQuantity)
+		}
+
+		balance.AvailableQuantity -= lineItem.Quantity
+		balance.CurrentQuantity -= lineItem.Quantity
+		balance.UpdatedAt = time.Now()
+
+		if err := s.inventoryRepo.UpdateBalance(balance); err != nil {
+			return fmt.Errorf("failed to update inventory balance: %w", err)
+		}
+
+		// Create inventory journal entry for shipment
+		entry := &models.InventoryJournal{
+			ItemID:          lineItem.ItemID,
+			VariantSKU:      lineItem.VariantSKU,
+			TransactionType: "SHIPMENT_DEDUCTION",
+			Quantity:        -lineItem.Quantity,
+			ReferenceType:   "SalesOrder",
+			ReferenceID:     so.ID,
+			ReferenceNo:     so.SalesOrderNumber,
+			Notes:           fmt.Sprintf("Inventory deducted for shipment - SO: %s", so.SalesOrderNumber),
+			CreatedBy:       userID,
+		}
+
+		if err := s.inventoryRepo.CreateJournalEntry(entry); err != nil {
+			return fmt.Errorf("failed to create inventory journal: %w", err)
+		}
+	}
+
+	return nil
 }

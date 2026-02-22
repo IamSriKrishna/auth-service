@@ -12,6 +12,21 @@ import (
 func RunMigrations(db *gorm.DB) error {
 	log.Println("Starting database migration...")
 
+	// Drop problematic foreign key constraints if they exist
+	if db.Migrator().HasConstraint("inventory_balances", "fk_inventory_balances_variant") {
+		log.Println("Removing problematic foreign key constraint fk_inventory_balances_variant...")
+		if err := db.Migrator().DropConstraint("inventory_balances", "fk_inventory_balances_variant"); err != nil {
+			log.Printf("Warning: Failed to drop constraint: %v", err)
+		}
+	}
+
+	if db.Migrator().HasConstraint("inventory_aggregations", "fk_inventory_aggregations_variant") {
+		log.Println("Removing problematic foreign key constraint fk_inventory_aggregations_variant...")
+		if err := db.Migrator().DropConstraint("inventory_aggregations", "fk_inventory_aggregations_variant"); err != nil {
+			log.Printf("Warning: Failed to drop constraint: %v", err)
+		}
+	}
+
 	if os.Getenv("DROP_ALL_EXCEPT_USER") == "true" {
 		log.Println("DROP_ALL_EXCEPT_USER=true detected, dropping all tables except user-related...")
 		if err := DropAllTablesExceptUser(db); err != nil {
@@ -122,6 +137,9 @@ func DropItemTables(db *gorm.DB) error {
 	log.Println("Dropping item-related tables...")
 
 	tables := []interface{}{
+		&models.InventoryJournal{},
+		&models.InventoryAggregation{},
+		&models.InventoryBalance{},
 		&models.VariantOpeningStock{},
 		&models.OpeningStock{},
 		&models.StockMovement{},

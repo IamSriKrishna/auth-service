@@ -32,9 +32,6 @@ func (s *bankService) Create(input *input.CreateBankInput) (*output.BankOutput, 
 
 	bank := &models.Bank{
 		BankName:   input.BankName,
-		IFSCCode:   input.IFSCCode,
-		BranchName: input.BranchName,
-		BranchCode: input.BranchCode,
 		Address:    input.Address,
 		City:       input.City,
 		State:      input.State,
@@ -51,9 +48,6 @@ func (s *bankService) Create(input *input.CreateBankInput) (*output.BankOutput, 
 	return &output.BankOutput{
 		ID:         bank.ID,
 		BankName:   bank.BankName,
-		IFSCCode:   bank.IFSCCode,
-		BranchName: bank.BranchName,
-		BranchCode: bank.BranchCode,
 		Address:    bank.Address,
 		City:       bank.City,
 		State:      bank.State,
@@ -74,9 +68,6 @@ func (s *bankService) FindByID(id uint) (*output.BankOutput, error) {
 	return &output.BankOutput{
 		ID:         bank.ID,
 		BankName:   bank.BankName,
-		IFSCCode:   bank.IFSCCode,
-		BranchName: bank.BranchName,
-		BranchCode: bank.BranchCode,
 		Address:    bank.Address,
 		City:       bank.City,
 		State:      bank.State,
@@ -99,9 +90,6 @@ func (s *bankService) FindAll(limit, offset int) ([]output.BankOutput, int64, er
 		bankOutputs = append(bankOutputs, output.BankOutput{
 			ID:         bank.ID,
 			BankName:   bank.BankName,
-			IFSCCode:   bank.IFSCCode,
-			BranchName: bank.BranchName,
-			BranchCode: bank.BranchCode,
 			Address:    bank.Address,
 			City:       bank.City,
 			State:      bank.State,
@@ -123,15 +111,6 @@ func (s *bankService) Update(id uint, input *input.UpdateBankInput) (*output.Ban
 
 	if input.BankName != nil {
 		bank.BankName = *input.BankName
-	}
-	if input.IFSCCode != nil {
-		bank.IFSCCode = *input.IFSCCode
-	}
-	if input.BranchName != nil {
-		bank.BranchName = *input.BranchName
-	}
-	if input.BranchCode != nil {
-		bank.BranchCode = *input.BranchCode
 	}
 	if input.Address != nil {
 		bank.Address = *input.Address
@@ -160,9 +139,6 @@ func (s *bankService) Update(id uint, input *input.UpdateBankInput) (*output.Ban
 	return &output.BankOutput{
 		ID:         bank.ID,
 		BankName:   bank.BankName,
-		IFSCCode:   bank.IFSCCode,
-		BranchName: bank.BranchName,
-		BranchCode: bank.BranchCode,
 		Address:    bank.Address,
 		City:       bank.City,
 		State:      bank.State,

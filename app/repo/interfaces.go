@@ -138,6 +138,10 @@ type ItemRepository interface {
 	Update(item *models.Item) error
 	Delete(id string) error
 	FindByType(itemType string, limit, offset int) ([]models.Item, int64, error)
+	DeductStockQuantity(itemID string, variantSKU *string, quantity float64) error
+	CheckReorderPoint(itemID string, variantSKU *string) (*models.Variant, error)
+	GetVariantBySKU(sku string) (*models.Variant, error)
+	UpdateVariantStock(variantID uint, newQuantity float64) error
 }
 
 type OpeningStockRepository interface {
@@ -218,4 +222,12 @@ type InventoryBalanceRepository interface {
 	GetJournalEntries(itemID string, limit, offset int) ([]models.InventoryJournal, int64, error)
 	ReserveInventory(itemID string, variantSKU *string, quantity float64, referenceID, referenceNo string) error
 	ReleaseReservation(itemID string, variantSKU *string, quantity float64, referenceID string) error
+}
+type ProductionOrderRepository interface {
+	Create(order *models.ProductionOrder) error
+	FindByID(id string) (*models.ProductionOrder, error)
+	FindAll(limit, offset int) ([]models.ProductionOrder, int64, error)
+	Update(order *models.ProductionOrder) error
+	Delete(id string) error
+	FindByProductionOrderNumber(orderNo string) (*models.ProductionOrder, error)
 }

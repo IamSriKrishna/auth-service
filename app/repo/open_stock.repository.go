@@ -88,7 +88,7 @@ func (r *openingStockRepository) GetAllVariantOpeningStocks(itemID string) ([]mo
 	err := r.db.Raw(`
 		SELECT vos.* 
 		FROM variant_opening_stock vos
-		INNER JOIN variants v ON v.id = vos.variant_id
+		INNER JOIN variants v ON v.sku = vos.variant_sku
 		INNER JOIN item_details id ON id.id = v.item_details_id
 		WHERE id.item_id = ?
 	`, itemID).Scan(&stocks).Error

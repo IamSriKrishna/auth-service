@@ -47,6 +47,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	bankRepo := repo.NewBankRepository(db)
 	inventoryBalanceRepo := repo.NewInventoryBalanceRepository(db)
 	itemGroupRepo := repo.NewItemGroupRepository(db)
+	productionOrderRepo := repo.NewProductionOrderRepository(db)
 
 	authService := services.NewAuthService(userRepo, roleRepo, refreshTokenRepo, sessionRepo)
 	adminService := services.NewAdminService(userRepo, roleRepo)
@@ -58,7 +59,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	itemService := services.NewItemService(itemRepo, vendorRepo, manufacturerRepo)
 	vendorService := services.NewVendorService(vendorRepo)
 	customerService := services.NewCustomerService(customerRepo)
-	openStockService := services.NewOpeningStockService(openStockRepo, itemRepo)
+	openStockService := services.NewOpeningStockService(openStockRepo, itemRepo, inventoryBalanceRepo)
 	manufacturerService := services.NewManufacturerService(manufacturerRepo)
 	brandService := services.NewBrandService(brandRepo)
 	invoiceService := services.NewInvoiceService(invoiceRepo, itemRepo, customerRepo, salespersonRepo, taxRepo, paymentRepo, "./pdf_outputs")
@@ -68,10 +69,12 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	purchaseOrderService := services.NewPurchaseOrderService(purchaseOrderRepo, vendorRepo, customerRepo, itemRepo, taxRepo, inventoryBalanceRepo)
 	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo, inventoryBalanceRepo)
 	packageService := services.NewPackageService(packageRepo, salesOrderRepo, customerRepo, itemRepo)
-	shipmentService := services.NewShipmentService(shipmentRepo, packageRepo, salesOrderRepo, customerRepo)
+	shipmentService := services.NewShipmentService(shipmentRepo, packageRepo, salesOrderRepo, customerRepo, inventoryBalanceRepo)
 	billService := services.NewBillService(billRepo, vendorRepo, itemRepo, taxRepo)
 	bankService := services.NewBankService(bankRepo)
 	itemGroupService := services.NewItemGroupService(itemGroupRepo, itemRepo)
+	inventoryService := services.NewInventoryService(itemRepo, itemGroupRepo, inventoryBalanceRepo, openStockRepo)
+	productionOrderService := services.NewProductionOrderService(productionOrderRepo, itemGroupRepo, itemRepo, inventoryService)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	adminHandler := handlers.NewAdminHandler(adminService)
@@ -96,6 +99,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	billHandler := handlers.NewBillHandler(billService)
 	bankHandler := handlers.NewBankHandler(bankService)
 	itemGroupHandler := handlers.NewItemGroupHandler(itemGroupService)
+	productionOrderHandler := handlers.NewProductionOrderHandler(productionOrderService)
 
 	app.Get("/docs/*", swagger.HandlerDefault)
 
@@ -400,6 +404,17 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 
 		billRoutes.Get("/vendor/:vendorId", billHandler.GetBillsByVendor)
 		billRoutes.Get("/status/:status", billHandler.GetBillsByStatus)
+	}
+
+	productionOrderRoutes := app.Group("/production-orders")
+	productionOrderRoutes.Use(middleware.AuthMiddleware())
+	{
+		productionOrderRoutes.Post("/", middleware.AdminMiddleware(), productionOrderHandler.CreateProductionOrder)
+		productionOrderRoutes.Get("/", productionOrderHandler.GetAllProductionOrders)
+		productionOrderRoutes.Get("/:id", productionOrderHandler.GetProductionOrderByID)
+		productionOrderRoutes.Put("/:id", middleware.AdminMiddleware(), productionOrderHandler.UpdateProductionOrder)
+		productionOrderRoutes.Delete("/:id", middleware.AdminMiddleware(), productionOrderHandler.DeleteProductionOrder)
+		productionOrderRoutes.Post("/:id/consume-item", middleware.AdminMiddleware(), productionOrderHandler.ConsumeProductionOrderItem)
 	}
 
 	app.Get("/health", func(c *fiber.Ctx) error {

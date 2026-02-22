@@ -2,6 +2,7 @@ package repo
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/models"
@@ -20,15 +21,19 @@ func (r *inventoryBalanceRepository) GetBalance(itemID string, variantSKU *strin
 	var balance models.InventoryBalance
 	query := r.db.Where("item_id = ?", itemID)
 
+	variantDesc := "nil"
 	if variantSKU != nil {
+		variantDesc = *variantSKU
 		query = query.Where("variant_sku = ?", *variantSKU)
 	} else {
 		query = query.Where("variant_sku IS NULL")
 	}
 
+	log.Printf("[INVENTORY_BALANCE] GetBalance - itemID: %s, variant: %s", itemID, variantDesc)
 	err := query.First(&balance).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			log.Printf("[INVENTORY_BALANCE] Record not found, creating new balance - itemID: %s, variant: %s", itemID, variantDesc)
 			// Create a new balance record if it doesn't exist
 			balance = models.InventoryBalance{
 				ItemID:              itemID,
@@ -40,13 +45,17 @@ func (r *inventoryBalanceRepository) GetBalance(itemID string, variantSKU *strin
 				UpdatedAt:           time.Now(),
 			}
 			if err := r.db.Create(&balance).Error; err != nil {
+				log.Printf("[INVENTORY_BALANCE] Error creating balance - itemID: %s, variant: %s, err: %v", itemID, variantDesc, err)
 				return nil, err
 			}
+			log.Printf("[INVENTORY_BALANCE] New balance created - ID: %d, itemID: %s, variant: %s", balance.ID, itemID, variantDesc)
 			return &balance, nil
 		}
+		log.Printf("[INVENTORY_BALANCE] Error retrieving balance - itemID: %s, variant: %s, err: %v", itemID, variantDesc, err)
 		return nil, err
 	}
 
+	log.Printf("[INVENTORY_BALANCE] Existing balance found - ID: %d, Available: %.2f", balance.ID, balance.AvailableQuantity)
 	return &balance, nil
 }
 
@@ -54,7 +63,6 @@ func (r *inventoryBalanceRepository) GetBalances(itemID string) ([]models.Invent
 	var balances []models.InventoryBalance
 	err := r.db.
 		Preload("Item").
-		Preload("Variant").
 		Where("item_id = ?", itemID).
 		Find(&balances).Error
 
@@ -63,7 +71,18 @@ func (r *inventoryBalanceRepository) GetBalances(itemID string) ([]models.Invent
 
 func (r *inventoryBalanceRepository) UpdateBalance(balance *models.InventoryBalance) error {
 	balance.UpdatedAt = time.Now()
-	return r.db.Save(balance).Error
+	log.Printf("[INVENTORY_BALANCE] UpdateBalance - ID: %d, Available: %.2f, Current: %.2f", balance.ID, balance.AvailableQuantity, balance.CurrentQuantity)
+	result := r.db.Save(balance)
+	if result.Error != nil {
+		log.Printf("[INVENTORY_BALANCE] Error updating balance - ID: %d, err: %v", balance.ID, result.Error)
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		log.Printf("[INVENTORY_BALANCE] WARNING: No rows affected when updating balance - ID: %d", balance.ID)
+	} else {
+		log.Printf("[INVENTORY_BALANCE] Balance updated successfully - ID: %d, Rows affected: %d", balance.ID, result.RowsAffected)
+	}
+	return nil
 }
 
 func (r *inventoryBalanceRepository) CreateJournalEntry(entry *models.InventoryJournal) error {

@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
@@ -19,14 +20,16 @@ type OpeningStockService interface {
 }
 
 type openingStockService struct {
-	stockRepo repo.OpeningStockRepository
-	itemRepo  repo.ItemRepository
+	stockRepo     repo.OpeningStockRepository
+	itemRepo      repo.ItemRepository
+	inventoryRepo repo.InventoryBalanceRepository
 }
 
-func NewOpeningStockService(stockRepo repo.OpeningStockRepository, itemRepo repo.ItemRepository) OpeningStockService {
+func NewOpeningStockService(stockRepo repo.OpeningStockRepository, itemRepo repo.ItemRepository, inventoryRepo repo.InventoryBalanceRepository) OpeningStockService {
 	return &openingStockService{
-		stockRepo: stockRepo,
-		itemRepo:  itemRepo,
+		stockRepo:     stockRepo,
+		itemRepo:      itemRepo,
+		inventoryRepo: inventoryRepo,
 	}
 }
 
@@ -45,6 +48,26 @@ func (s *openingStockService) UpdateOpeningStock(itemID string, input *input.Ope
 	if err != nil {
 		return nil, err
 	}
+
+	// Update inventory balance
+	log.Printf("[OPEN_STOCK] Getting balance for item %s (single item)", itemID)
+	balance, err := s.inventoryRepo.GetBalance(itemID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get inventory balance: %v", err)
+	}
+	log.Printf("[OPEN_STOCK] Balance retrieved - ID: %d, Current Available: %.2f", balance.ID, balance.AvailableQuantity)
+
+	balance.CurrentQuantity = input.OpeningStock
+	balance.AvailableQuantity = input.OpeningStock
+	balance.AverageRate = input.OpeningStockRatePerUnit
+	balance.LastInventorySyncAt = time.Now()
+	balance.UpdatedAt = time.Now()
+
+	log.Printf("[OPEN_STOCK] Updating balance - ID: %d, Setting Available to: %.2f", balance.ID, input.OpeningStock)
+	if err := s.inventoryRepo.UpdateBalance(balance); err != nil {
+		return nil, fmt.Errorf("failed to update inventory balance: %v", err)
+	}
+	log.Printf("[OPEN_STOCK] Balance updated successfully - ID: %d", balance.ID)
 
 	if input.OpeningStock > 0 {
 		movement := &models.StockMovement{
@@ -97,6 +120,8 @@ func (s *openingStockService) UpdateVariantsOpeningStock(itemID string, input *i
 	}
 
 	for _, variantInput := range input.Variants {
+		log.Printf("[OPEN_STOCK] Processing variant %s for item %s", variantInput.VariantSKU, itemID)
+
 		err := s.stockRepo.CreateOrUpdateVariantOpeningStock(
 			variantInput.VariantSKU,
 			variantInput.OpeningStock,
@@ -105,6 +130,26 @@ func (s *openingStockService) UpdateVariantsOpeningStock(itemID string, input *i
 		if err != nil {
 			return nil, err
 		}
+
+		// Update inventory balance for variant
+		log.Printf("[OPEN_STOCK] Getting balance for variant %s of item %s", variantInput.VariantSKU, itemID)
+		balance, err := s.inventoryRepo.GetBalance(itemID, &variantInput.VariantSKU)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get inventory balance for variant %s: %v", variantInput.VariantSKU, err)
+		}
+		log.Printf("[OPEN_STOCK] Balance retrieved for variant %s - ID: %d, Current Available: %.2f", variantInput.VariantSKU, balance.ID, balance.AvailableQuantity)
+
+		balance.CurrentQuantity = variantInput.OpeningStock
+		balance.AvailableQuantity = variantInput.OpeningStock
+		balance.AverageRate = variantInput.OpeningStockRatePerUnit
+		balance.LastInventorySyncAt = time.Now()
+		balance.UpdatedAt = time.Now()
+
+		log.Printf("[OPEN_STOCK] Updating balance for variant %s - ID: %d, Setting Available to: %.2f", variantInput.VariantSKU, balance.ID, variantInput.OpeningStock)
+		if err := s.inventoryRepo.UpdateBalance(balance); err != nil {
+			return nil, fmt.Errorf("failed to update inventory balance for variant %s: %v", variantInput.VariantSKU, err)
+		}
+		log.Printf("[OPEN_STOCK] Balance updated for variant %s - ID: %d", variantInput.VariantSKU, balance.ID)
 
 		if variantInput.OpeningStock > 0 {
 			movement := &models.StockMovement{

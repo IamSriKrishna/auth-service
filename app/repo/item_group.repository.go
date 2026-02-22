@@ -29,7 +29,7 @@ func (r *itemGroupRepository) Create(itemGroup *models.ItemGroup) error {
 
 func (r *itemGroupRepository) FindByID(id string) (*models.ItemGroup, error) {
 	var itemGroup models.ItemGroup
-	err := r.db.Preload("Components").First(&itemGroup, "id = ?", id).Error
+	err := r.db.Preload("Components.Item").First(&itemGroup, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (r *itemGroupRepository) FindAll(limit, offset int, search string) ([]model
 		return nil, 0, err
 	}
 
-	err = query.Preload("Components").Limit(limit).Offset(offset).Order("created_at DESC").Find(&itemGroups).Error
+	err = query.Preload("Components.Item").Limit(limit).Offset(offset).Order("created_at DESC").Find(&itemGroups).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -69,7 +69,7 @@ func (r *itemGroupRepository) Delete(id string) error {
 
 func (r *itemGroupRepository) FindByName(name string) (*models.ItemGroup, error) {
 	var itemGroup models.ItemGroup
-	err := r.db.First(&itemGroup, "name = ?", name).Error
+	err := r.db.Preload("Components.Item").First(&itemGroup, "name = ?", name).Error
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (r *itemGroupRepository) FindActiveGroups(limit, offset int) ([]models.Item
 		return nil, 0, err
 	}
 
-	err = query.Preload("Components").Limit(limit).Offset(offset).Order("created_at DESC").Find(&itemGroups).Error
+	err = query.Preload("Components.Item").Limit(limit).Offset(offset).Order("created_at DESC").Find(&itemGroups).Error
 	if err != nil {
 		return nil, 0, err
 	}

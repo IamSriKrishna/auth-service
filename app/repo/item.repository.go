@@ -1,6 +1,8 @@
 package repo
 
 import (
+	"fmt"
+
 	"github.com/bbapp-org/auth-service/app/models"
 	"gorm.io/gorm"
 )
@@ -24,7 +26,7 @@ func (r *itemRepository) Create(item *models.Item) error {
 		item.SalesInfo.ItemID = item.ID
 		item.Inventory.ItemID = item.ID
 		item.ReturnPolicy.ItemID = item.ID
-		
+
 		if item.PurchaseInfo.Account != "" {
 			item.PurchaseInfo.ItemID = item.ID
 		}
@@ -106,7 +108,6 @@ func (r *itemRepository) FindAll(limit, offset int) ([]models.Item, int64, error
 	}
 
 	err := r.db.
-
 		Preload("ItemDetails.Variants.Attributes").
 		Preload("SalesInfo").
 		Preload("PurchaseInfo.PreferredVendor").
@@ -219,4 +220,75 @@ func (r *itemRepository) FindByType(itemType string, limit, offset int) ([]model
 	}
 
 	return items, total, nil
+}
+
+// DeductStockQuantity reduces the stock quantity from an item or variant
+// If variantSKU is provided, it deducts from the variant stock
+// Otherwise, it deducts from the main item stock
+func (r *itemRepository) DeductStockQuantity(itemID string, variantSKU *string, quantity float64) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if variantSKU != nil && *variantSKU != "" {
+			// Deduct from variant stock
+			var variant models.Variant
+			if err := tx.Where("sku = ?", *variantSKU).First(&variant).Error; err != nil {
+				return err
+			}
+
+			if variant.StockQuantity < quantity {
+				return fmt.Errorf("insufficient stock for variant %s: available=%f, required=%f", *variantSKU, variant.StockQuantity, quantity)
+			}
+
+			newQuantity := variant.StockQuantity - quantity
+			if err := tx.Model(&variant).Update("stock_quantity", newQuantity).Error; err != nil {
+				return err
+			}
+		} else {
+			// For item groups, variant SKU is required
+			return fmt.Errorf("variant SKU required for stock deduction on item %s", itemID)
+		}
+		return nil
+	})
+}
+
+// CheckReorderPoint verifies if current stock is at or below reorder level
+// Returns the variant with reorder point information
+func (r *itemRepository) CheckReorderPoint(itemID string, variantSKU *string) (*models.Variant, error) {
+	var item models.Item
+	if err := r.db.
+		Preload("ItemDetails.Variants").
+		Preload("Inventory").
+		Where("id = ?", itemID).
+		First(&item).Error; err != nil {
+		return nil, err
+	}
+
+	if variantSKU != nil && *variantSKU != "" {
+		// Check variant reorder level
+		for _, v := range item.ItemDetails.Variants {
+			if v.SKU == *variantSKU {
+				if v.StockQuantity <= v.ReorderLevel {
+					return &v, nil // Returns variant at or below reorder point
+				}
+				return nil, nil // Stock is above reorder point
+			}
+		}
+		return nil, fmt.Errorf("variant %s not found", *variantSKU)
+	}
+
+	return nil, nil
+}
+
+// GetVariantBySKU retrieves a variant by its SKU
+func (r *itemRepository) GetVariantBySKU(sku string) (*models.Variant, error) {
+	var variant models.Variant
+	if err := r.db.Where("sku = ?", sku).First(&variant).Error; err != nil {
+		return nil, err
+	}
+	return &variant, nil
+}
+
+// UpdateVariantStock updates the stock quantity for a specific variant
+func (r *itemRepository) UpdateVariantStock(variantID uint, newQuantity float64) error {
+	return r.db.Model(&models.Variant{}).Where("id = ?", variantID).
+		Update("stock_quantity", newQuantity).Error
 }

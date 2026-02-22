@@ -70,7 +70,7 @@ type UpdateSalespersonInput struct {
 type CreateTaxInput struct {
 	Name    string  `json:"name" validate:"required"`
 	TaxType string  `json:"tax_type" validate:"required"`
-	Rate    float64 `json:"rate" validate:"required,gte=0,lte=100"`
+	Rate    float64 `json:"rate" validate:"gte=0,lte=100"`
 }
 
 type UpdateTaxInput struct {

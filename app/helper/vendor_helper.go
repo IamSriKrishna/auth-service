@@ -98,6 +98,8 @@ func MapCreateVendorInput(input *input.CreateVendorInput) *models.Vendor {
 			BankID:            bd.BankID,
 			AccountHolderName: bd.AccountHolderName,
 			AccountNumber:     bd.AccountNumber,
+			IFSCCode:          bd.IFSCCode,
+			BranchName:        bd.BranchName,
 		})
 	}
 
@@ -267,6 +269,8 @@ func MapVendorToOutput(vendor *models.Vendor) *output.VendorOutput {
 			BankID:            bd.BankID,
 			AccountHolderName: bd.AccountHolderName,
 			AccountNumber:     bd.AccountNumber,
+			IFSCCode:          bd.IFSCCode,
+			BranchName:        bd.BranchName,
 			CreatedAt:         bd.CreatedAt,
 			UpdatedAt:         bd.UpdatedAt,
 		})
