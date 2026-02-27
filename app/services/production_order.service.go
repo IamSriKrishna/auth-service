@@ -14,11 +14,15 @@ import (
 )
 
 type ProductionOrderService interface {
+	// Basic CRUD Operations for production orders
 	Create(req *input.CreateProductionOrderInput) (*output.ProductionOrderOutput, error)
 	FindByID(id string) (*output.ProductionOrderOutput, error)
 	FindAll(limit, offset int) (*output.ProductionOrderListOutput, error)
 	Update(id string, req *input.UpdateProductionOrderInput) (*output.ProductionOrderOutput, error)
 	Delete(id string) (*output.ProductionOrderDeleteOutput, error)
+
+	// Extra: Production Order Item Consumption
+	// Manage consumption of item group components during production
 	ConsumeItem(productionOrderID string, req *input.ConsumeProductionOrderItemInput) (*output.ProductionOrderOutput, error)
 }
 

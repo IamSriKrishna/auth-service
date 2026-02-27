@@ -11,11 +11,15 @@ import (
 )
 
 type ItemGroupService interface {
+	// Basic CRUD Operations for bundled items (used in packaging and production)
 	Create(input *input.CreateItemGroupInput) (*output.ItemGroupOutput, error)
 	FindByID(id string) (*output.ItemGroupOutput, error)
 	FindAll(limit, offset int, search string) (*output.ItemGroupListOutput, error)
 	Update(id string, input *input.UpdateItemGroupInput) (*output.ItemGroupOutput, error)
 	Delete(id string) error
+
+	// Extra: Item Groups for bundling items together
+	// Used to manage bundled products and package contents
 	FindByName(name string) (*output.ItemGroupOutput, error)
 }
 

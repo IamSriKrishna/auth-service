@@ -5,18 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type SalesOrderRepository interface {
-	Create(so *models.SalesOrder) (*models.SalesOrder, error)
-	FindByID(id string) (*models.SalesOrder, error)
-	FindAll(limit, offset int) ([]models.SalesOrder, int64, error)
-	FindByCustomer(customerID uint, limit, offset int) ([]models.SalesOrder, int64, error)
-	FindByStatus(status string, limit, offset int) ([]models.SalesOrder, int64, error)
-	Update(id string, so *models.SalesOrder) (*models.SalesOrder, error)
-	Delete(id string) error
-	UpdateStatus(id string, status string) error
-	GetDB() *gorm.DB
-}
-
 type salesOrderRepository struct {
 	db *gorm.DB
 }
@@ -29,7 +17,8 @@ func (r *salesOrderRepository) Create(so *models.SalesOrder) (*models.SalesOrder
 	if err := r.db.Create(so).Error; err != nil {
 		return nil, err
 	}
-	return so, nil
+	// Reload the sales order with all relationships to ensure everything is populated
+	return r.FindByID(so.ID)
 }
 
 func (r *salesOrderRepository) FindByID(id string) (*models.SalesOrder, error) {
@@ -40,7 +29,9 @@ func (r *salesOrderRepository) FindByID(id string) (*models.SalesOrder, error) {
 		Preload("Tax").
 		Preload("LineItems").
 		Preload("LineItems.Item").
+		Preload("LineItems.Item.ItemDetails").
 		Preload("LineItems.Variant").
+		Preload("LineItems.Variant.Attributes").
 		Where("id = ?", id).
 		First(&so).Error; err != nil {
 		return nil, err
@@ -58,7 +49,9 @@ func (r *salesOrderRepository) FindAll(limit, offset int) ([]models.SalesOrder, 
 		Preload("Tax").
 		Preload("LineItems").
 		Preload("LineItems.Item").
-		Preload("LineItems.Variant")
+		Preload("LineItems.Item.ItemDetails").
+		Preload("LineItems.Variant").
+		Preload("LineItems.Variant.Attributes")
 
 	if err := query.Model(&models.SalesOrder{}).Count(&total).Error; err != nil {
 		return nil, 0, err

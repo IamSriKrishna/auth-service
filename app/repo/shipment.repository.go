@@ -7,20 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type ShipmentRepository interface {
-	Create(shipment *models.Shipment) (*models.Shipment, error)
-	FindByID(id string) (*models.Shipment, error)
-	FindAll(limit, offset int) ([]models.Shipment, int64, error)
-	FindByPackage(packageID string, limit, offset int) ([]models.Shipment, int64, error)
-	FindBySalesOrder(salesOrderID string, limit, offset int) ([]models.Shipment, int64, error)
-	FindByCustomer(customerID uint, limit, offset int) ([]models.Shipment, int64, error)
-	FindByStatus(status string, limit, offset int) ([]models.Shipment, int64, error)
-	Update(id string, shipment *models.Shipment) (*models.Shipment, error)
-	Delete(id string) error
-	UpdateStatus(id string, status string) error
-	GetNextShipmentNo() (string, error)
-	GetDB() *gorm.DB
-}
 
 type shipmentRepository struct {
 	db *gorm.DB

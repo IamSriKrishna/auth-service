@@ -43,6 +43,7 @@ type SalesOrderLineItemOutput struct {
 	Item           *ItemInfo         `json:"item,omitempty"`
 	VariantSKU     *string           `json:"variant_sku,omitempty"`
 	Variant        *VariantInfo      `json:"variant,omitempty"`
+	Description    string            `json:"description,omitempty"`
 	Quantity       float64           `json:"quantity"`
 	Rate           float64           `json:"rate"`
 	Amount         float64           `json:"amount"`
@@ -54,19 +55,24 @@ func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 
 	for _, item := range so.LineItems {
 		lineItemOutput := SalesOrderLineItemOutput{
-			ID:         item.ID,
-			ItemID:     item.ItemID,
-			VariantSKU: item.VariantSKU,
-			Quantity:   item.Quantity,
-			Rate:       item.Rate,
-			Amount:     item.Amount,
+			ID:          item.ID,
+			ItemID:      item.ItemID,
+			VariantSKU:  item.VariantSKU,
+			Description: item.Description,
+			Quantity:    item.Quantity,
+			Rate:        item.Rate,
+			Amount:      item.Amount,
 		}
 
 		if item.Item != nil {
+			sku := ""
+			if item.Item.ItemDetails.ID > 0 {
+				sku = item.Item.ItemDetails.SKU
+			}
 			lineItemOutput.Item = &ItemInfo{
 				ID:   item.Item.ID,
 				Name: item.Item.Name,
-				SKU:  item.Item.ItemDetails.SKU,
+				SKU:  sku,
 			}
 		}
 
@@ -138,13 +144,15 @@ func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 	}
 
 	if so.Tax != nil {
-		taxTypeStr := string(*so.TaxType)
-		output.TaxType = &taxTypeStr
 		output.Tax = &TaxInfo{
 			ID:      so.Tax.ID,
 			Name:    so.Tax.Name,
 			TaxType: string(so.Tax.TaxType),
 			Rate:    so.Tax.Rate,
+		}
+		if so.TaxType != nil {
+			taxTypeStr := string(*so.TaxType)
+			output.TaxType = &taxTypeStr
 		}
 	}
 

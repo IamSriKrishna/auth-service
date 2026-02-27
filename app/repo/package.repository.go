@@ -7,20 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type PackageRepository interface {
-	Create(pkg *models.Package) (*models.Package, error)
-	FindByID(id string) (*models.Package, error)
-	FindAll(limit, offset int) ([]models.Package, int64, error)
-	FindBySalesOrder(salesOrderID string, limit, offset int) ([]models.Package, int64, error)
-	FindByCustomer(customerID uint, limit, offset int) ([]models.Package, int64, error)
-	FindByStatus(status string, limit, offset int) ([]models.Package, int64, error)
-	Update(id string, pkg *models.Package) (*models.Package, error)
-	Delete(id string) error
-	UpdateStatus(id string, status string) error
-	GetNextPackageSlipNo() (string, error)
-	GetDB() *gorm.DB
-}
-
 type packageRepository struct {
 	db *gorm.DB
 }
@@ -40,6 +26,9 @@ func (r *packageRepository) FindByID(id string) (*models.Package, error) {
 	var pkg models.Package
 	if err := r.db.
 		Preload("SalesOrder").
+		Preload("SalesOrder.LineItems").
+		Preload("SalesOrder.LineItems.Item").
+		Preload("SalesOrder.LineItems.Variant").
 		Preload("SalesOrder.Customer").
 		Preload("Customer").
 		Preload("Items").
@@ -59,6 +48,9 @@ func (r *packageRepository) FindAll(limit, offset int) ([]models.Package, int64,
 
 	query := r.db.
 		Preload("SalesOrder").
+		Preload("SalesOrder.LineItems").
+		Preload("SalesOrder.LineItems.Item").
+		Preload("SalesOrder.LineItems.Variant").
 		Preload("SalesOrder.Customer").
 		Preload("Customer").
 		Preload("Items").
@@ -86,6 +78,9 @@ func (r *packageRepository) FindBySalesOrder(salesOrderID string, limit, offset 
 
 	query := r.db.
 		Preload("SalesOrder").
+		Preload("SalesOrder.LineItems").
+		Preload("SalesOrder.LineItems.Item").
+		Preload("SalesOrder.LineItems.Variant").
 		Preload("SalesOrder.Customer").
 		Preload("Customer").
 		Preload("Items").
@@ -114,6 +109,9 @@ func (r *packageRepository) FindByCustomer(customerID uint, limit, offset int) (
 
 	query := r.db.
 		Preload("SalesOrder").
+		Preload("SalesOrder.LineItems").
+		Preload("SalesOrder.LineItems.Item").
+		Preload("SalesOrder.LineItems.Variant").
 		Preload("SalesOrder.Customer").
 		Preload("Customer").
 		Preload("Items").
@@ -142,6 +140,9 @@ func (r *packageRepository) FindByStatus(status string, limit, offset int) ([]mo
 
 	query := r.db.
 		Preload("SalesOrder").
+		Preload("SalesOrder.LineItems").
+		Preload("SalesOrder.LineItems.Item").
+		Preload("SalesOrder.LineItems.Variant").
 		Preload("SalesOrder.Customer").
 		Preload("Customer").
 		Preload("Items").

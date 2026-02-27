@@ -12,6 +12,8 @@ import (
 )
 
 type VendorService interface {
+	// Step 1: Set Up Your Contacts - Vendors
+	// Define your suppliers, their tax details, and currency information
 	CreateVendor(input *input.CreateVendorInput) (*output.VendorOutput, error)
 	UpdateVendor(id uint, input *input.UpdateVendorInput) (*output.VendorOutput, error)
 	GetVendorByID(id uint) (*output.VendorOutput, error)

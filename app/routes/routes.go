@@ -56,7 +56,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	locationService := services.NewLocationService(locationRepo)
 	taxTypeService := services.NewTaxTypeService(taxTypeRepo)
 	companyService := services.NewCompanyService(companyRepo, businessTypeRepo, locationRepo, taxTypeRepo, db)
-	itemService := services.NewItemService(itemRepo, vendorRepo, manufacturerRepo)
+	itemService := services.NewItemService(itemRepo, vendorRepo, manufacturerRepo, inventoryBalanceRepo)
 	vendorService := services.NewVendorService(vendorRepo)
 	customerService := services.NewCustomerService(customerRepo)
 	openStockService := services.NewOpeningStockService(openStockRepo, itemRepo, inventoryBalanceRepo)

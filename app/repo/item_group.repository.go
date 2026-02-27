@@ -5,15 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type ItemGroupRepository interface {
-	Create(itemGroup *models.ItemGroup) error
-	FindByID(id string) (*models.ItemGroup, error)
-	FindAll(limit, offset int, search string) ([]models.ItemGroup, int64, error)
-	Update(itemGroup *models.ItemGroup) error
-	Delete(id string) error
-	FindByName(name string) (*models.ItemGroup, error)
-	FindActiveGroups(limit, offset int) ([]models.ItemGroup, int64, error)
-}
 
 type itemGroupRepository struct {
 	db *gorm.DB

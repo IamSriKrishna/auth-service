@@ -2,6 +2,7 @@ package repo
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/bbapp-org/auth-service/app/models"
 	"gorm.io/gorm"
@@ -223,29 +224,45 @@ func (r *itemRepository) FindByType(itemType string, limit, offset int) ([]model
 }
 
 // DeductStockQuantity reduces the stock quantity from an item or variant
-// If variantSKU is provided, it deducts from the variant stock
-// Otherwise, it deducts from the main item stock
+// This checks the inventory_balance table (which includes opening stock, purchases, etc.)
+// If variantSKU is provided, it deducts from the variant stock balance
+// Otherwise, it deducts from the item stock balance
 func (r *itemRepository) DeductStockQuantity(itemID string, variantSKU *string, quantity float64) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
+		var balance models.InventoryBalance
+
+		// Get inventory balance for the item or variant
+		query := tx.Where("item_id = ?", itemID)
 		if variantSKU != nil && *variantSKU != "" {
-			// Deduct from variant stock
-			var variant models.Variant
-			if err := tx.Where("sku = ?", *variantSKU).First(&variant).Error; err != nil {
-				return err
-			}
-
-			if variant.StockQuantity < quantity {
-				return fmt.Errorf("insufficient stock for variant %s: available=%f, required=%f", *variantSKU, variant.StockQuantity, quantity)
-			}
-
-			newQuantity := variant.StockQuantity - quantity
-			if err := tx.Model(&variant).Update("stock_quantity", newQuantity).Error; err != nil {
-				return err
-			}
+			query = query.Where("variant_sku = ?", *variantSKU)
 		} else {
-			// For item groups, variant SKU is required
-			return fmt.Errorf("variant SKU required for stock deduction on item %s", itemID)
+			query = query.Where("variant_sku IS NULL")
 		}
+
+		if err := query.First(&balance).Error; err != nil {
+			if variantSKU != nil && *variantSKU != "" {
+				return fmt.Errorf("inventory balance not found for variant %s of item %s", *variantSKU, itemID)
+			}
+			return fmt.Errorf("inventory balance not found for item %s", itemID)
+		}
+
+		// Check if enough stock is available
+		if balance.AvailableQuantity < quantity {
+			if variantSKU != nil && *variantSKU != "" {
+				return fmt.Errorf("insufficient stock for variant %s: available=%f, required=%f", *variantSKU, balance.AvailableQuantity, quantity)
+			}
+			return fmt.Errorf("insufficient stock for item %s: available=%f, required=%f", itemID, balance.AvailableQuantity, quantity)
+		}
+
+		// Deduct from inventory balance
+		balance.AvailableQuantity -= quantity
+		balance.CurrentQuantity -= quantity
+		balance.UpdatedAt = time.Now()
+
+		if err := tx.Model(&balance).Updates(balance).Error; err != nil {
+			return fmt.Errorf("failed to update inventory balance: %v", err)
+		}
+
 		return nil
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/models"
+	"gorm.io/gorm"
 )
 
 type UserRepository interface {
@@ -230,4 +231,77 @@ type ProductionOrderRepository interface {
 	Update(order *models.ProductionOrder) error
 	Delete(id string) error
 	FindByProductionOrderNumber(orderNo string) (*models.ProductionOrder, error)
+}
+
+type ItemGroupRepository interface {
+	Create(itemGroup *models.ItemGroup) error
+	FindByID(id string) (*models.ItemGroup, error)
+	FindAll(limit, offset int, search string) ([]models.ItemGroup, int64, error)
+	Update(itemGroup *models.ItemGroup) error
+	Delete(id string) error
+	FindByName(name string) (*models.ItemGroup, error)
+	FindActiveGroups(limit, offset int) ([]models.ItemGroup, int64, error)
+}
+
+type PurchaseOrderRepository interface {
+	Create(po *models.PurchaseOrder) (*models.PurchaseOrder, error)
+	FindByID(id string) (*models.PurchaseOrder, error)
+	FindAll(limit, offset int) ([]models.PurchaseOrder, int64, error)
+	FindByVendor(vendorID uint, limit, offset int) ([]models.PurchaseOrder, int64, error)
+	FindByCustomer(customerID uint, limit, offset int) ([]models.PurchaseOrder, int64, error)
+	FindByStatus(status string, limit, offset int) ([]models.PurchaseOrder, int64, error)
+	Update(id string, po *models.PurchaseOrder) (*models.PurchaseOrder, error)
+	Delete(id string) error
+	UpdateStatus(id string, status string) error
+	GetDB() *gorm.DB
+}
+
+type SalesOrderRepository interface {
+	Create(so *models.SalesOrder) (*models.SalesOrder, error)
+	FindByID(id string) (*models.SalesOrder, error)
+	FindAll(limit, offset int) ([]models.SalesOrder, int64, error)
+	FindByCustomer(customerID uint, limit, offset int) ([]models.SalesOrder, int64, error)
+	FindByStatus(status string, limit, offset int) ([]models.SalesOrder, int64, error)
+	Update(id string, so *models.SalesOrder) (*models.SalesOrder, error)
+	Delete(id string) error
+	UpdateStatus(id string, status string) error
+	GetDB() *gorm.DB
+}
+
+type BillRepository interface {
+	Create(bill *models.Bill) (*models.Bill, error)
+	FindByID(id string) (*models.Bill, error)
+	FindAll(limit, offset int) ([]models.Bill, int64, error)
+	FindByVendor(vendorID uint, limit, offset int) ([]models.Bill, int64, error)
+	FindByStatus(status string, limit, offset int) ([]models.Bill, int64, error)
+	Update(id string, bill *models.Bill) (*models.Bill, error)
+	Delete(id string) error
+	UpdateStatus(id string, status string) error
+}
+
+type PackageRepository interface {
+	Create(pkg *models.Package) (*models.Package, error)
+	FindByID(id string) (*models.Package, error)
+	FindAll(limit, offset int) ([]models.Package, int64, error)
+	FindBySalesOrder(salesOrderID string, limit, offset int) ([]models.Package, int64, error)
+	FindByCustomer(customerID uint, limit, offset int) ([]models.Package, int64, error)
+	FindByStatus(status string, limit, offset int) ([]models.Package, int64, error)
+	Update(id string, pkg *models.Package) (*models.Package, error)
+	Delete(id string) error
+	UpdateStatus(id string, status string) error
+	GetNextPackageSlipNo() (string, error)
+}
+
+type ShipmentRepository interface {
+	Create(shipment *models.Shipment) (*models.Shipment, error)
+	FindByID(id string) (*models.Shipment, error)
+	FindAll(limit, offset int) ([]models.Shipment, int64, error)
+	FindByPackage(packageID string, limit, offset int) ([]models.Shipment, int64, error)
+	FindBySalesOrder(salesOrderID string, limit, offset int) ([]models.Shipment, int64, error)
+	FindByCustomer(customerID uint, limit, offset int) ([]models.Shipment, int64, error)
+	FindByStatus(status string, limit, offset int) ([]models.Shipment, int64, error)
+	Update(id string, shipment *models.Shipment) (*models.Shipment, error)
+	Delete(id string) error
+	UpdateStatus(id string, status string) error
+	GetNextShipmentNo() (string, error)
 }

@@ -5,18 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type BillRepository interface {
-	Create(bill *models.Bill) (*models.Bill, error)
-	FindByID(id string) (*models.Bill, error)
-	FindAll(limit, offset int) ([]models.Bill, int64, error)
-	FindByVendor(vendorID uint, limit, offset int) ([]models.Bill, int64, error)
-	FindByStatus(status string, limit, offset int) ([]models.Bill, int64, error)
-	Update(id string, bill *models.Bill) (*models.Bill, error)
-	Delete(id string) error
-	UpdateStatus(id string, status string) error
-	GetDB() *gorm.DB
-}
-
 type billRepository struct {
 	db *gorm.DB
 }

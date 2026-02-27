@@ -5,18 +5,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type PurchaseOrderRepository interface {
-	Create(po *models.PurchaseOrder) (*models.PurchaseOrder, error)
-	FindByID(id string) (*models.PurchaseOrder, error)
-	FindAll(limit, offset int) ([]models.PurchaseOrder, int64, error)
-	FindByVendor(vendorID uint, limit, offset int) ([]models.PurchaseOrder, int64, error)
-	FindByCustomer(customerID uint, limit, offset int) ([]models.PurchaseOrder, int64, error)
-	FindByStatus(status string, limit, offset int) ([]models.PurchaseOrder, int64, error)
-	Update(id string, po *models.PurchaseOrder) (*models.PurchaseOrder, error)
-	Delete(id string) error
-	UpdateStatus(id string, status string) error
-	GetDB() *gorm.DB
-}
+
 
 type purchaseOrderRepository struct {
 	db *gorm.DB

@@ -13,12 +13,16 @@ import (
 )
 
 type BillService interface {
+	// Basic CRUD Operations
 	CreateBill(billInput *input.CreateBillInput, userID string) (*output.BillOutput, error)
 	GetBill(id string) (*output.BillOutput, error)
 	GetAllBills(limit, offset int) ([]output.BillOutput, int64, error)
 	GetBillsByVendor(vendorID uint, limit, offset int) ([]output.BillOutput, int64, error)
 	GetBillsByStatus(status string, limit, offset int) ([]output.BillOutput, int64, error)
 	UpdateBill(id string, billInput *input.UpdateBillInput, userID string) (*output.BillOutput, error)
+
+	// Step 3: Purchasing Stock - Bill Recording
+	// Record bills from vendors to track payment obligations
 	UpdateBillStatus(id string, status string, userID string) (*output.BillOutput, error)
 	DeleteBill(id string) error
 }

@@ -14,6 +14,7 @@ import (
 )
 
 type InvoiceService interface {
+	// Basic CRUD Operations
 	CreateInvoice(input *input.CreateInvoiceInput, userID string) (*output.InvoiceOutput, error)
 	GetInvoice(id string) (*output.InvoiceOutput, error)
 	GetAllInvoices(limit, offset int) (*output.InvoiceListOutput, error)
@@ -21,6 +22,9 @@ type InvoiceService interface {
 	DeleteInvoice(id string) error
 	GetInvoicesByCustomer(customerID string, limit, offset int) (*output.InvoiceListOutput, error)
 	GetInvoicesByStatus(status string, limit, offset int) (*output.InvoiceListOutput, error)
+
+	// Step 4: Selling to Customers - Invoice & Payment Collection
+	// Send invoices to customers for payment collection
 	UpdateInvoiceStatus(id string, status domain.InvoiceStatus) (*output.InvoiceOutput, error)
 }
 
@@ -41,9 +45,13 @@ type TaxService interface {
 }
 
 type PaymentService interface {
+	// Record payments from customers
 	CreatePayment(input *input.CreatePaymentInput, userID string) (*output.PaymentOutput, error)
 	GetPayment(id uint) (*output.PaymentOutput, error)
 	GetPaymentsByInvoice(invoiceID string) (*output.PaymentListOutput, error)
+
+	// Step 5: Finalizing the Loop - Payment Recording
+	// Record payments received from customers and payments made to vendors
 	DeletePayment(id uint) error
 }
 

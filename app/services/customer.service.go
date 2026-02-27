@@ -13,6 +13,8 @@ import (
 )
 
 type CustomerService interface {
+	// Step 1: Set Up Your Contacts - Customers
+	// Define your customers, their shipping addresses, and payment terms
 	CreateCustomer(input *input.CreateCustomerInput) (*output.CustomerOutput, error)
 	UpdateCustomer(id uint, input *input.UpdateCustomerInput) (*output.CustomerOutput, error)
 	GetCustomerByID(id uint) (*output.CustomerOutput, error)
@@ -32,7 +34,7 @@ func (s *customerService) CreateCustomer(input *input.CreateCustomerInput) (*out
 	if input.Mobile != "" {
 		existingCustomer, err := s.repo.FindByMobile(input.Mobile)
 		if err == nil && existingCustomer != nil {
-			return nil, fmt.Errorf("mobile number %s already exists with customer: %s", 
+			return nil, fmt.Errorf("mobile number %s already exists with customer: %s",
 				input.Mobile, existingCustomer.DisplayName)
 		}
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -58,7 +60,7 @@ func (s *customerService) UpdateCustomer(id uint, input *input.UpdateCustomerInp
 	if input.Mobile != nil && *input.Mobile != "" && *input.Mobile != customer.Mobile {
 		existingCustomer, err := s.repo.FindByMobile(*input.Mobile)
 		if err == nil && existingCustomer != nil && existingCustomer.ID != id {
-			return nil, fmt.Errorf("mobile number %s already exists with customer: %s", 
+			return nil, fmt.Errorf("mobile number %s already exists with customer: %s",
 				*input.Mobile, existingCustomer.DisplayName)
 		}
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {

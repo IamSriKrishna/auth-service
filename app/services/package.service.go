@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/domain"
@@ -14,6 +15,7 @@ import (
 )
 
 type PackageService interface {
+	// Basic CRUD Operations
 	CreatePackage(pkgInput *input.CreatePackageInput, userID string) (*output.PackageOutput, error)
 	GetPackage(id string) (*output.PackageOutput, error)
 	GetAllPackages(limit, offset int) ([]output.PackageOutput, int64, error)
@@ -21,6 +23,9 @@ type PackageService interface {
 	GetPackagesBySalesOrder(salesOrderID string, limit, offset int) ([]output.PackageOutput, int64, error)
 	GetPackagesByStatus(status string, limit, offset int) ([]output.PackageOutput, int64, error)
 	UpdatePackage(id string, pkgInput *input.UpdatePackageInput, userID string) (*output.PackageOutput, error)
+
+	// Step 4: Selling to Customers - Package Prep
+	// Prepare items for shipping and update package status
 	UpdatePackageStatus(id string, status string, userID string) (*output.PackageOutput, error)
 	DeletePackage(id string) error
 }
@@ -51,49 +56,86 @@ func (s *packageService) CreatePackage(pkgInput *input.CreatePackageInput, userI
 		return nil, errors.New("package input cannot be nil")
 	}
 
+	// Fetch and validate sales order
 	so, err := s.soRepo.FindByID(pkgInput.SalesOrderID)
 	if err != nil {
 		return nil, fmt.Errorf("sales order not found: %w", err)
 	}
 
+	// Fetch and validate customer
 	customer, err := s.customerRepo.FindByID(pkgInput.CustomerID)
 	if err != nil {
 		return nil, fmt.Errorf("customer not found: %w", err)
 	}
 
+	// Verify customer matches sales order
 	if so.CustomerID != pkgInput.CustomerID {
 		return nil, errors.New("customer does not match sales order")
 	}
 
-	slipNo, err := s.pkgRepo.GetNextPackageSlipNo()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate package slip number: %w", err)
+	// Generate or use provided package slip number
+	var slipNo string
+	if pkgInput.PackageSlipNo != nil && *pkgInput.PackageSlipNo != "" {
+		slipNo = *pkgInput.PackageSlipNo
+	} else {
+		generatedSlip, err := s.pkgRepo.GetNextPackageSlipNo()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate package slip number: %w", err)
+		}
+		slipNo = generatedSlip
 	}
 
+	// Build a map of input items for quick lookup by SalesOrderItemID
+	inputItemsMap := make(map[uint]*input.PackageLineItemInput)
+	if len(pkgInput.Items) > 0 {
+		for i := range pkgInput.Items {
+			inputItemsMap[pkgInput.Items[i].SalesOrderItemID] = &pkgInput.Items[i]
+		}
+	}
+
+	// Populate package items from sales order line items
 	var packageItems []models.PackageItem
-	for _, itemInput := range pkgInput.Items {
-		item, err := s.itemRepo.FindByID(itemInput.ItemID)
+	for _, soLineItem := range so.LineItems {
+		// Check if this item is in the input items map
+		var packedQty float64 = 0
+		if inputItem, exists := inputItemsMap[soLineItem.ID]; exists {
+			packedQty = inputItem.PackedQty
+		} else if len(pkgInput.Items) == 0 {
+			// If no items specified in input, default packed qty to 0 (user will fill it manually)
+			packedQty = 0
+		} else {
+			// If items were specified but this one wasn't, skip it
+			continue
+		}
+
+		// Fetch item details
+		item, err := s.itemRepo.FindByID(soLineItem.ItemID)
 		if err != nil {
-			return nil, fmt.Errorf("item %s not found: %w", itemInput.ItemID, err)
+			return nil, fmt.Errorf("item %s not found: %w", soLineItem.ItemID, err)
+		}
+
+		// Trim VariantSKU to remove whitespace and newlines
+		var variantSKU *string
+		if soLineItem.VariantSKU != nil {
+			trimmed := strings.TrimSpace(*soLineItem.VariantSKU)
+			variantSKU = &trimmed
 		}
 
 		packageItem := models.PackageItem{
-			SalesOrderItemID: itemInput.SalesOrderItemID,
-			ItemID:           itemInput.ItemID,
-			VariantSKU:       itemInput.VariantSKU,
-			OrderedQty:       itemInput.OrderedQty,
-			PackedQty:        itemInput.PackedQty,
+			SalesOrderItemID: soLineItem.ID,
+			ItemID:           soLineItem.ItemID,
+			Item:             item,
+			VariantSKU:       variantSKU,
+			Variant:          soLineItem.Variant,
+			OrderedQty:       soLineItem.Quantity,
+			PackedQty:        packedQty,
+			VariantDetails:   soLineItem.VariantDetails,
 		}
-
-		if itemInput.VariantDetails != nil {
-			packageItem.VariantDetails = models.VariantDetails(itemInput.VariantDetails)
-		}
-
-		packageItem.Item = item
 
 		packageItems = append(packageItems, packageItem)
 	}
 
+	// Create package model
 	pkg := &models.Package{
 		ID:            uuid.New().String(),
 		PackageSlipNo: slipNo,
@@ -103,13 +145,13 @@ func (s *packageService) CreatePackage(pkgInput *input.CreatePackageInput, userI
 		Status:        domain.PackageStatusCreated,
 		InternalNotes: pkgInput.InternalNotes,
 		Items:         packageItems,
+		SalesOrder:    so,
+		Customer:      customer,
 		CreatedBy:     userID,
 		UpdatedBy:     userID,
 	}
 
-	pkg.SalesOrder = so
-	pkg.Customer = customer
-
+	// Save to repository
 	createdPkg, err := s.pkgRepo.Create(pkg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create package: %w", err)
@@ -213,30 +255,20 @@ func (s *packageService) UpdatePackage(id string, pkgInput *input.UpdatePackageI
 		pkg.Status = domain.PackageStatus(*pkgInput.Status)
 	}
 
+	// Update packed quantities for specified items
 	if len(pkgInput.Items) > 0 {
-		var packageItems []models.PackageItem
+		// Build a map of input items for quick lookup
+		inputItemsMap := make(map[uint]float64)
 		for _, itemInput := range pkgInput.Items {
-			item, err := s.itemRepo.FindByID(itemInput.ItemID)
-			if err != nil {
-				return nil, fmt.Errorf("item %s not found: %w", itemInput.ItemID, err)
-			}
-
-			packageItem := models.PackageItem{
-				SalesOrderItemID: itemInput.SalesOrderItemID,
-				ItemID:           itemInput.ItemID,
-				VariantSKU:       itemInput.VariantSKU,
-				OrderedQty:       itemInput.OrderedQty,
-				PackedQty:        itemInput.PackedQty,
-				Item:             item,
-			}
-
-			if itemInput.VariantDetails != nil {
-				packageItem.VariantDetails = models.VariantDetails(itemInput.VariantDetails)
-			}
-
-			packageItems = append(packageItems, packageItem)
+			inputItemsMap[itemInput.SalesOrderItemID] = itemInput.PackedQty
 		}
-		pkg.Items = packageItems
+
+		// Update existing package items
+		for i := range pkg.Items {
+			if packedQty, exists := inputItemsMap[pkg.Items[i].SalesOrderItemID]; exists {
+				pkg.Items[i].PackedQty = packedQty
+			}
+		}
 	}
 
 	pkg.UpdatedBy = userID

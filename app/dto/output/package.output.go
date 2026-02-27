@@ -24,14 +24,15 @@ type PackageOutput struct {
 }
 
 type PackageItemOutput struct {
-	ID             uint              `json:"id"`
-	ItemID         string            `json:"item_id"`
-	Item           *ItemInfo         `json:"item,omitempty"`
-	VariantSKU     *string           `json:"variant_sku,omitempty"`
-	Variant        *VariantInfo      `json:"variant,omitempty"`
-	OrderedQty     float64           `json:"ordered_qty"`
-	PackedQty      float64           `json:"packed_qty"`
-	VariantDetails map[string]string `json:"variant_details,omitempty"`
+	ID               uint              `json:"id"`
+	SalesOrderItemID uint              `json:"sales_order_item_id"`
+	ItemID           string            `json:"item_id"`
+	Item             *ItemInfo         `json:"item,omitempty"`
+	VariantSKU       *string           `json:"variant_sku,omitempty"`
+	Variant          *VariantInfo      `json:"variant,omitempty"`
+	OrderedQty       float64           `json:"ordered_qty"`
+	PackedQty        float64           `json:"packed_qty"`
+	VariantDetails   map[string]string `json:"variant_details,omitempty"`
 }
 
 type SalesOrderInfo struct {
@@ -49,11 +50,12 @@ func ToPackageOutput(pkg *models.Package) (*PackageOutput, error) {
 
 	for _, item := range pkg.Items {
 		packageItemOutput := PackageItemOutput{
-			ID:         item.ID,
-			ItemID:     item.ItemID,
-			VariantSKU: item.VariantSKU,
-			OrderedQty: item.OrderedQty,
-			PackedQty:  item.PackedQty,
+			ID:               item.ID,
+			SalesOrderItemID: item.SalesOrderItemID,
+			ItemID:           item.ItemID,
+			VariantSKU:       item.VariantSKU,
+			OrderedQty:       item.OrderedQty,
+			PackedQty:        item.PackedQty,
 		}
 
 		if item.Item != nil {

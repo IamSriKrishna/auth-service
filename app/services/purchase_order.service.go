@@ -14,6 +14,7 @@ import (
 )
 
 type PurchaseOrderService interface {
+	// Basic CRUD Operations
 	CreatePurchaseOrder(poInput *input.CreatePurchaseOrderInput, userID string) (*output.PurchaseOrderOutput, error)
 	GetPurchaseOrder(id string) (*output.PurchaseOrderOutput, error)
 	GetAllPurchaseOrders(limit, offset int) (*output.PurchaseOrderListOutput, error)
@@ -22,6 +23,9 @@ type PurchaseOrderService interface {
 	GetPurchaseOrdersByVendor(vendorID uint, limit, offset int) (*output.PurchaseOrderListOutput, error)
 	GetPurchaseOrdersByCustomer(customerID uint, limit, offset int) (*output.PurchaseOrderListOutput, error)
 	GetPurchaseOrdersByStatus(status string, limit, offset int) (*output.PurchaseOrderListOutput, error)
+
+	// Step 3: Purchasing Stock (Inbound Operations)
+	// Update PO status and trigger inventory sync when stock is received
 	UpdatePurchaseOrderStatus(id string, status domain.PurchaseOrderStatus, userID string) (*output.PurchaseOrderOutput, error)
 }
 

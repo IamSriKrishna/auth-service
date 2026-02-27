@@ -14,6 +14,7 @@ import (
 )
 
 type ShipmentService interface {
+	// Basic CRUD Operations
 	CreateShipment(shipInput *input.CreateShipmentInput, userID string) (*output.ShipmentOutput, error)
 	GetShipment(id string) (*output.ShipmentOutput, error)
 	GetAllShipments(limit, offset int) ([]output.ShipmentOutput, int64, error)
@@ -22,6 +23,9 @@ type ShipmentService interface {
 	GetShipmentsBySalesOrder(salesOrderID string, limit, offset int) ([]output.ShipmentOutput, int64, error)
 	GetShipmentsByStatus(status string, limit, offset int) ([]output.ShipmentOutput, int64, error)
 	UpdateShipment(id string, shipInput *input.UpdateShipmentInput, userID string) (*output.ShipmentOutput, error)
+
+	// Step 4: Selling to Customers - Shipment
+	// Record shipment and manage inventory deduction when items ship out
 	UpdateShipmentStatus(id string, status string, userID string) (*output.ShipmentOutput, error)
 	DeleteShipment(id string) error
 }

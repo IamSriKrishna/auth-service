@@ -13,25 +13,37 @@ import (
 )
 
 type ItemService interface {
+	// Basic CRUD Operations
 	CreateItem(input *input.CreateItemInput) (*output.ItemOutput, error)
 	GetItem(id string) (*output.ItemOutput, error)
 	GetAllItems(limit, offset int) (*output.ItemListOutput, error)
 	UpdateItem(id string, input *input.UpdateItemInput) (*output.ItemOutput, error)
 	DeleteItem(id string) error
 	GetItemsByType(itemType string, limit, offset int) (*output.ItemListOutput, error)
+
+	// Step 2: Inventory Tracking Operations
+	// Enable/disable inventory tracking for items to track stock movements
+	EnableInventoryTracking(itemID string) error
+	IsInventoryTrackingEnabled(itemID string) (bool, error)
+
+	// Get item with current inventory balance
+	// This is used to check current stock levels for purchasing and selling decisions
+	GetItemWithInventoryStatus(itemID string) (map[string]interface{}, error)
 }
 
 type itemService struct {
 	repo             repo.ItemRepository
 	vendorRepo       repo.VendorRepository
 	ManufacturerRepo repo.ManufacturerRepository
+	inventoryRepo    repo.InventoryBalanceRepository
 }
 
-func NewItemService(itemRepo repo.ItemRepository, vendorRepo repo.VendorRepository, manufacturerRepo repo.ManufacturerRepository) ItemService {
+func NewItemService(itemRepo repo.ItemRepository, vendorRepo repo.VendorRepository, manufacturerRepo repo.ManufacturerRepository, inventoryRepo repo.InventoryBalanceRepository) ItemService {
 	return &itemService{
 		repo:             itemRepo,
 		vendorRepo:       vendorRepo,
 		ManufacturerRepo: manufacturerRepo,
+		inventoryRepo:    inventoryRepo,
 	}
 }
 
@@ -335,4 +347,61 @@ func (s *itemService) GetItemsByType(itemType string, limit, offset int) (*outpu
 	}
 
 	return output.ToItemListOutput(items, total)
+}
+
+// Step 2: Inventory Tracking Operations
+// EnableInventoryTracking enables inventory tracking for an item
+// Required for items that need stock movement tracking
+func (s *itemService) EnableInventoryTracking(itemID string) error {
+	item, err := s.repo.FindByID(itemID)
+	if err != nil {
+		return fmt.Errorf("item not found: %w", err)
+	}
+
+	item.Inventory.TrackInventory = true
+	item.UpdatedAt = time.Now()
+
+	return s.repo.Update(item)
+}
+
+// IsInventoryTrackingEnabled checks if inventory tracking is enabled for an item
+func (s *itemService) IsInventoryTrackingEnabled(itemID string) (bool, error) {
+	item, err := s.repo.FindByID(itemID)
+	if err != nil {
+		return false, fmt.Errorf("item not found: %w", err)
+	}
+
+	return item.Inventory.TrackInventory, nil
+}
+
+// GetItemWithInventoryStatus returns item details along with current inventory balance
+// Used to check stock availability for purchasing and selling decisions
+func (s *itemService) GetItemWithInventoryStatus(itemID string) (map[string]interface{}, error) {
+	item, err := s.repo.FindByID(itemID)
+	if err != nil {
+		return nil, fmt.Errorf("item not found: %w", err)
+	}
+
+	result := map[string]interface{}{
+		"item_id":             itemID,
+		"name":                item.Name,
+		"type":                item.Type,
+		"inventory_tracking":  item.Inventory.TrackInventory,
+		"reorder_point":       item.Inventory.ReorderPoint,
+		"purchase_price":      item.PurchaseInfo.CostPrice,
+		"selling_price":       item.SalesInfo.SellingPrice,
+		"preferred_vendor_id": item.PurchaseInfo.PreferredVendorID,
+	}
+
+	// If inventory tracking is enabled, get current balance
+	if item.Inventory.TrackInventory {
+		balance, err := s.inventoryRepo.GetBalance(itemID, nil)
+		if err == nil && balance != nil {
+			result["current_stock"] = balance.AvailableQuantity
+			result["reserved_quantity"] = balance.ReservedQuantity
+			result["total_quantity"] = balance.CurrentQuantity
+		}
+	}
+
+	return result, nil
 }

@@ -48,14 +48,17 @@ func (r *inventoryBalanceRepository) GetBalance(itemID string, variantSKU *strin
 				log.Printf("[INVENTORY_BALANCE] Error creating balance - itemID: %s, variant: %s, err: %v", itemID, variantDesc, err)
 				return nil, err
 			}
-			log.Printf("[INVENTORY_BALANCE] New balance created - ID: %d, itemID: %s, variant: %s", balance.ID, itemID, variantDesc)
+			if balance.ID == 0 {
+				log.Printf("[INVENTORY_BALANCE] WARNING: Balance created but ID not populated - itemID: %s, variant: %s", itemID, variantDesc)
+			}
+			log.Printf("[INVENTORY_BALANCE] New balance created - ID: %d, itemID: %s, variant: %s, Available: %.2f", balance.ID, itemID, variantDesc, balance.AvailableQuantity)
 			return &balance, nil
 		}
 		log.Printf("[INVENTORY_BALANCE] Error retrieving balance - itemID: %s, variant: %s, err: %v", itemID, variantDesc, err)
 		return nil, err
 	}
 
-	log.Printf("[INVENTORY_BALANCE] Existing balance found - ID: %d, Available: %.2f", balance.ID, balance.AvailableQuantity)
+	log.Printf("[INVENTORY_BALANCE] Existing balance found - ID: %d, Available: %.2f, Current: %.2f", balance.ID, balance.AvailableQuantity, balance.CurrentQuantity)
 	return &balance, nil
 }
 
@@ -70,18 +73,35 @@ func (r *inventoryBalanceRepository) GetBalances(itemID string) ([]models.Invent
 }
 
 func (r *inventoryBalanceRepository) UpdateBalance(balance *models.InventoryBalance) error {
+	if balance.ID == 0 {
+		log.Printf("[INVENTORY_BALANCE] ERROR: UpdateBalance called with invalid ID (0)")
+		return fmt.Errorf("cannot update balance with ID 0")
+	}
+
 	balance.UpdatedAt = time.Now()
-	log.Printf("[INVENTORY_BALANCE] UpdateBalance - ID: %d, Available: %.2f, Current: %.2f", balance.ID, balance.AvailableQuantity, balance.CurrentQuantity)
-	result := r.db.Save(balance)
+	log.Printf("[INVENTORY_BALANCE] UpdateBalance - ID: %d, Available: %.2f, Current: %.2f, ItemID: %s", balance.ID, balance.AvailableQuantity, balance.CurrentQuantity, balance.ItemID)
+
+	// Use explicit Update with WHERE clause to ensure correct record is updated
+	result := r.db.Model(&models.InventoryBalance{}).Where("id = ?", balance.ID).Updates(map[string]interface{}{
+		"current_quantity":       balance.CurrentQuantity,
+		"reserved_quantity":      balance.ReservedQuantity,
+		"available_quantity":     balance.AvailableQuantity,
+		"average_rate":           balance.AverageRate,
+		"last_inventory_sync_at": balance.LastInventorySyncAt,
+		"updated_at":             balance.UpdatedAt,
+	})
+
 	if result.Error != nil {
 		log.Printf("[INVENTORY_BALANCE] Error updating balance - ID: %d, err: %v", balance.ID, result.Error)
 		return result.Error
 	}
+
 	if result.RowsAffected == 0 {
-		log.Printf("[INVENTORY_BALANCE] WARNING: No rows affected when updating balance - ID: %d", balance.ID)
-	} else {
-		log.Printf("[INVENTORY_BALANCE] Balance updated successfully - ID: %d, Rows affected: %d", balance.ID, result.RowsAffected)
+		log.Printf("[INVENTORY_BALANCE] ERROR: No rows affected when updating balance - ID: %d (record may have been deleted)", balance.ID)
+		return fmt.Errorf("inventory balance record not found: ID %d", balance.ID)
 	}
+
+	log.Printf("[INVENTORY_BALANCE] Balance updated successfully - ID: %d, Rows affected: %d, New Available: %.2f", balance.ID, result.RowsAffected, balance.AvailableQuantity)
 	return nil
 }
 

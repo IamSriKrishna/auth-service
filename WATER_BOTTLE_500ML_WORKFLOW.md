@@ -348,7 +348,7 @@ Authorization: Bearer {jwt_token}
       {
         "sku": "BOTTLE-500ML-PLAIN",
         "attribute_map": {
-          "flavor": "Plain"
+          "Flavor": "Plain"
         },
         "selling_price": 5.00,
         "cost_price": 3.50,
@@ -357,7 +357,7 @@ Authorization: Bearer {jwt_token}
       {
         "sku": "BOTTLE-500ML-LEMON",
         "attribute_map": {
-          "flavor": "Lemon"
+          "Flavor": "Lemon"
         },
         "selling_price": 5.00,
         "cost_price": 3.50,
@@ -366,7 +366,7 @@ Authorization: Bearer {jwt_token}
       {
         "sku": "BOTTLE-500ML-MINT",
         "attribute_map": {
-          "flavor": "Mint"
+          "Flavor": "Mint"
         },
         "selling_price": 5.00,
         "cost_price": 3.50,
@@ -417,21 +417,21 @@ Authorization: Bearer {jwt_token}
       {
         "variant_id": "1",
         "variant_sku": "BOTTLE-500ML-PLAIN",
-        "attribute_map": {"flavor": "Plain"},
+        "attribute_map": {"Flavor": "Plain"},
         "selling_price": 5.00,
         "cost_price": 3.50
       },
       {
         "variant_id": "2",
         "variant_sku": "BOTTLE-500ML-LEMON",
-        "attribute_map": {"flavor": "Lemon"},
+        "attribute_map": {"Flavor": "Lemon"},
         "selling_price": 5.00,
         "cost_price": 3.50
       },
       {
         "variant_id": "3",
         "variant_sku": "BOTTLE-500ML-MINT",
-        "attribute_map": {"flavor": "Mint"},
+        "attribute_map": {"Flavor": "Mint"},
         "selling_price": 5.00,
         "cost_price": 3.50
       }
@@ -473,7 +473,7 @@ Authorization: Bearer {jwt_token}
       {
         "sku": "CAP-FLIP-PLAIN",
         "attribute_map": {
-          "flavor": "Plain"
+          "Flavor": "Plain"
         },
         "selling_price": 2.00,
         "cost_price": 1.20,
@@ -482,7 +482,7 @@ Authorization: Bearer {jwt_token}
       {
         "sku": "CAP-FLIP-LEMON",
         "attribute_map": {
-          "flavor": "Lemon"
+          "Flavor": "Lemon"
         },
         "selling_price": 2.00,
         "cost_price": 1.20,
@@ -491,7 +491,7 @@ Authorization: Bearer {jwt_token}
       {
         "sku": "CAP-FLIP-MINT",
         "attribute_map": {
-          "flavor": "Mint"
+          "Flavor": "Mint"
         },
         "selling_price": 2.00,
         "cost_price": 1.20,
@@ -542,21 +542,21 @@ Authorization: Bearer {jwt_token}
       {
         "variant_id": "1",
         "variant_sku": "CAP-FLIP-PLAIN",
-        "attribute_map": {"flavor": "Plain"},
+        "attribute_map": {"Flavor": "Plain"},
         "selling_price": 2.00,
         "cost_price": 1.20
       },
       {
         "variant_id": "2",
         "variant_sku": "CAP-FLIP-LEMON",
-        "attribute_map": {"flavor": "Lemon"},
+        "attribute_map": {"Flavor": "Lemon"},
         "selling_price": 2.00,
         "cost_price": 1.20
       },
       {
         "variant_id": "3",
         "variant_sku": "CAP-FLIP-MINT",
-        "attribute_map": {"flavor": "Mint"},
+        "attribute_map": {"Flavor": "Mint"},
         "selling_price": 2.00,
         "cost_price": 1.20
       }
@@ -598,7 +598,7 @@ Authorization: Bearer {jwt_token}
       {
         "sku": "LABEL-PLAIN",
         "attribute_map": {
-          "flavor": "Plain"
+          "Flavor": "Plain"
         },
         "selling_price": 0.50,
         "cost_price": 0.25,
@@ -607,7 +607,7 @@ Authorization: Bearer {jwt_token}
       {
         "sku": "LABEL-LEMON",
         "attribute_map": {
-          "flavor": "Lemon"
+          "Flavor": "Lemon"
         },
         "selling_price": 0.50,
         "cost_price": 0.25,
@@ -616,7 +616,7 @@ Authorization: Bearer {jwt_token}
       {
         "sku": "LABEL-MINT",
         "attribute_map": {
-          "flavor": "Mint"
+          "Flavor": "Mint"
         },
         "selling_price": 0.50,
         "cost_price": 0.25,
@@ -667,21 +667,21 @@ Authorization: Bearer {jwt_token}
       {
         "variant_id": "1",
         "variant_sku": "LABEL-PLAIN",
-        "attribute_map": {"flavor": "Plain"},
+        "attribute_map": {"Flavor": "Plain"},
         "selling_price": 0.50,
         "cost_price": 0.25
       },
       {
         "variant_id": "2",
         "variant_sku": "LABEL-LEMON",
-        "attribute_map": {"flavor": "Lemon"},
+        "attribute_map": {"Flavor": "Lemon"},
         "selling_price": 0.50,
         "cost_price": 0.25
       },
       {
         "variant_id": "3",
         "variant_sku": "LABEL-MINT",
-        "attribute_map": {"flavor": "Mint"},
+        "attribute_map": {"Flavor": "Mint"},
         "selling_price": 0.50,
         "cost_price": 0.25
       }
@@ -723,7 +723,7 @@ Authorization: Bearer {jwt_token}
       {
         "sku": "WATER-500ML-PLAIN",
         "attribute_map": {
-          "flavor": "Plain"
+          "Flavor": "Plain"
         },
         "selling_price": 20.00,
         "cost_price": 8.95,
@@ -732,7 +732,7 @@ Authorization: Bearer {jwt_token}
       {
         "sku": "WATER-500ML-LEMON",
         "attribute_map": {
-          "flavor": "Lemon"
+          "Flavor": "Lemon"
         },
         "selling_price": 22.00,
         "cost_price": 9.95,
@@ -741,7 +741,7 @@ Authorization: Bearer {jwt_token}
       {
         "sku": "WATER-500ML-MINT",
         "attribute_map": {
-          "flavor": "Mint"
+          "Flavor": "Mint"
         },
         "selling_price": 22.00,
         "cost_price": 9.95,
@@ -792,7 +792,7 @@ Authorization: Bearer {jwt_token}
         "variant_id": "1",
         "variant_sku": "WATER-500ML-PLAIN",
         "attribute_map": {
-          "flavor": "Plain"
+          "Flavor": "Plain"
         },
         "selling_price": 20.00,
         "cost_price": 8.95
@@ -801,7 +801,7 @@ Authorization: Bearer {jwt_token}
         "variant_id": "2",
         "variant_sku": "WATER-500ML-LEMON",
         "attribute_map": {
-          "flavor": "Lemon"
+          "Flavor": "Lemon"
         },
         "selling_price": 22.00,
         "cost_price": 9.95
@@ -810,7 +810,7 @@ Authorization: Bearer {jwt_token}
         "variant_id": "3",
         "variant_sku": "WATER-500ML-MINT",
         "attribute_map": {
-          "flavor": "Mint"
+          "Flavor": "Mint"
         },
         "selling_price": 22.00,
         "cost_price": 9.95
@@ -825,17 +825,32 @@ Authorization: Bearer {jwt_token}
 
 ### 2.5 Set Opening Stock for Raw Materials
 
-#### Set Opening Stock - Bottles
+#### Set Opening Stock - Bottles (With Variants)
 
 **Request:**
 ```json
-PUT /items/1/opening-stock
+PUT /items/1/variants/opening-stock
 Content-Type: application/json
 Authorization: Bearer {jwt_token}
 
 {
-  "opening_stock": 1000,
-  "opening_stock_rate_per_unit": 3.50
+  "variants": [
+    {
+      "variant_sku": "BOTTLE-500ML-PLAIN",
+      "opening_stock": 300,
+      "opening_stock_rate_per_unit": 3.50
+    },
+    {
+      "variant_sku": "BOTTLE-500ML-LEMON",
+      "opening_stock": 300,
+      "opening_stock_rate_per_unit": 3.50
+    },
+    {
+      "variant_sku": "BOTTLE-500ML-MINT",
+      "opening_stock": 400,
+      "opening_stock_rate_per_unit": 3.50
+    }
+  ]
 }
 ```
 
@@ -843,12 +858,31 @@ Authorization: Bearer {jwt_token}
 ```json
 {
   "success": true,
-  "message": "Opening stock updated successfully",
+  "message": "Variant opening stock updated successfully",
   "data": {
     "item_id": "1",
     "item_name": "500ml PET Bottle (Clear)",
-    "opening_stock": 1000,
-    "opening_stock_rate_per_unit": 3.50,
+    "variants_updated": 3,
+    "variants": [
+      {
+        "variant_sku": "BOTTLE-500ML-PLAIN",
+        "opening_stock": 300,
+        "opening_stock_rate_per_unit": 3.50,
+        "total_value": 1050.00
+      },
+      {
+        "variant_sku": "BOTTLE-500ML-LEMON",
+        "opening_stock": 300,
+        "opening_stock_rate_per_unit": 3.50,
+        "total_value": 1050.00
+      },
+      {
+        "variant_sku": "BOTTLE-500ML-MINT",
+        "opening_stock": 400,
+        "opening_stock_rate_per_unit": 3.50,
+        "total_value": 1400.00
+      }
+    ],
     "total_opening_stock_value": 3500.00,
     "unit": "pcs"
   }
@@ -857,17 +891,32 @@ Authorization: Bearer {jwt_token}
 
 ---
 
-#### Set Opening Stock - Caps
+#### Set Opening Stock - Caps (With Variants)
 
 **Request:**
 ```json
-PUT /items/2/opening-stock
+PUT /items/2/variants/opening-stock
 Content-Type: application/json
 Authorization: Bearer {jwt_token}
 
 {
-  "opening_stock": 1000,
-  "opening_stock_rate_per_unit": 1.20
+  "variants": [
+    {
+      "variant_sku": "CAP-FLIP-PLAIN",
+      "opening_stock": 300,
+      "opening_stock_rate_per_unit": 1.20
+    },
+    {
+      "variant_sku": "CAP-FLIP-LEMON",
+      "opening_stock": 300,
+      "opening_stock_rate_per_unit": 1.20
+    },
+    {
+      "variant_sku": "CAP-FLIP-MINT",
+      "opening_stock": 400,
+      "opening_stock_rate_per_unit": 1.20
+    }
+  ]
 }
 ```
 
@@ -875,12 +924,31 @@ Authorization: Bearer {jwt_token}
 ```json
 {
   "success": true,
-  "message": "Opening stock updated successfully",
+  "message": "Variant opening stock updated successfully",
   "data": {
     "item_id": "2",
     "item_name": "Flip Cap with Seal (28mm)",
-    "opening_stock": 1000,
-    "opening_stock_rate_per_unit": 1.20,
+    "variants_updated": 3,
+    "variants": [
+      {
+        "variant_sku": "CAP-FLIP-PLAIN",
+        "opening_stock": 300,
+        "opening_stock_rate_per_unit": 1.20,
+        "total_value": 360.00
+      },
+      {
+        "variant_sku": "CAP-FLIP-LEMON",
+        "opening_stock": 300,
+        "opening_stock_rate_per_unit": 1.20,
+        "total_value": 360.00
+      },
+      {
+        "variant_sku": "CAP-FLIP-MINT",
+        "opening_stock": 400,
+        "opening_stock_rate_per_unit": 1.20,
+        "total_value": 480.00
+      }
+    ],
     "total_opening_stock_value": 1200.00,
     "unit": "pcs"
   }
@@ -889,17 +957,32 @@ Authorization: Bearer {jwt_token}
 
 ---
 
-#### Set Opening Stock - Labels
+#### Set Opening Stock - Labels (With Variants)
 
 **Request:**
 ```json
-PUT /items/3/opening-stock
+PUT /items/3/variants/opening-stock
 Content-Type: application/json
 Authorization: Bearer {jwt_token}
 
 {
-  "opening_stock": 1500,
-  "opening_stock_rate_per_unit": 0.25
+  "variants": [
+    {
+      "variant_sku": "LABEL-PLAIN",
+      "opening_stock": 500,
+      "opening_stock_rate_per_unit": 0.25
+    },
+    {
+      "variant_sku": "LABEL-LEMON",
+      "opening_stock": 500,
+      "opening_stock_rate_per_unit": 0.25
+    },
+    {
+      "variant_sku": "LABEL-MINT",
+      "opening_stock": 500,
+      "opening_stock_rate_per_unit": 0.25
+    }
+  ]
 }
 ```
 
@@ -907,12 +990,31 @@ Authorization: Bearer {jwt_token}
 ```json
 {
   "success": true,
-  "message": "Opening stock updated successfully",
+  "message": "Variant opening stock updated successfully",
   "data": {
     "item_id": "3",
     "item_name": "Brand Label - 500ml Water Bottle",
-    "opening_stock": 1500,
-    "opening_stock_rate_per_unit": 0.25,
+    "variants_updated": 3,
+    "variants": [
+      {
+        "variant_sku": "LABEL-PLAIN",
+        "opening_stock": 500,
+        "opening_stock_rate_per_unit": 0.25,
+        "total_value": 125.00
+      },
+      {
+        "variant_sku": "LABEL-LEMON",
+        "opening_stock": 500,
+        "opening_stock_rate_per_unit": 0.25,
+        "total_value": 125.00
+      },
+      {
+        "variant_sku": "LABEL-MINT",
+        "opening_stock": 500,
+        "opening_stock_rate_per_unit": 0.25,
+        "total_value": 125.00
+      }
+    ],
     "total_opening_stock_value": 375.00,
     "unit": "pcs"
   }
@@ -921,7 +1023,7 @@ Authorization: Bearer {jwt_token}
 
 ---
 
-#### 2.6 Set Opening Stock for Finished Product Variants
+#### 2.6 Set Opening Stock for Finished Product Item (With Variants)
 
 **Request:**
 ```json
@@ -990,6 +1092,24 @@ Authorization: Bearer {jwt_token}
 
 ### 3.1 Additional: Create Item Group (Bundle)
 
+> **Model Fields Reference**:
+> 
+> **Request Body** (provide these fields):
+> - `name` (string, required) - Name of the item group
+> - `description` (string, required) - Detailed description of what the group contains
+> - `is_active` (boolean, optional, default: true) - Whether group is active
+> - `components` (array, required, min 1 item) - Array of ItemGroupComponent objects:
+>   - `item_id` (string, required) - ID of the item to include
+>   - `variant_sku` (string, required if item has variants) - Specific variant SKU
+>   - `quantity` (number, required) - Quantity of this component
+>   - `variant_details` (object, optional) - Variant attribute mapping
+>
+> **Auto-generated fields** (returns in response, DO NOT send in request):
+> - `id` - Generated by system
+> - `created_at` - Auto-created on insert
+> - `updated_at` - Auto-updated on modify
+> - `item_group_id` (in components) - Auto-assigned to each component
+
 **Request:**
 ```json
 POST /item-groups
@@ -997,31 +1117,47 @@ Content-Type: application/json
 Authorization: Bearer {jwt_token}
 
 {
-  "name": "500ml Water Bottle Assembly Kit",
-  "description": "Complete kit for assembling 500ml water bottles containing bottle, flip cap with seal, and branded label. Used in production to create finished water bottles.",
+  "name": "500ml Water Bottle Assembly Kit - Plain Flavor - Batch 100",
+  "description": "Production batch for assembling 100 complete 500ml plain water bottles. Each complete unit requires one bottle, one cap, and one label. Total production: 100 units.",
   "is_active": true,
   "components": [
     {
       "item_id": "1",
-      "variant_sku": null,
-      "quantity": 1,
-      "variant_details": {}
+      "variant_sku": "BOTTLE-500ML-PLAIN",
+      "quantity": 100,
+      "variant_details": {
+        "Flavor": "Plain"
+      }
     },
     {
       "item_id": "2",
-      "variant_sku": null,
-      "quantity": 1,
-      "variant_details": {}
+      "variant_sku": "CAP-FLIP-PLAIN",
+      "quantity": 100,
+      "variant_details": {
+        "Flavor": "Plain"
+      }
     },
     {
       "item_id": "3",
-      "variant_sku": null,
-      "quantity": 1,
-      "variant_details": {}
+      "variant_sku": "LABEL-PLAIN",
+      "quantity": 100,
+      "variant_details": {
+        "Flavor": "Plain"
+      }
     }
   ]
 }
 ```
+
+**Field Definitions:**
+- **name** (string, required): Unique name for the item group
+- **description** (string, required): Detailed description of what the group contains and its purpose
+- **is_active** (boolean, optional): Status of the item group (default: true)
+- **components** (array, required): List of items that make up this group, must have at least 1 component
+  - **item_id** (string, required): The unique ID of the item to include
+  - **variant_sku** (string, required if item has variants): The specific variant SKU to use. Cannot be null for items with variants
+  - **quantity** (number, required): How many units of this component are needed per kit (must be > 0)
+  - **variant_details** (object, optional): Additional variant attribute mapping (e.g., {"Flavor": "Plain"})
 
 **Response (Success - 201 Created):**
 ```json
@@ -1029,42 +1165,621 @@ Authorization: Bearer {jwt_token}
   "success": true,
   "message": "Item group created successfully",
   "data": {
-    "item_group_id": "1",
-    "name": "500ml Water Bottle Assembly Kit",
-    "description": "Complete kit for assembling 500ml water bottles",
+    "id": "ig_1",
+    "name": "500ml Water Bottle Assembly Kit - Plain Flavor - Batch 100",
+    "description": "Production batch for assembling 100 complete 500ml plain water bottles. Each complete unit requires one bottle, one cap, and one label. Total production: 100 units.",
     "is_active": true,
     "components": [
       {
-        "component_id": "1",
+        "id": 1,
+        "item_group_id": "ig_1",
         "item_id": "1",
-        "item_name": "500ml PET Bottle (Clear)",
-        "variant_sku": null,
-        "quantity": 1
+        "item": {
+          "item_id": "1",
+          "name": "500ml PET Bottle (Clear)"
+        },
+        "variant_sku": "BOTTLE-500ML-PLAIN",
+        "quantity": 100,
+        "variant_details": {
+          "Flavor": "Plain"
+        },
+        "created_at": "2024-02-22T10:35:00Z",
+        "updated_at": "2024-02-22T10:35:00Z"
       },
       {
-        "component_id": "2",
+        "id": 2,
+        "item_group_id": "ig_1",
         "item_id": "2",
-        "item_name": "Flip Cap with Seal (28mm)",
-        "variant_sku": null,
-        "quantity": 1
+        "item": {
+          "item_id": "2",
+          "name": "Flip Cap with Seal (28mm)"
+        },
+        "variant_sku": "CAP-FLIP-PLAIN",
+        "quantity": 100,
+        "variant_details": {
+          "Flavor": "Plain"
+        },
+        "created_at": "2024-02-22T10:35:00Z",
+        "updated_at": "2024-02-22T10:35:00Z"
       },
       {
-        "component_id": "3",
+        "id": 3,
+        "item_group_id": "ig_1",
         "item_id": "3",
-        "item_name": "Brand Label - 500ml Water Bottle",
-        "variant_sku": null,
-        "quantity": 1
+        "item": {
+          "item_id": "3",
+          "name": "Brand Label - 500ml Water Bottle"
+        },
+        "variant_sku": "LABEL-PLAIN",
+        "quantity": 100,
+        "variant_details": {
+          "Flavor": "Plain"
+        },
+        "created_at": "2024-02-22T10:35:00Z",
+        "updated_at": "2024-02-22T10:35:00Z"
       }
     ],
-    "total_components": 3,
-    "created_at": "2024-02-22T10:35:00Z"
+    "created_at": "2024-02-22T10:35:00Z",
+    "updated_at": "2024-02-22T10:35:00Z"
   }
 }
 ```
 
 ---
 
-### 3.2 Create Purchase Order 1 - Bottles from Vendor
+### 3.2 Create Production Order - Manufacture 500 Units
+
+Creates a production order to manufacture 500 complete water bottles (100 units × 5 batches) using the assembled item group. The system automatically:
+- Validates the item group has required components
+- Checks available inventory for all components
+- Creates production order items with calculated quantities based on component ratios
+- Deducts inventory for variant items
+
+**Request:**
+```json
+POST /production-orders
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+
+{
+  "item_group_id": "ig_1",
+  "quantity_to_manufacture": 500,
+  "planned_start_date": "2024-02-25",
+  "planned_end_date": "2024-03-10",
+  "notes": "Production batch for Q1 inventory. Target: 500 complete bottles with all variants. Quality check required at each stage."
+}
+```
+
+**Response (Success - 201 Created):**
+```json
+{
+  "success": true,
+  "message": "Production Order created successfully",
+  "data": {
+    "id": "prod_a1b2c3d4",
+    "production_order_no": "PO-2024-123456",
+    "item_group_id": "ig_1",
+    "item_group": {
+      "id": "ig_1",
+      "name": "500ml Water Bottle - Assembled",
+      "description": "Complete water bottle assembly with bottle, cap, and label",
+      "is_active": true
+    },
+    "quantity_to_manufacture": 500,
+    "quantity_manufactured": 0,
+    "status": "planned",
+    "planned_start_date": "2024-02-25T00:00:00Z",
+    "planned_end_date": "2024-03-10T00:00:00Z",
+    "actual_start_date": null,
+    "actual_end_date": null,
+    "manufactured_date": null,
+    "inventory_synced": false,
+    "inventory_sync_date": null,
+    "notes": "Production batch for Q1 inventory. Target: 500 complete bottles with all variants. Quality check required at each stage.",
+    "production_order_items": [
+      {
+        "id": 1,
+        "production_order_id": "prod_a1b2c3d4",
+        "item_group_component_id": 1,
+        "item_group_component": {
+          "id": 1,
+          "item_id": "1",
+          "item": {
+            "item_id": "1",
+            "name": "500ml PET Bottle (Clear)"
+          },
+          "variant_sku": "BOTTLE-500ML-PLAIN",
+          "quantity": 100,
+          "variant_details": {
+            "Flavor": "Plain"
+          }
+        },
+        "quantity_required": 500,
+        "quantity_consumed": 0,
+        "inventory_synced": false,
+        "synced_at": null,
+        "created_at": "2024-02-22T10:45:00Z",
+        "updated_at": "2024-02-22T10:45:00Z"
+      },
+      {
+        "id": 2,
+        "production_order_id": "prod_a1b2c3d4",
+        "item_group_component_id": 4,
+        "item_group_component": {
+          "id": 4,
+          "item_id": "2",
+          "item": {
+            "item_id": "2",
+            "name": "Flip Cap"
+          },
+          "variant_sku": "CAP-FLIP-PLAIN",
+          "quantity": 100,
+          "variant_details": {
+            "Flavor": "Plain"
+          }
+        },
+        "quantity_required": 500,
+        "quantity_consumed": 0,
+        "inventory_synced": false,
+        "synced_at": null,
+        "created_at": "2024-02-22T10:45:00Z",
+        "updated_at": "2024-02-22T10:45:00Z"
+      },
+      {
+        "id": 3,
+        "production_order_id": "prod_a1b2c3d4",
+        "item_group_component_id": 7,
+        "item_group_component": {
+          "id": 7,
+          "item_id": "3",
+          "item": {
+            "item_id": "3",
+            "name": "Brand Label - 500ml Water Bottle"
+          },
+          "variant_sku": "LABEL-PLAIN",
+          "quantity": 100,
+          "variant_details": {
+            "Flavor": "Plain"
+          }
+        },
+        "quantity_required": 500,
+        "quantity_consumed": 0,
+        "inventory_synced": false,
+        "synced_at": null,
+        "created_at": "2024-02-22T10:45:00Z",
+        "updated_at": "2024-02-22T10:45:00Z"
+      }
+    ],
+    "created_at": "2024-02-22T10:45:00Z",
+    "updated_at": "2024-02-22T10:45:00Z",
+    "created_by": "user_admin",
+    "updated_by": "user_admin"
+  }
+}
+```
+
+**Flow Explanation:**
+- **quantity_to_manufacture: 500** = 500 complete bottles to produce
+- **production_order_items generated**: 3 items (one for each component of the item group)
+- **quantity_required calculation**: Based on item_group component quantity ratio
+  - Example: Component qty = 100 units, to manufacture 500 units → need 500 units of that component
+  - **Formula**: (component_qty / base_item_group_qty) × quantity_to_manufacture = (100 / 100) × 500 = 500
+- **inventory deduction**: Automatically deducted from variant items (BOTTLE-500ML-PLAIN, CAP-FLIP-PLAIN, LABEL-PLAIN)
+
+---
+
+### 3.3 Update Production Order Status
+
+Update the production order status and add actual dates as manufacturing progresses:
+
+**Request (Start Manufacturing):**
+```json
+PUT /production-orders/prod_a1b2c3d4
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+
+{
+  "status": "in_progress",
+  "actual_start_date": "2024-02-25",
+  "notes": "Started production run. All equipment operational. First 100 units in assembly line."
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "message": "Production Order updated successfully",
+  "data": {
+    "id": "prod_a1b2c3d4",
+    "production_order_no": "PO-2024-123456",
+    "status": "in_progress",
+    "quantity_to_manufacture": 500,
+    "quantity_manufactured": 0,
+    "actual_start_date": "2024-02-25T00:00:00Z",
+    "planned_end_date": "2024-03-10T00:00:00Z",
+    "notes": "Started production run. All equipment operational. First 100 units in assembly line.",
+    "created_at": "2024-02-22T10:45:00Z",
+    "updated_at": "2024-02-22T11:00:00Z"
+  }
+}
+```
+
+---
+
+### 3.4 Consume Production Order Items
+
+Record consumption of components during the production process:
+
+**Request (Consume 100 Bottles):**
+```json
+POST /production-orders/prod_a1b2c3d4/consume-item
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+
+{
+  "production_order_item_id": 1,
+  "quantity_consumed": 100,
+  "notes": "Day 1 production - consumed 100 BOTTLE-500ML-PLAIN units"
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "message": "Item consumed successfully",
+  "data": {
+    "id": "prod_a1b2c3d4",
+    "production_order_no": "PO-2024-123456",
+    "status": "in_progress",
+    "production_order_items": [
+      {
+        "id": 1,
+        "quantity_required": 500,
+        "quantity_consumed": 100,
+        "inventory_synced": false
+      },
+      {
+        "id": 2,
+        "quantity_required": 500,
+        "quantity_consumed": 0,
+        "inventory_synced": false
+      }
+    ],
+    "created_at": "2024-02-22T10:45:00Z",
+    "updated_at": "2024-02-22T11:15:00Z"
+  }
+}
+```
+
+---
+
+### 3.5 Get Production Order Details
+
+Retrieve a production order with all details:
+
+**Request:**
+```json
+GET /production-orders/prod_a1b2c3d4
+Authorization: Bearer {jwt_token}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "message": "Production Order retrieved successfully",
+  "data": {
+    "id": "prod_a1b2c3d4",
+    "production_order_no": "PO-2024-123456",
+    "item_group_id": "ig_1",
+    "quantity_to_manufacture": 500,
+    "quantity_manufactured": 100,
+    "status": "in_progress",
+    "planned_start_date": "2024-02-25T00:00:00Z",
+    "planned_end_date": "2024-03-10T00:00:00Z",
+    "actual_start_date": "2024-02-25T08:00:00Z",
+    "actual_end_date": null,
+    "manufactured_date": null,
+    "inventory_synced": false,
+    "production_order_items": [
+      {
+        "id": 1,
+        "quantity_required": 500,
+        "quantity_consumed": 100,
+        "inventory_synced": false
+      }
+    ],
+    "notes": "Started production run. First batch completed.",
+    "created_at": "2024-02-22T10:45:00Z",
+    "updated_at": "2024-02-22T15:00:00Z",
+    "created_by": "user_admin",
+    "updated_by": "user_admin"
+  }
+}
+```
+
+---
+
+### 3.6 Get All Production Orders (List with Pagination)
+
+Retrieve all production orders with pagination:
+
+**Request:**
+```json
+GET /production-orders?page=1&limit=20
+Authorization: Bearer {jwt_token}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "message": "Production Orders retrieved successfully",
+  "data": [
+    {
+      "id": "prod_a1b2c3d4",
+      "production_order_no": "PO-2024-123456",
+      "item_group_id": "ig_1",
+      "quantity_to_manufacture": 500,
+      "quantity_manufactured": 100,
+      "status": "in_progress",
+      "planned_start_date": "2024-02-25T00:00:00Z",
+      "planned_end_date": "2024-03-10T00:00:00Z",
+      "actual_start_date": "2024-02-25T08:00:00Z",
+      "actual_end_date": null,
+      "manufactured_date": null,
+      "inventory_synced": false,
+      "notes": "Started production run. All equipment operational. First 100 units in assembly line.",
+      "created_at": "2024-02-22T10:45:00Z",
+      "updated_at": "2024-02-22T11:15:00Z",
+      "created_by": "user_admin",
+      "updated_by": "user_admin"
+    },
+    {
+      "id": "prod_x9y8z7w6",
+      "production_order_no": "PO-2024-123457",
+      "item_group_id": "ig_1",
+      "quantity_to_manufacture": 300,
+      "quantity_manufactured": 0,
+      "status": "planned",
+      "planned_start_date": "2024-03-11T00:00:00Z",
+      "planned_end_date": "2024-03-20T00:00:00Z",
+      "actual_start_date": null,
+      "actual_end_date": null,
+      "manufactured_date": null,
+      "inventory_synced": false,
+      "notes": "Q2 production batch planned",
+      "created_at": "2024-02-23T09:30:00Z",
+      "updated_at": "2024-02-23T09:30:00Z",
+      "created_by": "user_admin",
+      "updated_by": "user_admin"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 2,
+    "total_pages": 1
+  }
+}
+```
+
+---
+
+### 3.7 Complete Production Order Workflow
+
+Complete a production order by consuming all components and marking it as complete.
+
+#### Step 1: Start Manufacturing (Update Status to In Progress)
+
+**Request:**
+```json
+PUT /production-orders/prod_a1b2c3d4
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+
+{
+  "status": "in_progress",
+  "actual_start_date": "2024-02-25",
+  "notes": "Started production run. Equipment operational. Manufacturing begins."
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "message": "Production Order updated successfully",
+  "data": {
+    "id": "prod_a1b2c3d4",
+    "production_order_no": "PO-2024-123456",
+    "status": "in_progress",
+    "quantity_to_manufacture": 100,
+    "quantity_manufactured": 0,
+    "actual_start_date": "2024-02-25T00:00:00Z",
+    "planned_end_date": "2024-03-10T00:00:00Z",
+    "notes": "Started production run. Equipment operational. Manufacturing begins.",
+    "created_at": "2024-02-22T10:45:00Z",
+    "updated_at": "2024-02-25T08:00:00Z"
+  }
+}
+```
+
+---
+
+#### Step 2: Consume Raw Materials (Per Component)
+
+Consume items as you manufacture. Repeat this for each component required in the item group.
+
+**Request (Consume Bottles):**
+```json
+POST /production-orders/prod_a1b2c3d4/consume-item
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+
+{
+  "production_order_item_id": 1,
+  "quantity_consumed": 100,
+  "notes": "Day 1-2 production - consumed 100 BOTTLE-500ML-PLAIN units for assembly"
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "message": "Item consumed successfully",
+  "data": {
+    "id": "prod_a1b2c3d4",
+    "production_order_no": "PO-2024-123456",
+    "status": "in_progress",
+    "quantity_to_manufacture": 100,
+    "quantity_manufactured": 0,
+    "production_order_items": [
+      {
+        "id": 1,
+        "item_id": "item_649c1ae4",
+        "item_name": "500ml PET Bottle (Clear)",
+        "variant_sku": "BOTTLE-500ML-PLAIN",
+        "quantity_required": 100,
+        "quantity_consumed": 100,
+        "status": "completed"
+      },
+      {
+        "id": 2,
+        "item_id": "item_65bdc4db",
+        "item_name": "Flip Cap with Seal (28mm)",
+        "variant_sku": "CAP-FLIP-PLAIN",
+        "quantity_required": 100,
+        "quantity_consumed": 0,
+        "status": "pending"
+      },
+      {
+        "id": 3,
+        "item_id": "item_00a6e19d",
+        "item_name": "Brand Label - 500ml Water Bottle",
+        "variant_sku": "LABEL-PLAIN",
+        "quantity_required": 100,
+        "quantity_consumed": 0,
+        "status": "pending"
+      }
+    ],
+    "updated_at": "2024-02-25T10:00:00Z"
+  }
+}
+```
+
+**Repeat for Caps:**
+```json
+POST /production-orders/prod_a1b2c3d4/consume-item
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+
+{
+  "production_order_item_id": 2,
+  "quantity_consumed": 100,
+  "notes": "Day 1-2 production - consumed 100 CAP-FLIP-PLAIN units"
+}
+```
+
+**Repeat for Labels:**
+```json
+POST /production-orders/prod_a1b2c3d4/consume-item
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+
+{
+  "production_order_item_id": 3,
+  "quantity_consumed": 100,
+  "notes": "Day 1-2 production - consumed 100 LABEL-PLAIN units"
+}
+```
+
+---
+
+#### Step 3: Mark Production as Complete
+
+Once all components are consumed and manufacturing is finished, update the status to "completed".
+
+**Request:**
+```json
+PUT /production-orders/prod_a1b2c3d4
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+
+{
+  "status": "completed",
+  "actual_end_date": "2024-02-27",
+  "quantity_manufactured": 100,
+  "notes": "Production batch completed successfully. All 100 units assembled and quality checked. Ready for distribution."
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "message": "Production Order completed successfully",
+  "data": {
+    "id": "prod_a1b2c3d4",
+    "production_order_no": "PO-2024-123456",
+    "item_group_id": "ig_1",
+    "quantity_to_manufacture": 100,
+    "quantity_manufactured": 100,
+    "status": "completed",
+    "planned_start_date": "2024-02-25T00:00:00Z",
+    "planned_end_date": "2024-03-10T00:00:00Z",
+    "actual_start_date": "2024-02-25T08:00:00Z",
+    "actual_end_date": "2024-02-27T16:00:00Z",
+    "notes": "Production batch completed successfully. All 100 units assembled and quality checked. Ready for distribution.",
+    "production_order_items": [
+      {
+        "id": 1,
+        "item_id": "item_649c1ae4",
+        "item_name": "500ml PET Bottle (Clear)",
+        "variant_sku": "BOTTLE-500ML-PLAIN",
+        "quantity_required": 100,
+        "quantity_consumed": 100,
+        "status": "completed"
+      },
+      {
+        "id": 2,
+        "item_id": "item_65bdc4db",
+        "item_name": "Flip Cap with Seal (28mm)",
+        "variant_sku": "CAP-FLIP-PLAIN",
+        "quantity_required": 100,
+        "quantity_consumed": 100,
+        "status": "completed"
+      },
+      {
+        "id": 3,
+        "item_id": "item_00a6e19d",
+        "item_name": "Brand Label - 500ml Water Bottle",
+        "variant_sku": "LABEL-PLAIN",
+        "quantity_required": 100,
+        "quantity_consumed": 100,
+        "status": "completed"
+      }
+    ],
+    "created_at": "2024-02-22T10:45:00Z",
+    "updated_at": "2024-02-27T16:30:00Z",
+    "created_by": "user_admin",
+    "updated_by": "user_admin"
+  }
+}
+```
+
+**Flow Summary:**
+- **status: "planned"** → Production order created, not started yet
+- **status: "in_progress"** → Manufacturing has started, consuming components
+- **status: "completed"** → All components consumed, manufacturing finished, order complete
+- Progress updates: `quantity_manufactured` increases as items are consumed
+
+---
+
+### 3.7 Create Purchase Order 1 - Bottles from Vendor
 
 **Request:**
 ```json
@@ -1126,7 +1841,7 @@ Authorization: Bearer {jwt_token}
 
 ---
 
-### 3.3 Create Purchase Order 2 - Caps from Vendor
+### 3.8 Create Purchase Order 2 - Caps from Vendor
 
 **Request:**
 ```json
@@ -1185,7 +1900,7 @@ Authorization: Bearer {jwt_token}
 
 ---
 
-### 3.4 Create Purchase Order 3 - Labels from Vendor
+### 3.9 Create Purchase Order 3 - Labels from Vendor
 
 **Request:**
 ```json
@@ -1244,7 +1959,7 @@ Authorization: Bearer {jwt_token}
 
 ---
 
-### 3.5 Record Purchase Receive (Stock Received)
+### 3.10 Record Purchase Receive (Stock Received)
 
 **Request (Example: Bottles received):**
 ```json
@@ -1288,7 +2003,7 @@ Authorization: Bearer {jwt_token}
 
 ---
 
-### 3.6 Record Bills (Accounts Payable)
+### 3.11 Record Bills (Accounts Payable)
 
 #### Bill 1 - Invoice from Bottle Supplier
 
@@ -1655,7 +2370,143 @@ Authorization: Bearer {jwt_token}
 
 ---
 
+### 4.5a Add Opening Stock for Items (Before Creating Sales Orders)
+
+**IMPORTANT:** You must add opening stock for items before creating sales orders, otherwise the system will reject sales orders with "insufficient inventory" errors.
+
+There are two ways to add inventory:
+
+#### Option 1: Direct Opening Stock Entry (Recommended for Testing)
+
+**Request (Add Opening Stock for 500ml Water Bottle with Variants):**
+```json
+POST /items/4/opening-stock
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+
+{
+  "opening_stock_date": "2024-02-24T10:00:00Z",
+  "items": [
+    {
+      "variant_sku": "WATER-500ML-PLAIN",
+      "quantity": 500,
+      "unit_cost": 15.00,
+      "notes": "Opening stock for Plain variant"
+    },
+    {
+      "variant_sku": "WATER-500ML-LEMON",
+      "quantity": 400,
+      "unit_cost": 17.00,
+      "notes": "Opening stock for Lemon variant"
+    },
+    {
+      "variant_sku": "WATER-500ML-MINT",
+      "quantity": 400,
+      "unit_cost": 17.00,
+      "notes": "Opening stock for Mint variant"
+    }
+  ],
+  "notes": "Initial opening stock for 500ml water bottles with different flavors"
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "message": "Opening stock added successfully",
+  "data": {
+    "item_id": "4",
+    "item_name": "500ml Purified Water Bottle",
+    "stock_entries": [
+      {
+        "variant_sku": "WATER-500ML-PLAIN",
+        "quantity_added": 500,
+        "unit_cost": 15.00,
+        "total_value": 7500.00,
+        "status": "completed"
+      },
+      {
+        "variant_sku": "WATER-500ML-LEMON",
+        "quantity_added": 400,
+        "unit_cost": 17.00,
+        "total_value": 6800.00,
+        "status": "completed"
+      },
+      {
+        "variant_sku": "WATER-500ML-MINT",
+        "quantity_added": 400,
+        "unit_cost": 17.00,
+        "total_value": 6800.00,
+        "status": "completed"
+      }
+    ],
+    "total_quantity": 1300,
+    "total_value": 21100.00,
+    "created_at": "2024-02-24T10:00:00Z"
+  }
+}
+```
+
+#### Option 2: Via Purchase Order & Receive (Production Flow)
+
+If you want to follow the full production workflow:
+
+1. **Create Purchase Orders** (Section 3.7, 3.8, 3.9) - Order items from vendors
+2. **Record Purchase Receipt** (Section 3.10) - Receive items from vendors (adds to inventory automatically)
+3. **Create Production Order** (Section 4.1) - Manufacture assembled products
+4. **Consume Materials** (Section 4.3, 4.4, 4.5) - Track material usage during manufacturing
+5. Then create Sales Orders
+
+#### Verify Available Stock
+
+**Request:**
+```json
+GET /items/4/variants/opening-stock
+Authorization: Bearer {jwt_token}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "item_id": "4",
+    "item_name": "500ml Purified Water Bottle",
+    "variants": [
+      {
+        "variant_sku": "WATER-500ML-PLAIN",
+        "available_quantity": 500,
+        "reserved_quantity": 0,
+        "free_quantity": 500
+      },
+      {
+        "variant_sku": "WATER-500ML-LEMON",
+        "available_quantity": 400,
+        "reserved_quantity": 0,
+        "free_quantity": 400
+      },
+      {
+        "variant_sku": "WATER-500ML-MINT",
+        "available_quantity": 400,
+        "reserved_quantity": 0,
+        "free_quantity": 400
+      }
+    ],
+    "total_available": 1300
+  }
+}
+```
+
+---
+
 ### 4.6 Create Sales Order (With Variants)
+
+**IMPORTANT REQUIREMENTS:**
+- **variant_sku is REQUIRED** for items that have variants (items with multiple SKUs like flavors, colors, sizes, etc.)
+- You must add opening stock using `/items/{id}/variants/opening-stock` endpoint BEFORE creating sales orders
+- The system validates inventory availability and will reject orders if requested quantity exceeds available stock
+- Available inventory is calculated as: Current Quantity - Reserved Quantity
 
 **Request:**
 ```json
@@ -1712,6 +2563,14 @@ Authorization: Bearer {jwt_token}
 }
 ```
 
+**Line Item Field Descriptions:**
+- `item_id` (string, required): The ID of the item to include in the order
+- `variant_sku` (string, **required for items with variants**): The specific variant SKU. This is mandatory when the item has multiple variants (e.g., different flavors, sizes, colors)
+- `quantity` (decimal, required, > 0): The quantity to order. System validates that available inventory >= requested quantity
+- `rate` (decimal, required, > 0): The unit price for this item/variant
+- `description` (string, optional): Item description
+- `variant_details` (object, optional): Additional variant-specific details as key-value pairs
+
 **Response (Success - 201 Created):**
 ```json
 {
@@ -1764,9 +2623,277 @@ Authorization: Bearer {jwt_token}
 }
 ```
 
+**Error Response (400 Bad Request) - Missing variant_sku for variant item:**
+```json
+{
+  "error": "variant_sku is required for item 4 (500ml Purified Water Bottle)"
+}
+```
+
+**Error Response (400 Bad Request) - Insufficient inventory:**
+```json
+{
+  "error": "insufficient inventory for 500ml Purified Water Bottle (WATER-500ML-PLAIN). Required: 200.000000 units, Available: 150.000000 units"
+}
+```
+
+**Error Response (400 Bad Request) - Customer not found:**
+```json
+{
+  "error": "customer not found"
+}
+```
+
 ---
 
-### 4.7 Update Sales Order Status - Confirmed
+### 4.6a Get All Sales Orders (List with Pagination)
+
+**Request:**
+```json
+GET /sales-orders?page=1&limit=20
+Authorization: Bearer {jwt_token}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "orders": [
+      {
+        "id": "1",
+        "sales_order_no": "SO-2024-001",
+        "customer_id": 1,
+        "customer_name": "Fresh Waters Distribution Ltd",
+        "reference_no": "SO-WATER-2024-001",
+        "sales_order_date": "2024-02-25T10:00:00Z",
+        "expected_shipment_date": "2024-03-01T10:00:00Z",
+        "payment_terms": "Net 15",
+        "delivery_method": "Courier",
+        "status": "confirmed",
+        "subtotal": 10600.00,
+        "tax_amount": 530.00,
+        "shipping_charges": 1000.00,
+        "total": 12130.00,
+        "line_items_count": 3,
+        "created_at": "2024-02-25T10:00:00Z",
+        "updated_at": "2024-02-25T14:00:00Z"
+      },
+      {
+        "id": "2",
+        "sales_order_no": "SO-2024-002",
+        "customer_id": 2,
+        "customer_name": "Hydration Plus Ltd",
+        "reference_no": "SO-WATER-2024-002",
+        "sales_order_date": "2024-02-26T10:00:00Z",
+        "expected_shipment_date": "2024-03-02T10:00:00Z",
+        "payment_terms": "Net 30",
+        "delivery_method": "Courier",
+        "status": "draft",
+        "subtotal": 5300.00,
+        "tax_amount": 265.00,
+        "shipping_charges": 500.00,
+        "total": 6065.00,
+        "line_items_count": 2,
+        "created_at": "2024-02-26T10:00:00Z",
+        "updated_at": "2024-02-26T10:00:00Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 2,
+      "total_pages": 1
+    }
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "error": "Invalid pagination parameters"
+}
+```
+
+---
+
+### 4.7 Get Sales Order by ID
+
+**Request:**
+```json
+GET /sales-orders/:id
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "1",
+    "sales_order_no": "SO-2024-001",
+    "customer_id": 1,
+    "customer": {
+      "id": 1,
+      "display_name": "Fresh Waters Distribution Ltd",
+      "company_name": "Fresh Waters Distribution Ltd",
+      "email": "contact@freshwaters.com",
+      "phone": "+919876543210"
+    },
+    "salesperson_id": 1,
+    "salesperson": {
+      "id": 1,
+      "name": "Raj Kumar"
+    },
+    "reference_no": "SO-WATER-2024-001",
+    "sales_order_date": "2024-02-25T10:00:00Z",
+    "expected_shipment_date": "2024-03-01T10:00:00Z",
+    "payment_terms": "Net 15",
+    "delivery_method": "Courier",
+    "line_items": [
+      {
+        "id": 1,
+        "item_id": "4",
+        "item": {
+          "id": "4",
+          "name": "500ml Purified Water Bottle",
+          "sku": "WATER-500ML"
+        },
+        "variant_sku": "WATER-500ML-PLAIN",
+        "variant": {
+          "id": "1",
+          "sku": "WATER-500ML-PLAIN",
+          "attribute_map": {
+            "flavor": "Plain"
+          }
+        },
+        "quantity": 200,
+        "rate": 20.00,
+        "amount": 4000.00,
+        "variant_details": {
+          "flavor": "Plain"
+        }
+      },
+      {
+        "id": 2,
+        "item_id": "4",
+        "item": {
+          "id": "4",
+          "name": "500ml Purified Water Bottle",
+          "sku": "WATER-500ML"
+        },
+        "variant_sku": "WATER-500ML-LEMON",
+        "variant": {
+          "id": "2",
+          "sku": "WATER-500ML-LEMON",
+          "attribute_map": {
+            "flavor": "Lemon"
+          }
+        },
+        "quantity": 150,
+        "rate": 22.00,
+        "amount": 3300.00,
+        "variant_details": {
+          "flavor": "Lemon"
+        }
+      },
+      {
+        "id": 3,
+        "item_id": "4",
+        "item": {
+          "id": "4",
+          "name": "500ml Purified Water Bottle",
+          "sku": "WATER-500ML"
+        },
+        "variant_sku": "WATER-500ML-MINT",
+        "variant": {
+          "id": "3",
+          "sku": "WATER-500ML-MINT",
+          "attribute_map": {
+            "flavor": "Mint"
+          }
+        },
+        "quantity": 150,
+        "rate": 22.00,
+        "amount": 3300.00,
+        "variant_details": {
+          "flavor": "Mint"
+        }
+      }
+    ],
+    "sub_total": 10600.00,
+    "shipping_charges": 1000.00,
+    "tax_type": "GST",
+    "tax_id": 1,
+    "tax": {
+      "id": 1,
+      "name": "GST @ 5%",
+      "tax_type": "GST",
+      "rate": 5.0
+    },
+    "tax_amount": 580.00,
+    "adjustment": 0,
+    "total": 12180.00,
+    "customer_notes": "Bulk order for retail distribution chain with mixed flavors. Deliver to warehouse address in Thane. Installation of delivery not required. Please arrange pallet delivery.",
+    "terms_and_conditions": "Payment due within 15 days. Free delivery for orders above 500 units. Goods are sold as per invoice attached.",
+    "status": "confirmed",
+    "attachments": [],
+    "created_at": "2024-02-25T10:00:00Z",
+    "updated_at": "2024-02-25T14:00:00Z",
+    "created_by": "user_123",
+    "updated_by": "user_123"
+  }
+}
+```
+
+**Error Response (404 Not Found):**
+```json
+{
+  "success": false,
+  "error": "Sales order not found"
+}
+```
+
+---
+
+### 4.8 Delete Sales Order
+
+**Request:**
+```json
+DELETE /sales-orders/:id
+Authorization: Bearer {jwt_token}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "message": "Sales order deleted successfully"
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "error": "Cannot delete sales order with status: confirmed"
+}
+```
+
+**Error Response (404 Not Found):**
+```json
+{
+  "success": false,
+  "error": "Sales order not found"
+}
+```
+
+---
+
+### 4.9 Update Sales Order Status - Confirmed
 
 **Request:**
 ```json
@@ -1796,9 +2923,12 @@ Authorization: Bearer {jwt_token}
 
 ---
 
-### 4.8 Create Package (Packing Slip - With Variants)
+### 4.10 Create Package (Packing Slip - With Variants)
 
-**Request:**
+**Overview:**
+Items are automatically populated from the Sales Order line items. You can optionally specify `packed_qty` for specific items, or omit the items array to auto-populate all sales order items with packed_qty = 0 (to be filled manually).
+
+**Request (With Packed Quantities):**
 ```json
 POST /packages
 Content-Type: application/json
@@ -1811,36 +2941,32 @@ Authorization: Bearer {jwt_token}
   "items": [
     {
       "sales_order_item_id": 1,
-      "item_id": "4",
-      "variant_sku": "WATER-500ML-PLAIN",
-      "ordered_qty": 200,
-      "packed_qty": 200,
-      "variant_details": {
-        "flavor": "Plain"
-      }
+      "packed_qty": 200
     },
     {
       "sales_order_item_id": 2,
-      "item_id": "4",
-      "variant_sku": "WATER-500ML-LEMON",
-      "ordered_qty": 150,
-      "packed_qty": 150,
-      "variant_details": {
-        "flavor": "Lemon"
-      }
+      "packed_qty": 150
     },
     {
       "sales_order_item_id": 3,
-      "item_id": "4",
-      "variant_sku": "WATER-500ML-MINT",
-      "ordered_qty": 150,
-      "packed_qty": 150,
-      "variant_details": {
-        "flavor": "Mint"
-      }
+      "packed_qty": 150
     }
   ],
   "internal_notes": "Packaged 500 units (200 Plain + 150 Lemon + 150 Mint) of 500ml water bottles in 25 cartons (20 bottles per carton). Carton breakdown: 10 cartons Plain, 8 cartons Lemon, 8 cartons Mint. Each carton dimensions: 30cm x 25cm x 20cm. Total carton weight: 12kg each. QC inspection completed - all items approved. Ready for shipment. Packing date: 2024-02-29 at 10:00 AM. Packed by: Warehouse Team. Checked by: Quality Control Manager."
+}
+```
+
+**Request (Auto-populate All Items):**
+```json
+POST /packages
+Content-Type: application/json
+Authorization: Bearer {jwt_token}
+
+{
+  "sales_order_id": "1",
+  "customer_id": 1,
+  "package_date": "2024-02-29T10:00:00Z",
+  "internal_notes": "Package ready for filling. All items auto-populated from sales order."
 }
 ```
 
@@ -1850,48 +2976,111 @@ Authorization: Bearer {jwt_token}
   "success": true,
   "message": "Package created successfully",
   "data": {
-    "package_id": "1",
+    "id": "pkg-uuid-123",
+    "package_slip_no": "PKG-00001",
     "sales_order_id": "1",
+    "sales_order": {
+      "id": "1",
+      "sales_order_no": "SO-2024-001",
+      "customer_id": 1,
+      "reference_no": "SO-WATER-2024-001",
+      "sales_order_date": "2024-02-25T10:00:00Z",
+      "expected_shipment_date": "2024-03-01T10:00:00Z",
+      "status": "confirmed"
+    },
     "customer_id": 1,
-    "package_date": "2024-02-29",
+    "customer": {
+      "id": 1,
+      "display_name": "Fresh Waters Distribution Ltd",
+      "company_name": "Fresh Waters Distribution Ltd",
+      "email": "info@freshwaters.com",
+      "phone": "+919876543210"
+    },
+    "package_date": "2024-02-29T10:00:00Z",
     "status": "created",
     "items": [
       {
+        "id": 1,
+        "sales_order_item_id": 1,
         "item_id": "4",
+        "item": {
+          "id": "4",
+          "name": "500ml Water Bottle",
+          "sku": "WATER-500ML"
+        },
         "variant_sku": "WATER-500ML-PLAIN",
+        "variant": {
+          "id": "var-1",
+          "sku": "WATER-500ML-PLAIN",
+          "attribute_map": {
+            "flavor": "Plain"
+          }
+        },
+        "ordered_qty": 200,
+        "packed_qty": 200,
         "variant_details": {
           "flavor": "Plain"
-        },
-        "packed_qty": 200
+        }
       },
       {
+        "id": 2,
+        "sales_order_item_id": 2,
         "item_id": "4",
+        "item": {
+          "id": "4",
+          "name": "500ml Water Bottle",
+          "sku": "WATER-500ML"
+        },
         "variant_sku": "WATER-500ML-LEMON",
+        "variant": {
+          "id": "var-2",
+          "sku": "WATER-500ML-LEMON",
+          "attribute_map": {
+            "flavor": "Lemon"
+          }
+        },
+        "ordered_qty": 150,
+        "packed_qty": 150,
         "variant_details": {
           "flavor": "Lemon"
-        },
-        "packed_qty": 150
+        }
       },
       {
+        "id": 3,
+        "sales_order_item_id": 3,
         "item_id": "4",
+        "item": {
+          "id": "4",
+          "name": "500ml Water Bottle",
+          "sku": "WATER-500ML"
+        },
         "variant_sku": "WATER-500ML-MINT",
+        "variant": {
+          "id": "var-3",
+          "sku": "WATER-500ML-MINT",
+          "attribute_map": {
+            "flavor": "Mint"
+          }
+        },
+        "ordered_qty": 150,
+        "packed_qty": 150,
         "variant_details": {
           "flavor": "Mint"
-        },
-        "packed_qty": 150
+        }
       }
     ],
-    "total_items": 3,
-    "total_quantity": 500,
-    "cartons_count": 25,
-    "created_at": "2024-02-29T10:00:00Z"
+    "internal_notes": "Packaged 500 units (200 Plain + 150 Lemon + 150 Mint)",
+    "created_at": "2024-02-29T10:00:00Z",
+    "updated_at": "2024-02-29T10:00:00Z",
+    "created_by": "user_123",
+    "updated_by": "user_123"
   }
 }
 ```
 
 ---
 
-### 4.9 Update Package Status - Packed
+### 4.11 Update Package Status - Packed
 
 **Request:**
 ```json
@@ -1910,7 +3099,8 @@ Authorization: Bearer {jwt_token}
   "success": true,
   "message": "Package status updated successfully",
   "data": {
-    "package_id": "1",
+    "id": "pkg-uuid-123",
+    "package_slip_no": "PKG-00001",
     "old_status": "created",
     "new_status": "packed",
     "updated_at": "2024-02-29T14:30:00Z"
@@ -1920,7 +3110,166 @@ Authorization: Bearer {jwt_token}
 
 ---
 
-### 4.10 Create Shipment
+### 4.11a Get Package by ID
+
+**Request:**
+```json
+GET /packages/:id
+Authorization: Bearer {jwt_token}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "pkg-uuid-123",
+    "package_slip_no": "PKG-00001",
+    "sales_order_id": "1",
+    "sales_order": {
+      "id": "1",
+      "sales_order_no": "SO-2024-001",
+      "customer_id": 1,
+      "reference_no": "SO-WATER-2024-001",
+      "sales_order_date": "2024-02-25T10:00:00Z",
+      "expected_shipment_date": "2024-03-01T10:00:00Z",
+      "status": "confirmed"
+    },
+    "customer_id": 1,
+    "customer": {
+      "id": 1,
+      "display_name": "Fresh Waters Distribution Ltd",
+      "company_name": "Fresh Waters Distribution Ltd",
+      "email": "info@freshwaters.com",
+      "phone": "+919876543210"
+    },
+    "package_date": "2024-02-29T10:00:00Z",
+    "status": "packed",
+    "items": [
+      {
+        "id": 1,
+        "sales_order_item_id": 1,
+        "item_id": "4",
+        "item": {
+          "id": "4",
+          "name": "500ml Water Bottle",
+          "sku": "WATER-500ML"
+        },
+        "variant_sku": "WATER-500ML-PLAIN",
+        "variant": {
+          "id": "var-1",
+          "sku": "WATER-500ML-PLAIN",
+          "attribute_map": {
+            "flavor": "Plain"
+          }
+        },
+        "ordered_qty": 200,
+        "packed_qty": 200,
+        "variant_details": {
+          "flavor": "Plain"
+        }
+      },
+      {
+        "id": 2,
+        "sales_order_item_id": 2,
+        "item_id": "4",
+        "item": {
+          "id": "4",
+          "name": "500ml Water Bottle",
+          "sku": "WATER-500ML"
+        },
+        "variant_sku": "WATER-500ML-LEMON",
+        "variant": {
+          "id": "var-2",
+          "sku": "WATER-500ML-LEMON",
+          "attribute_map": {
+            "flavor": "Lemon"
+          }
+        },
+        "ordered_qty": 150,
+        "packed_qty": 150,
+        "variant_details": {
+          "flavor": "Lemon"
+        }
+      },
+      {
+        "id": 3,
+        "sales_order_item_id": 3,
+        "item_id": "4",
+        "item": {
+          "id": "4",
+          "name": "500ml Water Bottle",
+          "sku": "WATER-500ML"
+        },
+        "variant_sku": "WATER-500ML-MINT",
+        "variant": {
+          "id": "var-3",
+          "sku": "WATER-500ML-MINT",
+          "attribute_map": {
+            "flavor": "Mint"
+          }
+        },
+        "ordered_qty": 150,
+        "packed_qty": 150,
+        "variant_details": {
+          "flavor": "Mint"
+        }
+      }
+    ],
+    "internal_notes": "Packaged 500 units (200 Plain + 150 Lemon + 150 Mint) of 500ml water bottles in 25 cartons (20 bottles per carton).",
+    "created_at": "2024-02-29T10:00:00Z",
+    "updated_at": "2024-02-29T14:30:00Z",
+    "created_by": "user_123",
+    "updated_by": "user_123"
+  }
+}
+```
+
+**Error Response (404 Not Found):**
+```json
+{
+  "success": false,
+  "error": "Package not found"
+}
+```
+
+---
+
+### 4.11b Delete Package
+
+**Request:**
+```json
+DELETE /packages/:id
+Authorization: Bearer {jwt_token}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "message": "Package deleted successfully"
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "error": "Cannot delete package with status: packed"
+}
+```
+
+**Error Response (404 Not Found):**
+```json
+{
+  "success": false,
+  "error": "Package not found"
+}
+```
+
+---
+
+### 4.12 Create Shipment
 
 **Request:**
 ```json
@@ -1962,7 +3311,7 @@ Authorization: Bearer {jwt_token}
 
 ---
 
-### 4.11 Update Shipment Status - Shipped
+### 4.13 Update Shipment Status - Shipped
 
 **Request:**
 ```json
@@ -1992,7 +3341,89 @@ Authorization: Bearer {jwt_token}
 
 ---
 
-### 4.12 Create Invoice (Bill to Customer - With Variants)
+### 4.13a Get Shipment by ID
+
+**Request:**
+```json
+GET /shipments/:id
+Authorization: Bearer {jwt_token}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "shipment_id": "1",
+    "package_id": "1",
+    "sales_order_id": "1",
+    "customer_id": 1,
+    "customer": {
+      "id": 1,
+      "name": "Fresh Waters Distribution Ltd",
+      "email": "info@freshwaters.com",
+      "phone": "+919876543210"
+    },
+    "carrier": "Premium Logistics Limited",
+    "tracking_no": "TRACK-WATER-500ML-001",
+    "tracking_url": "https://tracking.premiumlogistics.com/TRACK-WATER-500ML-001",
+    "ship_date": "2024-03-01",
+    "estimated_delivery": "2024-03-05",
+    "actual_delivery_date": null,
+    "shipping_charges": 1000,
+    "status": "shipped",
+    "notes": "500ml water bottles shipped in 25 cartons (500 units total). Pallet weight: 300kg. Shipped via road transport. Delivery address: Fresh Waters Warehouse, Thane, MH.",
+    "created_at": "2024-03-01T08:00:00Z",
+    "updated_at": "2024-03-01T08:30:00Z"
+  }
+}
+```
+
+**Error Response (404 Not Found):**
+```json
+{
+  "success": false,
+  "error": "Shipment not found"
+}
+```
+
+---
+
+### 4.13b Delete Shipment
+
+**Request:**
+```json
+DELETE /shipments/:id
+Authorization: Bearer {jwt_token}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "success": true,
+  "message": "Shipment deleted successfully"
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "error": "Cannot delete shipment with status: shipped"
+}
+```
+
+**Error Response (404 Not Found):**
+```json
+{
+  "success": false,
+  "error": "Shipment not found"
+}
+```
+
+---
+
+### 4.14 Create Invoice (Bill to Customer - With Variants)
 
 **Request:**
 ```json

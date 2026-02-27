@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/domain"
@@ -14,12 +15,16 @@ import (
 )
 
 type SalesOrderService interface {
+	// Basic CRUD Operations
 	CreateSalesOrder(soInput *input.CreateSalesOrderInput, userID string) (*output.SalesOrderOutput, error)
 	GetSalesOrder(id string) (*output.SalesOrderOutput, error)
 	GetAllSalesOrders(limit, offset int) ([]output.SalesOrderOutput, int64, error)
 	GetSalesOrdersByCustomer(customerID uint, limit, offset int) ([]output.SalesOrderOutput, int64, error)
 	GetSalesOrdersByStatus(status string, limit, offset int) ([]output.SalesOrderOutput, int64, error)
 	UpdateSalesOrder(id string, soInput *input.UpdateSalesOrderInput, userID string) (*output.SalesOrderOutput, error)
+
+	// Step 4: Selling to Customers (Outbound Operations)
+	// Update SO status and manage inventory reservations when customer commits to purchase
 	UpdateSalesOrderStatus(id string, status string, userID string) (*output.SalesOrderOutput, error)
 	DeleteSalesOrder(id string) error
 }
@@ -82,17 +87,30 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 			return nil, errors.New("item not found: " + itemInput.ItemID)
 		}
 
+		// For variant items, variant_sku is required
+		var variantSKU *string
+		if item.ItemDetails.Structure == "variants" {
+			if itemInput.VariantSKU == nil || *itemInput.VariantSKU == "" {
+				return nil, fmt.Errorf("variant_sku is required for item %s (%s)", itemInput.ItemID, item.Name)
+			}
+			variantSKU = itemInput.VariantSKU
+		} else {
+			variantSKU = nil // For single items, always use nil variant_sku
+		}
+
 		// Check inventory availability
-		inventoryBalance, err := s.inventoryRepo.GetBalance(itemInput.ItemID, itemInput.VariantSKU)
+		log.Printf("[SALES_ORDER] Checking inventory - ItemID: %s, VariantSKU: %v, Quantity: %f\n", itemInput.ItemID, variantSKU, itemInput.Quantity)
+		inventoryBalance, err := s.inventoryRepo.GetBalance(itemInput.ItemID, variantSKU)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check inventory for item %s: %v", itemInput.ItemID, err)
 		}
+		log.Printf("[SALES_ORDER] Inventory Balance - ID: %d, Available: %f\n", inventoryBalance.ID, inventoryBalance.AvailableQuantity)
 
 		if inventoryBalance.AvailableQuantity < itemInput.Quantity {
 			variantName := "N/A"
-			if itemInput.VariantSKU != nil && item.ItemDetails.Variants != nil {
+			if variantSKU != nil && item.ItemDetails.Variants != nil {
 				for _, v := range item.ItemDetails.Variants {
-					if v.SKU == *itemInput.VariantSKU {
+					if v.SKU == *variantSKU {
 						variantName = v.SKU
 						break
 					}
@@ -106,12 +124,13 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 		subTotal += amount
 
 		lineItem := models.SalesOrderLineItem{
-			ItemID:     itemInput.ItemID,
-			Item:       item,
-			VariantSKU: itemInput.VariantSKU,
-			Quantity:   itemInput.Quantity,
-			Rate:       itemInput.Rate,
-			Amount:     amount,
+			ItemID:      itemInput.ItemID,
+			Item:        item,
+			VariantSKU:  variantSKU, // Use the validated variantSKU from above
+			Description: itemInput.Description,
+			Quantity:    itemInput.Quantity,
+			Rate:        itemInput.Rate,
+			Amount:      amount,
 		}
 
 		if itemInput.VariantDetails != nil {
@@ -290,12 +309,13 @@ func (s *salesOrderService) UpdateSalesOrder(id string, soInput *input.UpdateSal
 			subTotal += amount
 
 			lineItem := models.SalesOrderLineItem{
-				ItemID:     itemInput.ItemID,
-				Item:       item,
-				VariantSKU: itemInput.VariantSKU,
-				Quantity:   itemInput.Quantity,
-				Rate:       itemInput.Rate,
-				Amount:     amount,
+				ItemID:      itemInput.ItemID,
+				Item:        item,
+				VariantSKU:  itemInput.VariantSKU,
+				Description: itemInput.Description,
+				Quantity:    itemInput.Quantity,
+				Rate:        itemInput.Rate,
+				Amount:      amount,
 			}
 
 			if itemInput.VariantDetails != nil {
