@@ -48,6 +48,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	inventoryBalanceRepo := repo.NewInventoryBalanceRepository(db)
 	itemGroupRepo := repo.NewItemGroupRepository(db)
 	productionOrderRepo := repo.NewProductionOrderRepository(db)
+	dashboardRepo := repo.NewDashboardRepository(db)
 
 	authService := services.NewAuthService(userRepo, roleRepo, refreshTokenRepo, sessionRepo)
 	adminService := services.NewAdminService(userRepo, roleRepo)
@@ -75,6 +76,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	itemGroupService := services.NewItemGroupService(itemGroupRepo, itemRepo)
 	inventoryService := services.NewInventoryService(itemRepo, itemGroupRepo, inventoryBalanceRepo, openStockRepo)
 	productionOrderService := services.NewProductionOrderService(productionOrderRepo, itemGroupRepo, itemRepo, inventoryService)
+	dashboardService := services.NewDashboardService(dashboardRepo)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	adminHandler := handlers.NewAdminHandler(adminService)
@@ -100,6 +102,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	bankHandler := handlers.NewBankHandler(bankService)
 	itemGroupHandler := handlers.NewItemGroupHandler(itemGroupService)
 	productionOrderHandler := handlers.NewProductionOrderHandler(productionOrderService)
+	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
 
 	app.Get("/docs/*", swagger.HandlerDefault)
 
@@ -415,6 +418,19 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		productionOrderRoutes.Put("/:id", middleware.AdminMiddleware(), productionOrderHandler.UpdateProductionOrder)
 		productionOrderRoutes.Delete("/:id", middleware.AdminMiddleware(), productionOrderHandler.DeleteProductionOrder)
 		productionOrderRoutes.Post("/:id/consume-item", middleware.AdminMiddleware(), productionOrderHandler.ConsumeProductionOrderItem)
+	}
+
+	// Dashboard Routes
+	dashboardRoutes := app.Group("/dashboard")
+	{
+		dashboardRoutes.Get("/", dashboardHandler.GetDashboard)
+		dashboardRoutes.Get("/activity", dashboardHandler.GetActivitySummary)
+		dashboardRoutes.Get("/stock", dashboardHandler.GetStockSummary)
+		dashboardRoutes.Get("/trends/:entity_type", dashboardHandler.GetEntityTrends)
+		dashboardRoutes.Get("/shipment/:shipment_id/tracking", dashboardHandler.GetShipmentTracking)
+		dashboardRoutes.Post("/shipment/:shipment_id/tracking", dashboardHandler.AddShipmentTracking)
+		dashboardRoutes.Post("/refresh", dashboardHandler.RefreshMetrics)
+		dashboardRoutes.Get("/diagnose", dashboardHandler.GetDiagnosticReport)
 	}
 
 	app.Get("/health", func(c *fiber.Ctx) error {
