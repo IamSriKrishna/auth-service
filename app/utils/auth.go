@@ -43,6 +43,7 @@ func GenerateJWT(claims output.Claims) (string, error) {
 		"phone":         claims.Phone,
 		"google_id":     claims.GoogleID,
 		"identity_type": claims.IdentityType,
+		"company_id":    claims.CompanyID,
 		"iat":           time.Now().Unix(),
 		"exp":           time.Now().Add(time.Hour * 24 * 7).Unix(),
 		"iss":           "github.com/bbapp-org/auth-service",
@@ -97,6 +98,7 @@ func ValidateJWT(tokenString string) (*output.Claims, error) {
 		phone, _ := claims["phone"].(string)
 		googleID, _ := claims["google_id"].(string)
 		identityType, _ := claims["identity_type"].(string)
+		companyID, _ := claims["company_id"].(float64)
 
 		return &output.Claims{
 			UserID:       uint(userID),
@@ -106,6 +108,7 @@ func ValidateJWT(tokenString string) (*output.Claims, error) {
 			Phone:        phone,
 			GoogleID:     googleID,
 			IdentityType: identityType,
+			CompanyID:    uint(companyID),
 		}, nil
 	}
 

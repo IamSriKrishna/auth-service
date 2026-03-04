@@ -49,9 +49,11 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	itemGroupRepo := repo.NewItemGroupRepository(db)
 	productionOrderRepo := repo.NewProductionOrderRepository(db)
 	dashboardRepo := repo.NewDashboardRepository(db)
+	employeeRepo := repo.NewEmployeeRepository(db)
 
 	authService := services.NewAuthService(userRepo, roleRepo, refreshTokenRepo, sessionRepo)
-	adminService := services.NewAdminService(userRepo, roleRepo)
+	adminService := services.NewAdminService(userRepo, roleRepo, companyRepo)
+	roleService := services.NewRoleService(roleRepo)
 	supportService := services.NewSupportService(supportRepo)
 	businessTypeService := services.NewBusinessTypeService(businessTypeRepo)
 	locationService := services.NewLocationService(locationRepo)
@@ -77,9 +79,11 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	inventoryService := services.NewInventoryService(itemRepo, itemGroupRepo, inventoryBalanceRepo, openStockRepo)
 	productionOrderService := services.NewProductionOrderService(productionOrderRepo, itemGroupRepo, itemRepo, inventoryService)
 	dashboardService := services.NewDashboardService(dashboardRepo)
+	employeeService := services.NewEmployeeService(employeeRepo, userRepo)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	adminHandler := handlers.NewAdminHandler(adminService)
+	roleHandler := handlers.NewRoleHandler(roleService)
 	supportHandler := handlers.NewSupportHandler(supportService)
 	forwardAuthHandler := handlers.NewForwardAuthHandler()
 	vendorHandler := handlers.NewVendorHandler(vendorService)
@@ -103,6 +107,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	itemGroupHandler := handlers.NewItemGroupHandler(itemGroupService)
 	productionOrderHandler := handlers.NewProductionOrderHandler(productionOrderService)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
+	employeeHandler := handlers.NewEmployeeHandler(employeeService)
 
 	app.Get("/docs/*", swagger.HandlerDefault)
 
@@ -191,6 +196,15 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		customerGroup.Delete("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), customerHandler.DeleteCustomer)
 	}
 
+	roleGroup := app.Group("/roles")
+	roleGroup.Use(middleware.AuthMiddleware())
+	roleGroup.Use(middleware.SuperAdminMiddleware())
+	{
+		roleGroup.Post("/", roleHandler.CreateRole)
+		roleGroup.Get("/:id", roleHandler.GetRole)
+		roleGroup.Get("/", roleHandler.GetAllRoles)
+	}
+
 	partners := app.Group("/partners")
 	{
 		partners.Patch("/:partner_id/reset-password", adminHandler.ResetUserPassword)
@@ -202,6 +216,12 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	{
 		adminGroup.Post("/create-partner", adminHandler.CreateUser)
 		adminGroup.Get("/partners", adminHandler.GetUsers)
+
+		adminGroup.Post("/employees", employeeHandler.CreateEmployee)
+		adminGroup.Get("/employees", employeeHandler.GetEmployees)
+		adminGroup.Get("/employees/:id", employeeHandler.GetEmployee)
+		adminGroup.Put("/employees/:id", employeeHandler.UpdateEmployee)
+		adminGroup.Delete("/employees/:id", employeeHandler.DeleteEmployee)
 	}
 
 	forwardAuthGroup := app.Group("/forward-auth")

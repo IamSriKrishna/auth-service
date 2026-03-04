@@ -25,7 +25,7 @@ func (r *roleRepository) GetByID(id uint) (*models.Role, error) {
 
 func (r *roleRepository) GetByName(name string) (*models.Role, error) {
 	var role models.Role
-	err := r.db.Where("role_name = ?", name).First(&role).Error
+	err := r.db.Where("role_name = ? AND is_active = ?", name, true).First(&role).Error
 	if err != nil {
 		return nil, err
 	}

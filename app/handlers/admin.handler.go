@@ -39,7 +39,7 @@ func (h *AdminHandler) CreateUser(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(resp)
+	return c.Status(fiber.StatusCreated).JSON(resp)
 }
 
 func (h *AdminHandler) CreateSuperAdmin(c *fiber.Ctx) error {
@@ -134,8 +134,9 @@ func (h *AdminHandler) GetUsers(c *fiber.Ctx) error {
 	}
 
 	search := c.Query("search", "")
+	role := c.Query("role", "")
 
-	resp, err := h.adminService.GetUsers(c.Context(), page, limit, search)
+	resp, err := h.adminService.GetUsers(c.Context(), page, limit, search, role)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 			Error:   true,

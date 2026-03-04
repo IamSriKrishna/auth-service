@@ -47,6 +47,7 @@ func RunMigrations(db *gorm.DB) error {
 		&models.RefreshToken{},
 		&models.UserSession{},
 		&models.Support{},
+		&models.Employee{},
 
 		&models.BusinessType{},
 		&models.Country{},

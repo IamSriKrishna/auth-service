@@ -51,7 +51,20 @@ func (a *StringArray) Scan(value interface{}) error {
 		return fmt.Errorf("cannot scan %T into StringArray", value)
 	}
 
-	return json.Unmarshal(bytes, a)
+	// First try to unmarshal as array
+	err := json.Unmarshal(bytes, a)
+	if err != nil {
+		// If it fails, try to unmarshal as object and return empty array
+		var obj map[string]interface{}
+		if err := json.Unmarshal(bytes, &obj); err == nil {
+			// If it's a valid object, convert to empty array
+			*a = []string{}
+			return nil
+		}
+		// If both fail, return the original error
+		return err
+	}
+	return nil
 }
 
 type User struct {
@@ -65,6 +78,7 @@ type User struct {
 	UserType          UserType       `gorm:"type:enum('mobile_user','superadmin','admin','partner');not null" json:"user_type"`
 	RoleID            uint           `gorm:"not null;index" json:"role_id"`
 	Role              Role           `gorm:"foreignKey:RoleID;references:ID" json:"role"`
+	CompanyID         *uint          `gorm:"index" json:"company_id,omitempty"`
 	CreatedAt         time.Time      `json:"created_at"`
 	UpdatedAt         time.Time      `json:"updated_at"`
 	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`

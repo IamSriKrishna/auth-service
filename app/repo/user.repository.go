@@ -110,6 +110,34 @@ func (r *userRepository) List(offset, limit int, search string) ([]models.User, 
 	return users, total, err
 }
 
+func (r *userRepository) ListWithFilters(offset, limit int, search, role string) ([]models.User, int64, error) {
+	var users []models.User
+	var total int64
+
+	query := r.db.Model(&models.User{})
+
+	if search != "" {
+		searchTerm := "%" + search + "%"
+		query = query.Where("email LIKE ? OR phone LIKE ? OR username LIKE ?", searchTerm, searchTerm, searchTerm)
+	}
+
+	if role != "" {
+		query = query.Joins("JOIN roles ON users.role_id = roles.id").
+			Where("roles.role_name = ?", role)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := query.Preload("Role").
+		Offset(offset).
+		Limit(limit).
+		Find(&users).Error
+
+	return users, total, err
+}
+
 func (r *userRepository) UpdateLastLogin(id uint) error {
 	now := time.Now()
 	return r.db.Model(&models.User{}).

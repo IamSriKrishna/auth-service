@@ -18,6 +18,7 @@ type UserRepository interface {
 	Update(user *models.User) error
 	Delete(id uint) error
 	List(offset, limit int, search string) ([]models.User, int64, error)
+	ListWithFilters(offset, limit int, search, role string) ([]models.User, int64, error)
 	UpdateLastLogin(id uint) error
 	UpdatePasswordChangedAt(id uint) error
 	GetDashboardStats(customerType *string, fromDate, toDate *time.Time) (map[string]interface{}, error)
@@ -304,4 +305,13 @@ type ShipmentRepository interface {
 	Delete(id string) error
 	UpdateStatus(id string, status string) error
 	GetNextShipmentNo() (string, error)
+}
+
+type EmployeeRepository interface {
+	Create(employee *models.Employee) error
+	GetByID(id uint) (*models.Employee, error)
+	GetByUserID(userID uint, offset, limit int) ([]models.Employee, int64, error)
+	GetByCompanyAndUser(companyID, userID uint, offset, limit int) ([]models.Employee, int64, error)
+	Update(employee *models.Employee) error
+	Delete(id uint) error
 }

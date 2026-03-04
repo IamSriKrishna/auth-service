@@ -44,7 +44,7 @@ type AdminService interface {
 	CreateSuperAdmin(ctx context.Context, createdBy *uint, req *input.CreateSuperAdminRequest) (*output.UserInfo, error)
 	ResetPassword(ctx context.Context, req *input.ResetPasswordRequest) error
 	ResetUserPassword(ctx context.Context, req *input.ResetUserPasswordRequest, userID uint64) error
-	GetUsers(ctx context.Context, page, limit int, search string) (*output.PaginatedResponse, error)
+	GetUsers(ctx context.Context, page, limit int, search, role string) (*output.PaginatedResponse, error)
 	GetUser(ctx context.Context, userID uint) (*output.UserInfo, error)
 	UpdateUser(ctx context.Context, userID uint, req *input.UpdateUserRequest) (*output.UserInfo, error)
 	DeleteUser(ctx context.Context, userID uint) error
@@ -496,6 +496,10 @@ func (s *authService) generateTokens(user *models.User) (*output.AuthResponse, e
 		UserType:     string(user.UserType),
 		Role:         user.Role.RoleName,
 		IdentityType: utils.GetIdentityType(email, phone, googleID),
+	}
+
+	if user.CompanyID != nil {
+		claims.CompanyID = *user.CompanyID
 	}
 
 	if user.Email != nil {

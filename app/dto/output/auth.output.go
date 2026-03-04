@@ -10,17 +10,29 @@ type AuthResponse struct {
 	User         UserInfo `json:"user"`
 }
 
+type CompanyInfo struct {
+	ID             uint      `json:"id"`
+	CompanyName    string    `json:"company_name"`
+	BusinessTypeID uint      `json:"business_type_id"`
+	GSTNumber      string    `json:"gst_number"`
+	PANNumber      string    `json:"pan_number,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
 type UserInfo struct {
-	ID          uint       `json:"id"`
-	Email       *string    `json:"email,omitempty"`
-	Phone       *string    `json:"phone,omitempty"`
-	Username    *string    `json:"username,omitempty"`
-	UserType    string     `json:"user_type"`
-	Role        string     `json:"role"`
-	Status      string     `json:"status"`
-	VendorID    *uint      `json:"vendor_id,omitempty"`
-	CreatedAt   time.Time  `json:"created_at"`
-	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
+	ID          uint         `json:"id"`
+	Email       *string      `json:"email,omitempty"`
+	Phone       *string      `json:"phone,omitempty"`
+	Username    *string      `json:"username,omitempty"`
+	UserType    string       `json:"user_type"`
+	Role        string       `json:"role"`
+	Status      string       `json:"status"`
+	CompanyID   *uint        `json:"company_id,omitempty"`
+	Company     *CompanyInfo `json:"company,omitempty"`
+	VendorID    *uint        `json:"vendor_id,omitempty"`
+	CreatedAt   time.Time    `json:"created_at"`
+	LastLoginAt *time.Time   `json:"last_login_at,omitempty"`
 }
 
 type SocialUserData struct {
@@ -61,6 +73,7 @@ type Claims struct {
 	AppleID      string `json:"apple_id,omitempty"`
 	FirebaseUID  string `json:"firebase_uid,omitempty"`
 	IdentityType string `json:"identity_type"`
+	CompanyID    uint   `json:"company_id,omitempty"`
 }
 
 type ErrorResponse struct {
@@ -96,6 +109,7 @@ type UserListResponse struct {
 	Role        string     `json:"role"`
 	Phone       *string    `json:"phone,omitempty"`
 	Status      string     `json:"status"`
+	CompanyName *string    `json:"company_name,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	CreatedBy   *uint      `json:"created_by,omitempty"`
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
