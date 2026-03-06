@@ -20,6 +20,13 @@ type CustomerService interface {
 	GetCustomerByID(id uint) (*output.CustomerOutput, error)
 	GetAllCustomers(page, limit int) ([]output.CustomerListOutput, int64, error)
 	DeleteCustomer(customer *models.Customer) error
+
+	// User-specific customer operations
+	CreateCustomerForUser(userID, companyID uint, input *input.CreateCustomerInput) (*output.CustomerOutput, error)
+	UpdateCustomerForUser(id, userID uint, input *input.UpdateCustomerInput) (*output.CustomerOutput, error)
+	GetCustomerByIDAndUser(id, userID uint) (*output.CustomerOutput, error)
+	GetCustomersByUser(userID, companyID uint, page, limit int) ([]output.CustomerListOutput, int64, error)
+	DeleteCustomerForUser(id, userID uint) error
 }
 
 type customerService struct {
@@ -104,7 +111,6 @@ func (s *customerService) GetAllCustomers(page, limit int) ([]output.CustomerLis
 		outputs = append(outputs, output.CustomerListOutput{
 			ID:               customer.ID,
 			DisplayName:      customer.DisplayName,
-			CompanyName:      customer.CompanyName,
 			EmailAddress:     customer.EmailAddress,
 			WorkPhone:        customer.WorkPhone,
 			Mobile:           customer.Mobile,
@@ -118,5 +124,92 @@ func (s *customerService) GetAllCustomers(page, limit int) ([]output.CustomerLis
 }
 
 func (s *customerService) DeleteCustomer(customer *models.Customer) error {
+	return s.repo.Delete(customer)
+}
+
+func (s *customerService) CreateCustomerForUser(userID, companyID uint, input *input.CreateCustomerInput) (*output.CustomerOutput, error) {
+	if input.Mobile != "" {
+		existingCustomer, err := s.repo.FindByMobile(input.Mobile)
+		if err == nil && existingCustomer != nil {
+			return nil, fmt.Errorf("mobile number %s already exists with customer: %s",
+				input.Mobile, existingCustomer.DisplayName)
+		}
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+	}
+
+	customer := helper.MapCreateCustomerInput(input)
+	customer.UserID = userID
+	customer.CompanyID = companyID
+
+	if err := s.repo.Create(customer); err != nil {
+		return nil, err
+	}
+
+	return s.GetCustomerByID(customer.ID)
+}
+
+func (s *customerService) GetCustomerByIDAndUser(id, userID uint) (*output.CustomerOutput, error) {
+	customer, err := s.repo.FindByIDAndUser(id, userID)
+	if err != nil {
+		return nil, fmt.Errorf("customer not found")
+	}
+
+	return helper.MapCustomerToOutput(customer), nil
+}
+
+func (s *customerService) UpdateCustomerForUser(id, userID uint, input *input.UpdateCustomerInput) (*output.CustomerOutput, error) {
+	customer, err := s.repo.FindByIDAndUser(id, userID)
+	if err != nil {
+		return nil, fmt.Errorf("customer not found")
+	}
+
+	helper.ApplyUpdateCustomerInput(customer, input)
+
+	if err := s.repo.Update(customer); err != nil {
+		return nil, err
+	}
+
+	return s.GetCustomerByID(customer.ID)
+}
+
+func (s *customerService) GetCustomersByUser(userID, companyID uint, page, limit int) ([]output.CustomerListOutput, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+
+	if limit < 1 {
+		limit = 10
+	}
+
+	customers, total, err := s.repo.FindByUserID(userID, companyID, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var outputs []output.CustomerListOutput
+	for _, customer := range customers {
+		outputs = append(outputs, output.CustomerListOutput{
+			ID:               customer.ID,
+			DisplayName:      customer.DisplayName,
+			EmailAddress:     customer.EmailAddress,
+			WorkPhone:        customer.WorkPhone,
+			Mobile:           customer.Mobile,
+			CustomerLanguage: customer.CustomerLanguage,
+			CreatedAt:        customer.CreatedAt,
+			UpdatedAt:        customer.UpdatedAt,
+		})
+	}
+
+	return outputs, total, nil
+}
+
+func (s *customerService) DeleteCustomerForUser(id, userID uint) error {
+	customer, err := s.repo.FindByIDAndUser(id, userID)
+	if err != nil {
+		return fmt.Errorf("customer not found")
+	}
+
 	return s.repo.Delete(customer)
 }

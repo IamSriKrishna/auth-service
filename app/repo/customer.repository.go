@@ -83,6 +83,8 @@ func (r *customerRepository) Update(customer *models.Customer) error {
 func (r *customerRepository) FindByID(id uint) (*models.Customer, error) {
 	var customer models.Customer
 	err := r.db.
+		Preload("User").
+		Preload("Company").
 		Preload("OtherDetails").
 		Preload("Addresses").
 		Preload("ContactPersons").
@@ -106,12 +108,54 @@ func (r *customerRepository) FindAll(page, limit int) ([]models.Customer, int64,
 	}
 
 	err := r.db.
+		Preload("User").
+		Preload("Company").
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
 		Find(&customers).Error
 
 	return customers, total, err
+}
+
+func (r *customerRepository) FindByUserID(userID, companyID uint, page, limit int) ([]models.Customer, int64, error) {
+	var customers []models.Customer
+	var total int64
+
+	offset := (page - 1) * limit
+
+	if err := r.db.Model(&models.Customer{}).
+		Where("user_id = ? AND company_id = ?", userID, companyID).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := r.db.Where("user_id = ? AND company_id = ?", userID, companyID).
+		Preload("User").
+		Preload("Company").
+		Offset(offset).
+		Limit(limit).
+		Order("created_at DESC").
+		Find(&customers).Error
+
+	return customers, total, err
+}
+
+func (r *customerRepository) FindByIDAndUser(id, userID uint) (*models.Customer, error) {
+	var customer models.Customer
+	err := r.db.Where("id = ? AND user_id = ?", id, userID).
+		Preload("User").
+		Preload("Company").
+		Preload("OtherDetails").
+		Preload("Addresses").
+		Preload("ContactPersons").
+		First(&customer).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &customer, nil
 }
 
 func (r *customerRepository) Delete(customer *models.Customer) error {

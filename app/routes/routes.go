@@ -50,6 +50,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	productionOrderRepo := repo.NewProductionOrderRepository(db)
 	dashboardRepo := repo.NewDashboardRepository(db)
 	employeeRepo := repo.NewEmployeeRepository(db)
+	attendanceRepo := repo.NewEmployeeAttendanceRepository(db)
 
 	authService := services.NewAuthService(userRepo, roleRepo, refreshTokenRepo, sessionRepo)
 	adminService := services.NewAdminService(userRepo, roleRepo, companyRepo)
@@ -80,6 +81,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	productionOrderService := services.NewProductionOrderService(productionOrderRepo, itemGroupRepo, itemRepo, inventoryService)
 	dashboardService := services.NewDashboardService(dashboardRepo)
 	employeeService := services.NewEmployeeService(employeeRepo, userRepo)
+	attendanceService := services.NewEmployeeAttendanceService(attendanceRepo, employeeRepo)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	adminHandler := handlers.NewAdminHandler(adminService)
@@ -108,6 +110,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	productionOrderHandler := handlers.NewProductionOrderHandler(productionOrderService)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
 	employeeHandler := handlers.NewEmployeeHandler(employeeService)
+	attendanceHandler := handlers.NewAttendanceHandler(attendanceService)
 
 	app.Get("/docs/*", swagger.HandlerDefault)
 
@@ -222,6 +225,34 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		adminGroup.Get("/employees/:id", employeeHandler.GetEmployee)
 		adminGroup.Put("/employees/:id", employeeHandler.UpdateEmployee)
 		adminGroup.Delete("/employees/:id", employeeHandler.DeleteEmployee)
+
+		// Attendance Routes
+		adminGroup.Post("/attendance", attendanceHandler.CreateAttendance)
+		adminGroup.Post("/attendance/bulk", attendanceHandler.BulkCreateAttendance)
+		adminGroup.Get("/attendance/:id", attendanceHandler.GetAttendanceByID)
+		adminGroup.Get("/attendance/employee/:employee_id", attendanceHandler.GetAttendanceByEmployeeID)
+		adminGroup.Get("/attendance/employee/:employee_id/calendar", attendanceHandler.GetAttendanceCalendarView)
+		adminGroup.Get("/attendance/company/week-view", attendanceHandler.GetCompanyAttendanceWeekView)
+		adminGroup.Get("/attendance", attendanceHandler.GetAttendanceByCompanyID)
+		adminGroup.Get("/attendance/date-range", attendanceHandler.GetAttendanceByDateRange)
+		adminGroup.Get("/attendance/employee/:employee_id/date-range", attendanceHandler.GetAttendanceByEmployeeAndDateRange)
+		adminGroup.Put("/attendance/:id", attendanceHandler.UpdateAttendance)
+		adminGroup.Delete("/attendance/:id", attendanceHandler.DeleteAttendance)
+		adminGroup.Get("/attendance/stats/report", attendanceHandler.GetAttendanceStats)
+		adminGroup.Post("/attendance/checkin/:employee_id", attendanceHandler.CheckInEmployee)
+		adminGroup.Post("/attendance/checkout/:employee_id", attendanceHandler.CheckOutEmployee)
+
+		adminGroup.Post("/vendors", vendorHandler.CreateVendor)
+		adminGroup.Get("/vendors", vendorHandler.GetUserVendors)
+		adminGroup.Get("/vendors/:id", vendorHandler.GetUserVendor)
+		adminGroup.Put("/vendors/:id", vendorHandler.UpdateUserVendor)
+		adminGroup.Delete("/vendors/:id", vendorHandler.DeleteUserVendor)
+
+		adminGroup.Post("/customers", customerHandler.CreateCustomer)
+		adminGroup.Get("/customers", customerHandler.GetUserCustomers)
+		adminGroup.Get("/customers/:id", customerHandler.GetUserCustomerByID)
+		adminGroup.Put("/customers/:id", customerHandler.UpdateUserCustomer)
+		adminGroup.Delete("/customers/:id", customerHandler.DeleteUserCustomer)
 	}
 
 	forwardAuthGroup := app.Group("/forward-auth")

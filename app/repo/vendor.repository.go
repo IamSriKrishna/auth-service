@@ -23,7 +23,9 @@ func (r *vendorRepository) Update(vendor *models.Vendor) error {
 
 func (r *vendorRepository) FindByID(id uint) (*models.Vendor, error) {
 	var vendor models.Vendor
-	err := r.db.Preload("OtherDetails").
+	err := r.db.Preload("User").
+		Preload("Company").
+		Preload("OtherDetails").
 		Preload("BillingAddress", "address_type = ?", "billing").
 		Preload("ShippingAddress", "address_type = ?", "shipping").
 		Preload("ContactPersons").
@@ -46,7 +48,9 @@ func (r *vendorRepository) FindAll(page, limit int) ([]models.Vendor, int64, err
 		return nil, 0, err
 	}
 
-	err := r.db.Preload("OtherDetails").
+	err := r.db.Preload("User").
+		Preload("Company").
+		Preload("OtherDetails").
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -57,6 +61,52 @@ func (r *vendorRepository) FindAll(page, limit int) ([]models.Vendor, int64, err
 	}
 
 	return vendors, total, nil
+}
+
+func (r *vendorRepository) FindByUserID(userID, companyID uint, page, limit int) ([]models.Vendor, int64, error) {
+	var vendors []models.Vendor
+	var total int64
+
+	offset := (page - 1) * limit
+
+	if err := r.db.Model(&models.Vendor{}).
+		Where("user_id = ? AND company_id = ?", userID, companyID).
+		Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := r.db.Where("user_id = ? AND company_id = ?", userID, companyID).
+		Preload("User").
+		Preload("Company").
+		Preload("OtherDetails").
+		Offset(offset).
+		Limit(limit).
+		Order("created_at DESC").
+		Find(&vendors).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return vendors, total, nil
+}
+
+func (r *vendorRepository) FindByIDAndUser(id, userID uint) (*models.Vendor, error) {
+	var vendor models.Vendor
+	err := r.db.Where("id = ? AND user_id = ?", id, userID).
+		Preload("User").
+		Preload("Company").
+		Preload("OtherDetails").
+		Preload("BillingAddress", "address_type = ?", "billing").
+		Preload("ShippingAddress", "address_type = ?", "shipping").
+		Preload("ContactPersons").
+		Preload("BankDetails").
+		Preload("Documents").
+		First(&vendor).Error
+	if err != nil {
+		return nil, err
+	}
+	return &vendor, nil
 }
 
 func (r *vendorRepository) Delete(id uint) error {

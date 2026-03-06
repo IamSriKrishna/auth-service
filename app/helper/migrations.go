@@ -48,6 +48,7 @@ func RunMigrations(db *gorm.DB) error {
 		&models.UserSession{},
 		&models.Support{},
 		&models.Employee{},
+		&models.EmployeeAttendance{},
 
 		&models.BusinessType{},
 		&models.Country{},

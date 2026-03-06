@@ -4,7 +4,6 @@ type CreateVendorInput struct {
 	Salutation      string               `json:"salutation" validate:"required"`
 	FirstName       string               `json:"first_name" validate:"required"`
 	LastName        string               `json:"last_name"`
-	CompanyName     string               `json:"company_name"`
 	DisplayName     string               `json:"display_name" validate:"required"`
 	EmailAddress    string               `json:"email_address" validate:"omitempty,email"`
 	WorkPhone       string               `json:"work_phone"`
@@ -23,7 +22,6 @@ type UpdateVendorInput struct {
 	Salutation      *string              `json:"salutation"`
 	FirstName       *string              `json:"first_name"`
 	LastName        *string              `json:"last_name"`
-	CompanyName     *string              `json:"company_name"`
 	DisplayName     *string              `json:"display_name"`
 	EmailAddress    *string              `json:"email_address" validate:"omitempty,email"`
 	WorkPhone       *string              `json:"work_phone"`

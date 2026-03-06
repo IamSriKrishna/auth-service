@@ -40,12 +40,13 @@ func (s *employeeService) CreateEmployee(ctx context.Context, createdByID, compa
 
 	// Create employee
 	employee := &models.Employee{
-		Name:      req.Name,
-		Email:     req.Email,
-		Number:    req.Number,
-		Address:   req.Address,
-		UserID:    createdByID,
-		CompanyID: companyID,
+		Name:         req.Name,
+		Email:        req.Email,
+		Number:       req.Number,
+		Address:      req.Address,
+		EmployeeType: req.EmployeeType,
+		UserID:       createdByID,
+		CompanyID:    companyID,
 	}
 
 	if err := s.employeeRepo.Create(employee); err != nil {
@@ -53,15 +54,16 @@ func (s *employeeService) CreateEmployee(ctx context.Context, createdByID, compa
 	}
 
 	return &output.EmployeeOutput{
-		ID:        employee.ID,
-		Name:      employee.Name,
-		Email:     employee.Email,
-		Number:    employee.Number,
-		Address:   employee.Address,
-		UserID:    employee.UserID,
-		CompanyID: employee.CompanyID,
-		CreatedAt: employee.CreatedAt,
-		UpdatedAt: employee.UpdatedAt,
+		ID:           employee.ID,
+		Name:         employee.Name,
+		Email:        employee.Email,
+		Number:       employee.Number,
+		Address:      employee.Address,
+		EmployeeType: employee.EmployeeType,
+		UserID:       employee.UserID,
+		CompanyID:    employee.CompanyID,
+		CreatedAt:    employee.CreatedAt,
+		UpdatedAt:    employee.UpdatedAt,
 	}, nil
 }
 
@@ -77,15 +79,16 @@ func (s *employeeService) GetEmployeeByID(ctx context.Context, employeeID, creat
 	}
 
 	return &output.EmployeeOutput{
-		ID:        employee.ID,
-		Name:      employee.Name,
-		Email:     employee.Email,
-		Number:    employee.Number,
-		Address:   employee.Address,
-		UserID:    employee.UserID,
-		CompanyID: employee.CompanyID,
-		CreatedAt: employee.CreatedAt,
-		UpdatedAt: employee.UpdatedAt,
+		ID:           employee.ID,
+		Name:         employee.Name,
+		Email:        employee.Email,
+		Number:       employee.Number,
+		Address:      employee.Address,
+		EmployeeType: employee.EmployeeType,
+		UserID:       employee.UserID,
+		CompanyID:    employee.CompanyID,
+		CreatedAt:    employee.CreatedAt,
+		UpdatedAt:    employee.UpdatedAt,
 	}, nil
 }
 
@@ -106,14 +109,15 @@ func (s *employeeService) GetEmployeesByUser(ctx context.Context, createdByID, c
 	var employeeOutputs []output.EmployeeListOutput
 	for _, emp := range employees {
 		employeeOutputs = append(employeeOutputs, output.EmployeeListOutput{
-			ID:        emp.ID,
-			Name:      emp.Name,
-			Email:     emp.Email,
-			Number:    emp.Number,
-			Address:   emp.Address,
-			UserID:    emp.UserID,
-			CompanyID: emp.CompanyID,
-			CreatedAt: emp.CreatedAt,
+			ID:           emp.ID,
+			Name:         emp.Name,
+			Email:        emp.Email,
+			Number:       emp.Number,
+			Address:      emp.Address,
+			EmployeeType: emp.EmployeeType,
+			UserID:       emp.UserID,
+			CompanyID:    emp.CompanyID,
+			CreatedAt:    emp.CreatedAt,
 		})
 	}
 
@@ -159,21 +163,25 @@ func (s *employeeService) UpdateEmployee(ctx context.Context, employeeID, create
 	if req.Address != nil {
 		employee.Address = *req.Address
 	}
+	if req.EmployeeType != nil {
+		employee.EmployeeType = *req.EmployeeType
+	}
 
 	if err := s.employeeRepo.Update(employee); err != nil {
 		return nil, err
 	}
 
 	return &output.EmployeeOutput{
-		ID:        employee.ID,
-		Name:      employee.Name,
-		Email:     employee.Email,
-		Number:    employee.Number,
-		Address:   employee.Address,
-		UserID:    employee.UserID,
-		CompanyID: employee.CompanyID,
-		CreatedAt: employee.CreatedAt,
-		UpdatedAt: employee.UpdatedAt,
+		ID:           employee.ID,
+		Name:         employee.Name,
+		Email:        employee.Email,
+		Number:       employee.Number,
+		Address:      employee.Address,
+		EmployeeType: employee.EmployeeType,
+		UserID:       employee.UserID,
+		CompanyID:    employee.CompanyID,
+		CreatedAt:    employee.CreatedAt,
+		UpdatedAt:    employee.UpdatedAt,
 	}, nil
 }
 

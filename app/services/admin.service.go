@@ -48,6 +48,7 @@ func (s *adminService) CreateUser(ctx context.Context, createdBy uint, req *inpu
 
 	email := req.Email
 	phone := req.Number
+	username := req.Username
 	passwordHashPtr := &passwordHash
 	userType := models.UserType(req.UserType)
 	createdByPtr := &createdBy
@@ -56,6 +57,7 @@ func (s *adminService) CreateUser(ctx context.Context, createdBy uint, req *inpu
 	user := &models.User{
 		Email:        &email,
 		Phone:        &phone,
+		Username:     &username,
 		PasswordHash: passwordHashPtr,
 		Status:       models.UserStatusActive,
 		UserType:     userType,
@@ -63,9 +65,11 @@ func (s *adminService) CreateUser(ctx context.Context, createdBy uint, req *inpu
 		CompanyID:    &companyID,
 	}
 
+	var role *models.Role
 	if req.RoleName != "" {
-		role, err := s.roleRepo.GetByName(req.RoleName)
-		if err != nil || role == nil {
+		var err2 error
+		role, err2 = s.roleRepo.GetByName(req.RoleName)
+		if err2 != nil || role == nil {
 			return nil, errors.New("role does not exist")
 		}
 		user.RoleID = role.ID
@@ -77,8 +81,8 @@ func (s *adminService) CreateUser(ctx context.Context, createdBy uint, req *inpu
 	}
 
 	roleName := ""
-	if user.Role.RoleName != "" {
-		roleName = user.Role.RoleName
+	if role != nil && role.RoleName != "" {
+		roleName = role.RoleName
 	}
 
 	return &output.UserInfo{
@@ -126,9 +130,9 @@ func (s *adminService) CreateSuperAdmin(ctx context.Context, createdBy *uint, re
 	}
 
 	// Get super admin role
-	role, err := s.roleRepo.GetByName("super_admin")
+	role, err := s.roleRepo.GetByName("superadmin")
 	if err != nil || role == nil {
-		return nil, errors.New("super_admin role does not exist")
+		return nil, errors.New("superadmin role does not exist")
 	}
 	user.RoleID = role.ID
 

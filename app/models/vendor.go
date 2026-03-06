@@ -20,6 +20,8 @@ type Vendor struct {
 	MobileCode     string         `gorm:"type:varchar(5);default:'+91'" json:"mobile_code"`
 	VendorLanguage string         `gorm:"type:varchar(50);default:'English'" json:"vendor_language"`
 	GSTIN          string         `gorm:"type:varchar(15)" json:"gstin"`
+	UserID         uint           `gorm:"not null;index" json:"user_id"`
+	CompanyID      uint           `gorm:"not null;index" json:"company_id"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
@@ -30,6 +32,8 @@ type Vendor struct {
 	ContactPersons  []EntityContactPerson `gorm:"polymorphic:Entity;polymorphicValue:vendor" json:"contact_persons,omitempty"`
 	BankDetails     []VendorBankDetail    `gorm:"foreignKey:VendorID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"bank_details,omitempty"`
 	Documents       []EntityDocument      `gorm:"polymorphic:Entity;polymorphicValue:vendor" json:"documents,omitempty"`
+	User            *User                 `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Company         *Company              `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
 }
 
 func (Vendor) TableName() string {

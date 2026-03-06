@@ -24,7 +24,10 @@ func (h *CustomerHandler) CreateCustomer(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	customer, err := h.service.CreateCustomer(&req)
+	userID := c.Locals("user_id").(uint)
+	companyID := c.Locals("company_id").(uint)
+
+	customer, err := h.service.CreateCustomerForUser(userID, companyID, &req)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -104,6 +107,90 @@ func (h *CustomerHandler) DeleteCustomer(c *fiber.Ctx) error {
 	customer.ID = uint(id)
 
 	if err := h.service.DeleteCustomer(customer); err != nil {
+		return fiber.NewError(fiber.StatusNotFound, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "customer deleted successfully",
+	})
+}
+
+func (h *CustomerHandler) GetUserCustomers(c *fiber.Ctx) error {
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+
+	userID := c.Locals("user_id").(uint)
+	companyID := c.Locals("company_id").(uint)
+
+	customers, total, err := h.service.GetCustomersByUser(userID, companyID, page, limit)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    customers,
+		"meta": fiber.Map{
+			"page":  page,
+			"limit": limit,
+			"total": total,
+		},
+	})
+}
+
+func (h *CustomerHandler) GetUserCustomerByID(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid customer id")
+	}
+
+	userID := c.Locals("user_id").(uint)
+
+	customer, err := h.service.GetCustomerByIDAndUser(uint(id), userID)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, "customer not found or unauthorized")
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    customer,
+	})
+}
+
+func (h *CustomerHandler) UpdateUserCustomer(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid customer id")
+	}
+
+	var req input.UpdateCustomerInput
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
+	}
+
+	userID := c.Locals("user_id").(uint)
+
+	customer, err := h.service.UpdateCustomerForUser(uint(id), userID, &req)
+	if err != nil {
+		return fiber.NewError(fiber.StatusNotFound, err.Error())
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data":    customer,
+	})
+}
+
+func (h *CustomerHandler) DeleteUserCustomer(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid customer id")
+	}
+
+	userID := c.Locals("user_id").(uint)
+
+	if err := h.service.DeleteCustomerForUser(uint(id), userID); err != nil {
 		return fiber.NewError(fiber.StatusNotFound, err.Error())
 	}
 

@@ -120,6 +120,8 @@ type VendorRepository interface {
 	Update(vendor *models.Vendor) error
 	FindByID(id uint) (*models.Vendor, error)
 	FindAll(page, limit int) ([]models.Vendor, int64, error)
+	FindByUserID(userID, companyID uint, page, limit int) ([]models.Vendor, int64, error)
+	FindByIDAndUser(id, userID uint) (*models.Vendor, error)
 	Delete(id uint) error
 	FindByMobile(mobile string) (*models.Vendor, error)
 }
@@ -129,6 +131,8 @@ type CustomerRepository interface {
 	Update(customer *models.Customer) error
 	FindByID(id uint) (*models.Customer, error)
 	FindAll(page, limit int) ([]models.Customer, int64, error)
+	FindByUserID(userID, companyID uint, page, limit int) ([]models.Customer, int64, error)
+	FindByIDAndUser(id, userID uint) (*models.Customer, error)
 	Delete(customer *models.Customer) error
 	FindByMobile(mobile string) (*models.Customer, error)
 }
@@ -311,7 +315,20 @@ type EmployeeRepository interface {
 	Create(employee *models.Employee) error
 	GetByID(id uint) (*models.Employee, error)
 	GetByUserID(userID uint, offset, limit int) ([]models.Employee, int64, error)
+	GetByCompany(companyID uint, offset, limit int) ([]models.Employee, int64, error)
 	GetByCompanyAndUser(companyID, userID uint, offset, limit int) ([]models.Employee, int64, error)
 	Update(employee *models.Employee) error
 	Delete(id uint) error
+}
+type EmployeeAttendanceRepository interface {
+	Create(attendance *models.EmployeeAttendance) error
+	GetByID(id uint) (*models.EmployeeAttendance, error)
+	GetByEmployeeAndDate(employeeID uint, date time.Time) (*models.EmployeeAttendance, error)
+	GetByEmployeeID(employeeID, companyID uint, offset, limit int) ([]models.EmployeeAttendance, int64, error)
+	GetByCompanyID(companyID uint, offset, limit int) ([]models.EmployeeAttendance, int64, error)
+	GetByDateRange(companyID uint, fromDate, toDate time.Time, offset, limit int) ([]models.EmployeeAttendance, int64, error)
+	GetByEmployeeAndDateRange(employeeID, companyID uint, fromDate, toDate time.Time, offset, limit int) ([]models.EmployeeAttendance, int64, error)
+	Update(attendance *models.EmployeeAttendance) error
+	Delete(id uint) error
+	GetAttendanceStats(companyID uint, fromDate, toDate time.Time) (map[string]interface{}, error)
 }

@@ -47,6 +47,27 @@ func (r *employeeRepository) GetByUserID(userID uint, offset, limit int) ([]mode
 	return employees, count, nil
 }
 
+func (r *employeeRepository) GetByCompany(companyID uint, offset, limit int) ([]models.Employee, int64, error) {
+	var employees []models.Employee
+	var count int64
+
+	err := r.db.Where("company_id = ?", companyID).
+		Offset(offset).
+		Limit(limit).
+		Find(&employees).
+		Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	r.db.Model(&models.Employee{}).
+		Where("company_id = ?", companyID).
+		Count(&count)
+
+	return employees, count, nil
+}
+
 func (r *employeeRepository) GetByCompanyAndUser(companyID, userID uint, offset, limit int) ([]models.Employee, int64, error) {
 	var employees []models.Employee
 	var count int64

@@ -11,7 +11,6 @@ func MapCreateVendorInput(input *input.CreateVendorInput) *models.Vendor {
 		Salutation:     input.Salutation,
 		FirstName:      input.FirstName,
 		LastName:       input.LastName,
-		CompanyName:    input.CompanyName,
 		DisplayName:    input.DisplayName,
 		EmailAddress:   input.EmailAddress,
 		WorkPhone:      input.WorkPhone,
@@ -116,9 +115,6 @@ func ApplyUpdateVendorInput(vendor *models.Vendor, input *input.UpdateVendorInpu
 	if input.LastName != nil {
 		vendor.LastName = *input.LastName
 	}
-	if input.CompanyName != nil {
-		vendor.CompanyName = *input.CompanyName
-	}
 	if input.DisplayName != nil {
 		vendor.DisplayName = *input.DisplayName
 	}
@@ -204,7 +200,6 @@ func MapVendorToOutput(vendor *models.Vendor) *output.VendorOutput {
 		Salutation:     vendor.Salutation,
 		FirstName:      vendor.FirstName,
 		LastName:       vendor.LastName,
-		CompanyName:    vendor.CompanyName,
 		DisplayName:    vendor.DisplayName,
 		EmailAddress:   vendor.EmailAddress,
 		WorkPhone:      vendor.WorkPhone,
@@ -214,6 +209,29 @@ func MapVendorToOutput(vendor *models.Vendor) *output.VendorOutput {
 		VendorLanguage: vendor.VendorLanguage,
 		CreatedAt:      vendor.CreatedAt,
 		UpdatedAt:      vendor.UpdatedAt,
+	}
+
+	// Map User information
+	if vendor.User != nil {
+		email := ""
+		if vendor.User.Email != nil {
+			email = *vendor.User.Email
+		}
+		out.User = &output.VendorUserOutput{
+			ID:        vendor.User.ID,
+			FirstName: vendor.FirstName,
+			LastName:  vendor.LastName,
+			Email:     email,
+		}
+	}
+
+	// Map Company information
+	if vendor.Company != nil {
+		out.Company = &output.VendorCompanyOutput{
+			ID:          vendor.Company.ID,
+			Name:        vendor.Company.CompanyName,
+			CompanyCode: "", // company_code field needs to be added to Company model if needed
+		}
 	}
 
 	if vendor.OtherDetails != nil {

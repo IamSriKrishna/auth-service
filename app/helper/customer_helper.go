@@ -11,7 +11,6 @@ func MapCreateCustomerInput(input *input.CreateCustomerInput) *models.Customer {
 		Salutation:       input.Salutation,
 		FirstName:        input.FirstName,
 		LastName:         input.LastName,
-		CompanyName:      input.CompanyName,
 		DisplayName:      input.DisplayName,
 		EmailAddress:     input.EmailAddress,
 		WorkPhone:        input.WorkPhone,
@@ -59,9 +58,6 @@ func ApplyUpdateCustomerInput(customer *models.Customer, input *input.UpdateCust
 	}
 	if input.LastName != nil {
 		customer.LastName = *input.LastName
-	}
-	if input.CompanyName != nil {
-		customer.CompanyName = *input.CompanyName
 	}
 	if input.DisplayName != nil {
 		customer.DisplayName = *input.DisplayName
@@ -194,7 +190,6 @@ func MapCustomerToOutput(customer *models.Customer) *output.CustomerOutput {
 		Salutation:       customer.Salutation,
 		FirstName:        customer.FirstName,
 		LastName:         customer.LastName,
-		CompanyName:      customer.CompanyName,
 		DisplayName:      customer.DisplayName,
 		EmailAddress:     customer.EmailAddress,
 		WorkPhone:        customer.WorkPhone,
@@ -204,6 +199,29 @@ func MapCustomerToOutput(customer *models.Customer) *output.CustomerOutput {
 		CustomerLanguage: customer.CustomerLanguage,
 		CreatedAt:        customer.CreatedAt,
 		UpdatedAt:        customer.UpdatedAt,
+	}
+
+	// Map User information
+	if customer.User != nil {
+		email := ""
+		if customer.User.Email != nil {
+			email = *customer.User.Email
+		}
+		out.User = &output.CustomerUserOutput{
+			ID:        customer.User.ID,
+			FirstName: customer.FirstName,
+			LastName:  customer.LastName,
+			Email:     email,
+		}
+	}
+
+	// Map Company information
+	if customer.Company != nil {
+		out.Company = &output.CustomerCompanyOutput{
+			ID:          customer.Company.ID,
+			Name:        customer.Company.CompanyName,
+			CompanyCode: "", // company_code field needs to be added to Company model if needed
+		}
 	}
 
 	if customer.OtherDetails != nil {
