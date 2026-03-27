@@ -16,15 +16,15 @@ type BillService interface {
 	// Basic CRUD Operations
 	CreateBill(billInput *input.CreateBillInput, userID string) (*output.BillOutput, error)
 	GetBill(id string) (*output.BillOutput, error)
-	GetAllBills(limit, offset int) ([]output.BillOutput, int64, error)
-	GetBillsByVendor(vendorID uint, limit, offset int) ([]output.BillOutput, int64, error)
-	GetBillsByStatus(status string, limit, offset int) ([]output.BillOutput, int64, error)
+	GetAllBills(limit, offset int, createdBy string) ([]output.BillOutput, int64, error)
+	GetBillsByVendor(vendorID uint, limit, offset int, createdBy string) ([]output.BillOutput, int64, error)
+	GetBillsByStatus(status string, limit, offset int, createdBy string) ([]output.BillOutput, int64, error)
 	UpdateBill(id string, billInput *input.UpdateBillInput, userID string) (*output.BillOutput, error)
 
 	// Step 3: Purchasing Stock - Bill Recording
 	// Record bills from vendors to track payment obligations
 	UpdateBillStatus(id string, status string, userID string) (*output.BillOutput, error)
-	DeleteBill(id string) error
+	DeleteBill(id string, createdBy string) error
 }
 
 type billService struct {
@@ -143,7 +143,13 @@ func (s *billService) CreateBill(billInput *input.CreateBillInput, userID string
 		return nil, err
 	}
 
-	return output.ToBillOutput(savedBill)
+	// Reload bill to populate user information from JOINs
+	reloadedBill, err := s.billRepo.FindByID(savedBill.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return output.ToBillOutput(reloadedBill)
 }
 
 func (s *billService) GetBill(id string) (*output.BillOutput, error) {
@@ -154,8 +160,8 @@ func (s *billService) GetBill(id string) (*output.BillOutput, error) {
 	return output.ToBillOutput(bill)
 }
 
-func (s *billService) GetAllBills(limit, offset int) ([]output.BillOutput, int64, error) {
-	bills, total, err := s.billRepo.FindAll(limit, offset)
+func (s *billService) GetAllBills(limit, offset int, createdBy string) ([]output.BillOutput, int64, error) {
+	bills, total, err := s.billRepo.FindByCreatedBy(createdBy, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -169,8 +175,8 @@ func (s *billService) GetAllBills(limit, offset int) ([]output.BillOutput, int64
 	return outputs, total, nil
 }
 
-func (s *billService) GetBillsByVendor(vendorID uint, limit, offset int) ([]output.BillOutput, int64, error) {
-	bills, total, err := s.billRepo.FindByVendor(vendorID, limit, offset)
+func (s *billService) GetBillsByVendor(vendorID uint, limit, offset int, createdBy string) ([]output.BillOutput, int64, error) {
+	bills, total, err := s.billRepo.FindByVendorAndCreatedBy(vendorID, createdBy, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -184,8 +190,8 @@ func (s *billService) GetBillsByVendor(vendorID uint, limit, offset int) ([]outp
 	return outputs, total, nil
 }
 
-func (s *billService) GetBillsByStatus(status string, limit, offset int) ([]output.BillOutput, int64, error) {
-	bills, total, err := s.billRepo.FindByStatus(status, limit, offset)
+func (s *billService) GetBillsByStatus(status string, limit, offset int, createdBy string) ([]output.BillOutput, int64, error) {
+	bills, total, err := s.billRepo.FindByStatusAndCreatedBy(status, createdBy, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -342,6 +348,15 @@ func (s *billService) UpdateBillStatus(id string, status string, userID string) 
 	return output.ToBillOutput(updatedBill)
 }
 
-func (s *billService) DeleteBill(id string) error {
+func (s *billService) DeleteBill(id string, createdBy string) error {
+	bill, err := s.billRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+
+	if bill.CreatedBy != createdBy {
+		return errors.New("unauthorized: you can only delete bills you created")
+	}
+
 	return s.billRepo.Delete(id)
 }

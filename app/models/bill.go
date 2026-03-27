@@ -7,35 +7,39 @@ import (
 )
 
 type Bill struct {
-	ID                string              `json:"id" gorm:"type:varchar(255);primaryKey"`
-	BillNumber        string              `json:"bill_number" gorm:"column:bill_number;type:varchar(100);uniqueIndex;not null"`
-	VendorID          uint                `json:"vendor_id" gorm:"not null;index"`
-	Vendor            *Vendor             `json:"vendor,omitempty" gorm:"foreignKey:VendorID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	BillingAddress    string              `json:"billing_address" gorm:"type:text"`
-	OrderNumber       string              `json:"order_number" gorm:"type:varchar(100)"`
-	BillDate          time.Time           `json:"bill_date" gorm:"not null"`
-	DueDate           time.Time           `json:"due_date" gorm:"not null"`
-	PaymentTerms      domain.PaymentTerms `json:"payment_terms" gorm:"type:varchar(50);not null"`
-	Subject           string              `json:"subject" gorm:"type:text"`
-	LineItems         []BillLineItem      `json:"line_items" gorm:"foreignKey:BillID;constraint:OnDelete:CASCADE"`
-	SubTotal          float64             `json:"sub_total" gorm:"not null;default:0"`
-	Discount          float64             `json:"discount" gorm:"default:0"`
-	TaxType           *domain.TaxType     `json:"tax_type" gorm:"type:varchar(10)"`
-	TaxID             *uint               `json:"tax_id,omitempty" gorm:"index"`
-	Tax               *Tax                `json:"tax,omitempty" gorm:"foreignKey:TaxID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
-	TaxAmount         float64             `json:"tax_amount" gorm:"default:0"`
-	Adjustment        float64             `json:"adjustment" gorm:"default:0"`
-	Total             float64             `json:"total" gorm:"not null;default:0"`
-	Notes             string              `json:"notes" gorm:"type:text"`
-	Status            domain.BillStatus   `json:"status" gorm:"type:varchar(50);not null;default:'draft'"`
-	InventorySynced   bool                `json:"inventory_synced" gorm:"default:false;index"`
-	InventorySyncDate *time.Time          `json:"inventory_sync_date"`
-	PurchaseOrderID   *string             `json:"purchase_order_id" gorm:"type:varchar(255);index"`
-	Attachments       []string            `json:"attachments,omitempty" gorm:"type:json"`
-	CreatedAt         time.Time           `json:"created_at"`
-	UpdatedAt         time.Time           `json:"updated_at"`
-	CreatedBy         string              `json:"created_by" gorm:"type:varchar(255)"`
-	UpdatedBy         string              `json:"updated_by" gorm:"type:varchar(255)"`
+	ID                   string              `json:"id" gorm:"type:varchar(255);primaryKey"`
+	BillNumber           string              `json:"bill_number" gorm:"column:bill_number;type:varchar(100);uniqueIndex;not null"`
+	VendorID             uint                `json:"vendor_id" gorm:"not null;index"`
+	Vendor               *Vendor             `json:"vendor,omitempty" gorm:"foreignKey:VendorID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	BillingAddress       string              `json:"billing_address" gorm:"type:text"`
+	OrderNumber          string              `json:"order_number" gorm:"type:varchar(100)"`
+	BillDate             time.Time           `json:"bill_date" gorm:"not null"`
+	DueDate              time.Time           `json:"due_date" gorm:"not null"`
+	PaymentTerms         domain.PaymentTerms `json:"payment_terms" gorm:"type:varchar(50);not null"`
+	Subject              string              `json:"subject" gorm:"type:text"`
+	LineItems            []BillLineItem      `json:"line_items" gorm:"foreignKey:BillID;constraint:OnDelete:CASCADE"`
+	SubTotal             float64             `json:"sub_total" gorm:"not null;default:0"`
+	Discount             float64             `json:"discount" gorm:"default:0"`
+	TaxType              *domain.TaxType     `json:"tax_type" gorm:"type:varchar(10)"`
+	TaxID                *uint               `json:"tax_id,omitempty" gorm:"index"`
+	Tax                  *Tax                `json:"tax,omitempty" gorm:"foreignKey:TaxID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	TaxAmount            float64             `json:"tax_amount" gorm:"default:0"`
+	Adjustment           float64             `json:"adjustment" gorm:"default:0"`
+	Total                float64             `json:"total" gorm:"not null;default:0"`
+	Notes                string              `json:"notes" gorm:"type:text"`
+	Status               domain.BillStatus   `json:"status" gorm:"type:varchar(50);not null;default:'draft'"`
+	InventorySynced      bool                `json:"inventory_synced" gorm:"default:false;index"`
+	InventorySyncDate    *time.Time          `json:"inventory_sync_date"`
+	PurchaseOrderID      *string             `json:"purchase_order_id" gorm:"type:varchar(255);index"`
+	Attachments          []string            `json:"attachments,omitempty" gorm:"type:json"`
+	CreatedAt            time.Time           `json:"created_at"`
+	UpdatedAt            time.Time           `json:"updated_at"`
+	CreatedBy            string              `json:"created_by" gorm:"type:varchar(255)"`
+	CreatedByUserName    string              `json:"created_by_user_name" gorm:"-"`
+	CreatedByCompanyID   uint                `json:"created_by_company_id" gorm:"-"`
+	CreatedByCompanyName string              `json:"created_by_company_name" gorm:"-"`
+	UpdatedBy            string              `json:"updated_by" gorm:"type:varchar(255)"`
+	UpdatedByUserName    string              `json:"updated_by_user_name" gorm:"-"`
 }
 
 type BillLineItem struct {

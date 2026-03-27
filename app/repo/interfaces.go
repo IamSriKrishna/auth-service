@@ -141,9 +141,12 @@ type ItemRepository interface {
 	Create(item *models.Item) error
 	FindByID(id string) (*models.Item, error)
 	FindAll(limit, offset int) ([]models.Item, int64, error)
+	FindByCreatedBy(createdBy string, limit, offset int) ([]models.Item, int64, error)
 	Update(item *models.Item) error
 	Delete(id string) error
+	DeleteByCreatedBy(id string, createdBy string) error
 	FindByType(itemType string, limit, offset int) ([]models.Item, int64, error)
+	FindByTypeAndCreatedBy(itemType string, createdBy string, limit, offset int) ([]models.Item, int64, error)
 	DeductStockQuantity(itemID string, variantSKU *string, quantity float64) error
 	CheckReorderPoint(itemID string, variantSKU *string) (*models.Variant, error)
 	GetVariantBySKU(sku string) (*models.Variant, error)
@@ -277,8 +280,11 @@ type BillRepository interface {
 	Create(bill *models.Bill) (*models.Bill, error)
 	FindByID(id string) (*models.Bill, error)
 	FindAll(limit, offset int) ([]models.Bill, int64, error)
+	FindByCreatedBy(createdBy string, limit, offset int) ([]models.Bill, int64, error)
 	FindByVendor(vendorID uint, limit, offset int) ([]models.Bill, int64, error)
+	FindByVendorAndCreatedBy(vendorID uint, createdBy string, limit, offset int) ([]models.Bill, int64, error)
 	FindByStatus(status string, limit, offset int) ([]models.Bill, int64, error)
+	FindByStatusAndCreatedBy(status string, createdBy string, limit, offset int) ([]models.Bill, int64, error)
 	Update(id string, bill *models.Bill) (*models.Bill, error)
 	Delete(id string) error
 	UpdateStatus(id string, status string) error

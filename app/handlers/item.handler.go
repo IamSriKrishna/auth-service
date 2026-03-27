@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
@@ -36,7 +37,12 @@ func (h *ItemHandler) CreateItem(c *fiber.Ctx) error {
 		})
 	}
 
-	item, err := h.service.CreateItem(&input)
+	createdBy := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		createdBy = fmt.Sprintf("%v", uid)
+	}
+
+	item, err := h.service.CreateItem(&input, createdBy)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -63,7 +69,12 @@ func (h *ItemHandler) GetAllItems(c *fiber.Ctx) error {
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
 	offset, _ := strconv.Atoi(c.Query("offset", "0"))
 
-	items, err := h.service.GetAllItems(limit, offset)
+	createdBy := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		createdBy = fmt.Sprintf("%v", uid)
+	}
+
+	items, err := h.service.GetAllItems(limit, offset, createdBy)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -84,7 +95,12 @@ func (h *ItemHandler) UpdateItem(c *fiber.Ctx) error {
 		})
 	}
 
-	item, err := h.service.UpdateItem(id, &input)
+	createdBy := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		createdBy = fmt.Sprintf("%v", uid)
+	}
+
+	item, err := h.service.UpdateItem(id, &input, createdBy)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -97,7 +113,12 @@ func (h *ItemHandler) UpdateItem(c *fiber.Ctx) error {
 func (h *ItemHandler) DeleteItem(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	if err := h.service.DeleteItem(id); err != nil {
+	createdBy := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		createdBy = fmt.Sprintf("%v", uid)
+	}
+
+	if err := h.service.DeleteItem(id, createdBy); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
@@ -113,7 +134,12 @@ func (h *ItemHandler) GetItemsByType(c *fiber.Ctx) error {
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
 	offset, _ := strconv.Atoi(c.Query("offset", "0"))
 
-	items, err := h.service.GetItemsByType(itemType, limit, offset)
+	createdBy := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		createdBy = fmt.Sprintf("%v", uid)
+	}
+
+	items, err := h.service.GetItemsByType(itemType, limit, offset, createdBy)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),

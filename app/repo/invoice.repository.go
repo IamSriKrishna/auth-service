@@ -2,7 +2,7 @@ package repo
 
 import (
 	"fmt"
-	
+
 	"github.com/bbapp-org/auth-service/app/models"
 	"gorm.io/gorm"
 )
@@ -47,6 +47,28 @@ func (r *invoiceRepository) FindByID(id string) (*models.Invoice, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Populate user information from joined query
+	if invoice.CreatedBy != "" {
+		var userInfo struct {
+			UserName    string
+			CompanyID   uint
+			CompanyName string
+		}
+
+		if err := r.db.
+			Select("u.email as user_name, c.id as company_id, c.company_name as company_name").
+			Table("invoices").
+			Joins("LEFT JOIN users u ON u.id = CAST(invoices.created_by AS UNSIGNED)").
+			Joins("LEFT JOIN companies c ON c.id = u.company_id").
+			Where("invoices.id = ?", id).
+			Scan(&userInfo).Error; err == nil {
+			invoice.CreatedByUserName = userInfo.UserName
+			invoice.CreatedByCompanyID = userInfo.CompanyID
+			invoice.CreatedByCompanyName = userInfo.CompanyName
+		}
+	}
+
 	return &invoice, nil
 }
 
@@ -72,7 +94,51 @@ func (r *invoiceRepository) FindAll(limit, offset int) ([]models.Invoice, int64,
 		return nil, 0, err
 	}
 
+	r.populateUserInfoForInvoices(invoices)
 	return invoices, total, nil
+}
+
+// populateUserInfoForInvoices fetches and populates user information for all invoices
+func (r *invoiceRepository) populateUserInfoForInvoices(invoices []models.Invoice) {
+	if len(invoices) == 0 {
+		return
+	}
+
+	invoiceIDMap := make(map[string]*models.Invoice)
+	var invoiceIDs []string
+	for i := range invoices {
+		if invoices[i].CreatedBy != "" {
+			invoiceIDMap[invoices[i].ID] = &invoices[i]
+			invoiceIDs = append(invoiceIDs, invoices[i].ID)
+		}
+	}
+
+	if len(invoiceIDs) == 0 {
+		return
+	}
+
+	var userInfos []struct {
+		InvoiceID   string
+		UserName    string
+		CompanyID   uint
+		CompanyName string
+	}
+
+	r.db.
+		Select("invoices.id as invoice_id, u.email as user_name, c.id as company_id, c.company_name as company_name").
+		Table("invoices").
+		Joins("LEFT JOIN users u ON u.id = CAST(invoices.created_by AS UNSIGNED)").
+		Joins("LEFT JOIN companies c ON c.id = u.company_id").
+		Where("invoices.id IN ?", invoiceIDs).
+		Scan(&userInfos)
+
+	for _, info := range userInfos {
+		if invoice, ok := invoiceIDMap[info.InvoiceID]; ok {
+			invoice.CreatedByUserName = info.UserName
+			invoice.CreatedByCompanyID = info.CompanyID
+			invoice.CreatedByCompanyName = info.CompanyName
+		}
+	}
 }
 
 func (r *invoiceRepository) Update(invoice *models.Invoice) error {
@@ -128,6 +194,7 @@ func (r *invoiceRepository) FindByCustomerID(customerID string, limit, offset in
 		return nil, 0, err
 	}
 
+	r.populateUserInfoForInvoices(invoices)
 	return invoices, total, nil
 }
 
@@ -155,6 +222,7 @@ func (r *invoiceRepository) FindByStatus(status string, limit, offset int) ([]mo
 		return nil, 0, err
 	}
 
+	r.populateUserInfoForInvoices(invoices)
 	return invoices, total, nil
 }
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
@@ -37,8 +38,8 @@ func (h *InvoiceHandler) CreateInvoice(c *fiber.Ctx) error {
 	}
 
 	userID := ""
-	if uid := c.Locals("userID"); uid != nil {
-		userID = uid.(string)
+	if uid := c.Locals("user_id"); uid != nil {
+		userID = fmt.Sprintf("%v", uid)
 	}
 
 	invoice, err := h.service.CreateInvoice(&input, userID)
@@ -96,8 +97,8 @@ func (h *InvoiceHandler) UpdateInvoice(c *fiber.Ctx) error {
 	}
 
 	userID := ""
-	if uid := c.Locals("userID"); uid != nil {
-		userID = uid.(string)
+	if uid := c.Locals("user_id"); uid != nil {
+		userID = fmt.Sprintf("%v", uid)
 	}
 
 	invoice, err := h.service.UpdateInvoice(id, &input, userID)
@@ -449,8 +450,8 @@ func (h *PaymentHandler) CreatePayment(c *fiber.Ctx) error {
 	}
 
 	userID := ""
-	if uid := c.Locals("userID"); uid != nil {
-		userID = uid.(string)
+	if uid := c.Locals("user_id"); uid != nil {
+		userID = fmt.Sprintf("%v", uid)
 	}
 
 	payment, err := h.service.CreatePayment(&input, userID)

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
@@ -39,8 +40,8 @@ func (h *PurchaseOrderHandler) CreatePurchaseOrder(c *fiber.Ctx) error {
 	}
 
 	userID := ""
-	if uid := c.Locals("userID"); uid != nil {
-		userID = uid.(string)
+	if uid := c.Locals("user_id"); uid != nil {
+		userID = fmt.Sprintf("%v", uid)
 	}
 
 	po, err := h.service.CreatePurchaseOrder(&poInput, userID)
@@ -124,8 +125,8 @@ func (h *PurchaseOrderHandler) UpdatePurchaseOrder(c *fiber.Ctx) error {
 	}
 
 	userID := ""
-	if uid := c.Locals("userID"); uid != nil {
-		userID = uid.(string)
+	if uid := c.Locals("user_id"); uid != nil {
+		userID = fmt.Sprintf("%v", uid)
 	}
 
 	po, err := h.service.UpdatePurchaseOrder(id, &poInput, userID)
@@ -287,8 +288,8 @@ func (h *PurchaseOrderHandler) UpdatePurchaseOrderStatus(c *fiber.Ctx) error {
 	}
 
 	userID := ""
-	if uid := c.Locals("userID"); uid != nil {
-		userID = uid.(string)
+	if uid := c.Locals("user_id"); uid != nil {
+		userID = fmt.Sprintf("%v", uid)
 	}
 
 	po, err := h.service.UpdatePurchaseOrderStatus(id, statusInput.Status, userID)

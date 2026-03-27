@@ -35,6 +35,10 @@ type CustomerOutput struct {
 	ContactPersons   []CustomerContactPersonOutput `json:"contact_persons,omitempty"`
 	CreatedAt        time.Time                     `json:"created_at"`
 	UpdatedAt        time.Time                     `json:"updated_at"`
+	UserID           uint                          `json:"user_id,omitempty"`
+	UserName         string                        `json:"user_name,omitempty"`
+	CompanyID        uint                          `json:"company_id,omitempty"`
+	CompanyName      string                        `json:"company_name,omitempty"`
 }
 
 type CustomerListOutput struct {

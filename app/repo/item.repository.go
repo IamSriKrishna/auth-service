@@ -196,6 +196,73 @@ func (r *itemRepository) Delete(id string) error {
 	return r.db.Delete(&models.Item{}, "id = ?", id).Error
 }
 
+func (r *itemRepository) DeleteByCreatedBy(id string, createdBy string) error {
+	return r.db.Delete(&models.Item{}, "id = ? AND created_by = ?", id, createdBy).Error
+}
+
+func (r *itemRepository) FindByCreatedBy(createdBy string, limit, offset int) ([]models.Item, int64, error) {
+	var items []models.Item
+	var total int64
+
+	// Count total items for this user
+	countResult := r.db.Model(&models.Item{}).Where("created_by = ?", createdBy).Count(&total)
+	if countResult.Error != nil {
+		return nil, 0, countResult.Error
+	}
+
+	// Fetch items with all relationships
+	result := r.db.
+		Where("created_by = ?", createdBy).
+		Preload("ItemDetails.Variants.Attributes").
+		Preload("SalesInfo").
+		Preload("PurchaseInfo.PreferredVendor").
+		Preload("Inventory").
+		Preload("ReturnPolicy").
+		Limit(limit).
+		Offset(offset).
+		Order("created_at DESC").
+		Find(&items)
+
+	if result.Error != nil {
+		return nil, 0, result.Error
+	}
+
+	return items, total, nil
+}
+
+func (r *itemRepository) FindByTypeAndCreatedBy(itemType string, createdBy string, limit, offset int) ([]models.Item, int64, error) {
+	var items []models.Item
+	var total int64
+
+	// Count total items for this user with the given type
+	countResult := r.db.Model(&models.Item{}).
+		Where("type = ? AND created_by = ?", itemType, createdBy).
+		Count(&total)
+
+	if countResult.Error != nil {
+		return nil, 0, countResult.Error
+	}
+
+	// Fetch items with all relationships
+	result := r.db.
+		Where("type = ? AND created_by = ?", itemType, createdBy).
+		Preload("ItemDetails.Variants.Attributes").
+		Preload("SalesInfo").
+		Preload("PurchaseInfo.PreferredVendor").
+		Preload("Inventory").
+		Preload("ReturnPolicy").
+		Limit(limit).
+		Offset(offset).
+		Order("created_at DESC").
+		Find(&items)
+
+	if result.Error != nil {
+		return nil, 0, result.Error
+	}
+
+	return items, total, nil
+}
+
 func (r *itemRepository) FindByType(itemType string, limit, offset int) ([]models.Item, int64, error) {
 	var items []models.Item
 	var total int64

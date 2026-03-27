@@ -37,8 +37,10 @@ type InvoiceOutput struct {
 	EmailCommunications []EmailCommunicationOutput `json:"email_communications,omitempty"`
 	CreatedAt           time.Time                  `json:"created_at"`
 	UpdatedAt           time.Time                  `json:"updated_at"`
-	CreatedBy           string                     `json:"created_by,omitempty"`
-	UpdatedBy           string                     `json:"updated_by,omitempty"`
+	UserID              int                        `json:"user_id,omitempty"`
+	UserName            string                     `json:"user_name,omitempty"`
+	CompanyID           int                        `json:"company_id"`
+	CompanyName         string                     `json:"company_name,omitempty"`
 }
 
 type InvoiceLineItemOutput struct {
@@ -165,8 +167,10 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 		PaymentReceived:    invoice.PaymentReceived,
 		CreatedAt:          invoice.CreatedAt,
 		UpdatedAt:          invoice.UpdatedAt,
-		CreatedBy:          invoice.CreatedBy,
-		UpdatedBy:          invoice.UpdatedBy,
+		UserID:             parseUserID(invoice.CreatedBy),
+		UserName:           invoice.CreatedByUserName,
+		CompanyID:          int(invoice.CreatedByCompanyID),
+		CompanyName:        invoice.CreatedByCompanyName,
 	}
 
 	if invoice.TaxType != "" {

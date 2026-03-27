@@ -199,6 +199,8 @@ func MapCustomerToOutput(customer *models.Customer) *output.CustomerOutput {
 		CustomerLanguage: customer.CustomerLanguage,
 		CreatedAt:        customer.CreatedAt,
 		UpdatedAt:        customer.UpdatedAt,
+		UserID:           customer.UserID,
+		CompanyID:        customer.CompanyID,
 	}
 
 	// Map User information
@@ -213,6 +215,12 @@ func MapCustomerToOutput(customer *models.Customer) *output.CustomerOutput {
 			LastName:  customer.LastName,
 			Email:     email,
 		}
+		// Set UserName from email or username
+		if customer.User.Email != nil {
+			out.UserName = *customer.User.Email
+		} else if customer.User.Username != nil {
+			out.UserName = *customer.User.Username
+		}
 	}
 
 	// Map Company information
@@ -222,6 +230,7 @@ func MapCustomerToOutput(customer *models.Customer) *output.CustomerOutput {
 			Name:        customer.Company.CompanyName,
 			CompanyCode: "", // company_code field needs to be added to Company model if needed
 		}
+		out.CompanyName = customer.Company.CompanyName
 	}
 
 	if customer.OtherDetails != nil {

@@ -1,6 +1,7 @@
 package output
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/models"
@@ -31,8 +32,11 @@ type BillOutput struct {
 	Attachments    []string             `json:"attachments,omitempty"`
 	CreatedAt      time.Time            `json:"created_at"`
 	UpdatedAt      time.Time            `json:"updated_at"`
-	CreatedBy      string               `json:"created_by,omitempty"`
-	UpdatedBy      string               `json:"updated_by,omitempty"`
+	UserID         int                  `json:"user_id,omitempty"`
+	UserName       string               `json:"user_name,omitempty"`
+	CompanyID      int                  `json:"company_id,omitempty"`
+	CompanyName    string               `json:"company_name,omitempty"`
+	UpdatedByName  string               `json:"updated_by_name,omitempty"`
 }
 
 type BillLineItemOutput struct {
@@ -132,7 +136,19 @@ func ToBillOutput(bill *models.Bill) (*BillOutput, error) {
 		Attachments:    bill.Attachments,
 		CreatedAt:      bill.CreatedAt,
 		UpdatedAt:      bill.UpdatedAt,
-		CreatedBy:      bill.CreatedBy,
-		UpdatedBy:      bill.UpdatedBy,
+		UserID:         parseUserID(bill.CreatedBy),
+		UserName:       bill.CreatedByUserName,
+		CompanyID:      int(bill.CreatedByCompanyID),
+		CompanyName:    bill.CreatedByCompanyName,
+		UpdatedByName:  bill.UpdatedByUserName,
 	}, nil
+}
+
+func parseUserID(userIDStr string) int {
+	if userIDStr == "" {
+		return 0
+	}
+	var userID int
+	_, _ = fmt.Sscanf(userIDStr, "%d", &userID)
+	return userID
 }

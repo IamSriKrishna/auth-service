@@ -14,12 +14,12 @@ import (
 
 type ItemService interface {
 	// Basic CRUD Operations
-	CreateItem(input *input.CreateItemInput) (*output.ItemOutput, error)
+	CreateItem(input *input.CreateItemInput, createdBy string) (*output.ItemOutput, error)
 	GetItem(id string) (*output.ItemOutput, error)
-	GetAllItems(limit, offset int) (*output.ItemListOutput, error)
-	UpdateItem(id string, input *input.UpdateItemInput) (*output.ItemOutput, error)
-	DeleteItem(id string) error
-	GetItemsByType(itemType string, limit, offset int) (*output.ItemListOutput, error)
+	GetAllItems(limit, offset int, createdBy string) (*output.ItemListOutput, error)
+	UpdateItem(id string, input *input.UpdateItemInput, createdBy string) (*output.ItemOutput, error)
+	DeleteItem(id string, createdBy string) error
+	GetItemsByType(itemType string, limit, offset int, createdBy string) (*output.ItemListOutput, error)
 
 	// Step 2: Inventory Tracking Operations
 	// Enable/disable inventory tracking for items to track stock movements
@@ -36,18 +36,22 @@ type itemService struct {
 	vendorRepo       repo.VendorRepository
 	ManufacturerRepo repo.ManufacturerRepository
 	inventoryRepo    repo.InventoryBalanceRepository
+	userRepo         repo.UserRepository
+	companyRepo      repo.CompanyRepository
 }
 
-func NewItemService(itemRepo repo.ItemRepository, vendorRepo repo.VendorRepository, manufacturerRepo repo.ManufacturerRepository, inventoryRepo repo.InventoryBalanceRepository) ItemService {
+func NewItemService(itemRepo repo.ItemRepository, vendorRepo repo.VendorRepository, manufacturerRepo repo.ManufacturerRepository, inventoryRepo repo.InventoryBalanceRepository, userRepo repo.UserRepository, companyRepo repo.CompanyRepository) ItemService {
 	return &itemService{
 		repo:             itemRepo,
 		vendorRepo:       vendorRepo,
 		ManufacturerRepo: manufacturerRepo,
 		inventoryRepo:    inventoryRepo,
+		userRepo:         userRepo,
+		companyRepo:      companyRepo,
 	}
 }
 
-func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutput, error) {
+func (s *itemService) CreateItem(input *input.CreateItemInput, createdBy string) (*output.ItemOutput, error) {
 	// Validate variant attributes first
 	if err := input.ValidateVariantAttributes(); err != nil {
 		return nil, err
@@ -112,8 +116,35 @@ func (s *itemService) CreateItem(input *input.CreateItemInput) (*output.ItemOutp
 		PurchaseInfo: purchaseInfo,
 		Inventory:    inventory,
 		ReturnPolicy: returnPolicy,
+		CreatedBy:    createdBy,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
+	}
+
+	// Fetch user details if createdBy is provided
+	if createdBy != "" {
+		var userID uint
+		_, err := fmt.Sscanf(createdBy, "%d", &userID)
+		if err == nil {
+			user, err := s.userRepo.GetByID(userID)
+			if err == nil && user != nil {
+				// Set user name from email or username
+				if user.Email != nil {
+					item.CreatedByUserName = *user.Email
+				} else if user.Username != nil {
+					item.CreatedByUserName = *user.Username
+				}
+
+				// Set company details if user has a company
+				if user.CompanyID != nil {
+					item.CreatedByCompanyID = *user.CompanyID
+					company, err := s.companyRepo.FindByID(*user.CompanyID)
+					if err == nil && company != nil {
+						item.CreatedByCompanyName = company.CompanyName
+					}
+				}
+			}
+		}
 	}
 
 	if err := s.repo.Create(item); err != nil {
@@ -184,7 +215,7 @@ func (s *itemService) GetItem(id string) (*output.ItemOutput, error) {
 	return output.ToItemOutput(item)
 }
 
-func (s *itemService) GetAllItems(limit, offset int) (*output.ItemListOutput, error) {
+func (s *itemService) GetAllItems(limit, offset int, createdBy string) (*output.ItemListOutput, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -192,7 +223,7 @@ func (s *itemService) GetAllItems(limit, offset int) (*output.ItemListOutput, er
 		offset = 0
 	}
 
-	items, total, err := s.repo.FindAll(limit, offset)
+	items, total, err := s.repo.FindByCreatedBy(createdBy, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -200,10 +231,14 @@ func (s *itemService) GetAllItems(limit, offset int) (*output.ItemListOutput, er
 	return output.ToItemListOutput(items, total)
 }
 
-func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*output.ItemOutput, error) {
+func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput, createdBy string) (*output.ItemOutput, error) {
 	item, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, err
+	}
+
+	if item.CreatedBy != createdBy {
+		return nil, fmt.Errorf("unauthorized: you can only update items you created")
 	}
 
 	if input.Name != nil {
@@ -324,16 +359,20 @@ func (s *itemService) UpdateItem(id string, input *input.UpdateItemInput) (*outp
 	return output.ToItemOutput(updatedItem)
 }
 
-func (s *itemService) DeleteItem(id string) error {
-	_, err := s.repo.FindByID(id)
+func (s *itemService) DeleteItem(id string, createdBy string) error {
+	item, err := s.repo.FindByID(id)
 	if err != nil {
 		return errors.New("item not found")
 	}
 
-	return s.repo.Delete(id)
+	if item.CreatedBy != createdBy {
+		return errors.New("unauthorized: you can only delete items you created")
+	}
+
+	return s.repo.DeleteByCreatedBy(id, createdBy)
 }
 
-func (s *itemService) GetItemsByType(itemType string, limit, offset int) (*output.ItemListOutput, error) {
+func (s *itemService) GetItemsByType(itemType string, limit, offset int, createdBy string) (*output.ItemListOutput, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -341,7 +380,7 @@ func (s *itemService) GetItemsByType(itemType string, limit, offset int) (*outpu
 		offset = 0
 	}
 
-	items, total, err := s.repo.FindByType(itemType, limit, offset)
+	items, total, err := s.repo.FindByTypeAndCreatedBy(itemType, createdBy, limit, offset)
 	if err != nil {
 		return nil, err
 	}

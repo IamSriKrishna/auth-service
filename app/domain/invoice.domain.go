@@ -26,8 +26,12 @@ const (
 type TaxType string
 
 const (
-	TaxTypeTDS TaxType = "tds"
-	TaxTypeTCS TaxType = "tcs"
+	TaxTypeTDS  TaxType = "tds"
+	TaxTypeTCS  TaxType = "tcs"
+	TaxTypeGST  TaxType = "GST"
+	TaxTypeIGST TaxType = "IGST"
+	TaxTypeVAT  TaxType = "VAT"
+	TaxTypeNone TaxType = "None"
 )
 
 type PurchaseOrderStatus string

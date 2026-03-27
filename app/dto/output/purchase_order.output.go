@@ -38,8 +38,10 @@ type PurchaseOrderOutput struct {
 	Attachments         []string                      `json:"attachments,omitempty"`
 	CreatedAt           time.Time                     `json:"created_at"`
 	UpdatedAt           time.Time                     `json:"updated_at"`
-	CreatedBy           string                        `json:"created_by,omitempty"`
-	UpdatedBy           string                        `json:"updated_by,omitempty"`
+	UserID              string                        `json:"user_id,omitempty"`
+	UserName            string                        `json:"user_name,omitempty"`
+	CompanyID           uint                          `json:"company_id,omitempty"`
+	CompanyName         string                        `json:"company_name,omitempty"`
 }
 
 type PurchaseOrderLineItemOutput struct {
@@ -135,8 +137,10 @@ func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, erro
 		Attachments:         attachments,
 		CreatedAt:           po.CreatedAt,
 		UpdatedAt:           po.UpdatedAt,
-		CreatedBy:           po.CreatedBy,
-		UpdatedBy:           po.UpdatedBy,
+		UserID:              po.CreatedBy,
+		UserName:            po.CreatedByUserName,
+		CompanyID:           po.CreatedByCompanyID,
+		CompanyName:         po.CreatedByCompanyName,
 	}
 
 	if po.Vendor != nil {

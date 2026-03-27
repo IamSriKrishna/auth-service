@@ -20,8 +20,12 @@ type Item struct {
 	Inventory    Inventory    `json:"inventory" gorm:"foreignKey:ItemID;constraint:OnDelete:CASCADE"`
 	ReturnPolicy ReturnPolicy `json:"return_policy" gorm:"foreignKey:ItemID;constraint:OnDelete:CASCADE"`
 
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedBy            string    `json:"created_by" gorm:"type:varchar(255)"`
+	CreatedByUserName    string    `json:"created_by_user_name" gorm:"type:varchar(255)"`
+	CreatedByCompanyID   uint      `json:"created_by_company_id"`
+	CreatedByCompanyName string    `json:"created_by_company_name" gorm:"type:varchar(255)"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
 }
 
 func (Item) TableName() string {

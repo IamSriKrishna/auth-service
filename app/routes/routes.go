@@ -60,7 +60,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	locationService := services.NewLocationService(locationRepo)
 	taxTypeService := services.NewTaxTypeService(taxTypeRepo)
 	companyService := services.NewCompanyService(companyRepo, businessTypeRepo, locationRepo, taxTypeRepo, db)
-	itemService := services.NewItemService(itemRepo, vendorRepo, manufacturerRepo, inventoryBalanceRepo)
+	itemService := services.NewItemService(itemRepo, vendorRepo, manufacturerRepo, inventoryBalanceRepo, userRepo, companyRepo)
 	vendorService := services.NewVendorService(vendorRepo)
 	customerService := services.NewCustomerService(customerRepo)
 	openStockService := services.NewOpeningStockService(openStockRepo, itemRepo, inventoryBalanceRepo)
@@ -70,7 +70,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	salespersonService := services.NewSalespersonService(salespersonRepo)
 	taxService := services.NewTaxService(taxRepo)
 	paymentService := services.NewPaymentService(paymentRepo, invoiceRepo)
-	purchaseOrderService := services.NewPurchaseOrderService(purchaseOrderRepo, vendorRepo, customerRepo, itemRepo, taxRepo, inventoryBalanceRepo)
+	purchaseOrderService := services.NewPurchaseOrderService(purchaseOrderRepo, vendorRepo, customerRepo, itemRepo, taxRepo, inventoryBalanceRepo, userRepo, companyRepo)
 	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo, inventoryBalanceRepo)
 	packageService := services.NewPackageService(packageRepo, salesOrderRepo, customerRepo, itemRepo)
 	shipmentService := services.NewShipmentService(shipmentRepo, packageRepo, salesOrderRepo, customerRepo, inventoryBalanceRepo)
@@ -112,6 +112,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	employeeHandler := handlers.NewEmployeeHandler(employeeService)
 	attendanceHandler := handlers.NewAttendanceHandler(attendanceService)
 
+	// Swagger documentation endpoint
 	app.Get("/docs/*", swagger.HandlerDefault)
 
 	authGroup := app.Group("/auth")
@@ -194,9 +195,9 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	{
 		customerGroup.Get("/", customerHandler.GetAllCustomers)
 		customerGroup.Get("/:id", customerHandler.GetCustomerByID)
-		customerGroup.Post("/", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), customerHandler.CreateCustomer)
-		customerGroup.Put("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), customerHandler.UpdateCustomer)
-		customerGroup.Delete("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), customerHandler.DeleteCustomer)
+		customerGroup.Post("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), customerHandler.CreateCustomer)
+		customerGroup.Put("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), customerHandler.UpdateCustomer)
+		customerGroup.Delete("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), customerHandler.DeleteCustomer)
 	}
 
 	roleGroup := app.Group("/roles")
@@ -253,6 +254,76 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		adminGroup.Get("/customers/:id", customerHandler.GetUserCustomerByID)
 		adminGroup.Put("/customers/:id", customerHandler.UpdateUserCustomer)
 		adminGroup.Delete("/customers/:id", customerHandler.DeleteUserCustomer)
+
+		// Items Routes
+		adminGroup.Post("/items", itemHandler.CreateItem)
+		adminGroup.Get("/items", itemHandler.GetAllItems)
+		adminGroup.Get("/items/:id", itemHandler.GetItem)
+		adminGroup.Put("/items/:id", itemHandler.UpdateItem)
+		adminGroup.Delete("/items/:id", itemHandler.DeleteItem)
+		adminGroup.Get("/items/by-type/:type", itemHandler.GetItemsByType)
+
+		// Item Group Routes
+		adminGroup.Post("/item-groups", itemGroupHandler.CreateItemGroup)
+		adminGroup.Get("/item-groups", itemGroupHandler.GetAllItemGroups)
+		adminGroup.Get("/item-groups/:id", itemGroupHandler.GetItemGroupByID)
+		adminGroup.Put("/item-groups/:id", itemGroupHandler.UpdateItemGroup)
+		adminGroup.Delete("/item-groups/:id", itemGroupHandler.DeleteItemGroup)
+		adminGroup.Get("/item-groups/search/by-name", itemGroupHandler.GetItemGroupByName)
+
+		// Bill Routes
+		adminGroup.Post("/bills", billHandler.CreateBill)
+		adminGroup.Get("/bills", billHandler.GetAllBills)
+		adminGroup.Get("/bills/:id", billHandler.GetBill)
+		adminGroup.Put("/bills/:id", billHandler.UpdateBill)
+		adminGroup.Delete("/bills/:id", billHandler.DeleteBill)
+		adminGroup.Patch("/bills/:id/status", billHandler.UpdateBillStatus)
+		adminGroup.Get("/bills/vendor/:vendorId", billHandler.GetBillsByVendor)
+
+		// Invoice Routes
+		adminGroup.Post("/invoices", invoiceHandler.CreateInvoice)
+		adminGroup.Get("/invoices", invoiceHandler.GetAllInvoices)
+		adminGroup.Get("/invoices/:id", invoiceHandler.GetInvoice)
+		adminGroup.Put("/invoices/:id", invoiceHandler.UpdateInvoice)
+		adminGroup.Delete("/invoices/:id", invoiceHandler.DeleteInvoice)
+		adminGroup.Patch("/invoices/:id/status", invoiceHandler.UpdateInvoiceStatus)
+		adminGroup.Get("/invoices/:invoiceId/payments", paymentHandler.GetPaymentsByInvoice)
+
+		// Purchase Order Routes
+		adminGroup.Post("/purchase-orders", purchaseOrderHandler.CreatePurchaseOrder)
+		adminGroup.Get("/purchase-orders", purchaseOrderHandler.GetAllPurchaseOrders)
+		adminGroup.Get("/purchase-orders/:id", purchaseOrderHandler.GetPurchaseOrder)
+		adminGroup.Put("/purchase-orders/:id", purchaseOrderHandler.UpdatePurchaseOrder)
+		adminGroup.Delete("/purchase-orders/:id", purchaseOrderHandler.DeletePurchaseOrder)
+		adminGroup.Patch("/purchase-orders/:id/status", purchaseOrderHandler.UpdatePurchaseOrderStatus)
+		adminGroup.Get("/purchase-orders/vendor/:vendorId", purchaseOrderHandler.GetPurchaseOrdersByVendor)
+
+		// Sales Order Routes
+		adminGroup.Post("/sales-orders", salesOrderHandler.CreateSalesOrder)
+		adminGroup.Get("/sales-orders", salesOrderHandler.GetAllSalesOrders)
+		adminGroup.Get("/sales-orders/:id", salesOrderHandler.GetSalesOrder)
+		adminGroup.Put("/sales-orders/:id", salesOrderHandler.UpdateSalesOrder)
+		adminGroup.Delete("/sales-orders/:id", salesOrderHandler.DeleteSalesOrder)
+		adminGroup.Patch("/sales-orders/:id/status", salesOrderHandler.UpdateSalesOrderStatus)
+		adminGroup.Get("/sales-orders/customer/:customerId", salesOrderHandler.GetSalesOrdersByCustomer)
+
+		// Package Routes
+		adminGroup.Post("/packages", packageHandler.CreatePackage)
+		adminGroup.Get("/packages", packageHandler.GetAllPackages)
+		adminGroup.Get("/packages/:id", packageHandler.GetPackage)
+		adminGroup.Put("/packages/:id", packageHandler.UpdatePackage)
+		adminGroup.Delete("/packages/:id", packageHandler.DeletePackage)
+		adminGroup.Patch("/packages/:id/status", packageHandler.UpdatePackageStatus)
+		adminGroup.Get("/packages/customer/:customer_id", packageHandler.GetPackagesByCustomer)
+
+		// Shipment Routes
+		adminGroup.Post("/shipments", shipmentHandler.CreateShipment)
+		adminGroup.Get("/shipments", shipmentHandler.GetAllShipments)
+		adminGroup.Get("/shipments/:id", shipmentHandler.GetShipment)
+		adminGroup.Put("/shipments/:id", shipmentHandler.UpdateShipment)
+		adminGroup.Delete("/shipments/:id", shipmentHandler.DeleteShipment)
+		adminGroup.Patch("/shipments/:id/status", shipmentHandler.UpdateShipmentStatus)
+		adminGroup.Get("/shipments/customer/:customer_id", shipmentHandler.GetShipmentsByCustomer)
 	}
 
 	forwardAuthGroup := app.Group("/forward-auth")
@@ -309,12 +380,12 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 
 	itemRoutes := app.Group("/items")
 	{
-		itemRoutes.Get("/", itemHandler.GetAllItems)
 		itemRoutes.Get("/:id", itemHandler.GetItem)
 
+		itemRoutes.Get("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemHandler.GetAllItems)
 		itemRoutes.Post("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemHandler.CreateItem)
 		itemRoutes.Put("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemHandler.UpdateItem)
-		itemRoutes.Delete("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), itemHandler.DeleteItem)
+		itemRoutes.Delete("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemHandler.DeleteItem)
 
 		itemRoutes.Put("/:id/opening-stock", middleware.AuthMiddleware(), middleware.AdminMiddleware(), openStockHandler.UpdateOpeningStock)
 		itemRoutes.Get("/:id/opening-stock", middleware.AuthMiddleware(), middleware.AdminMiddleware(), openStockHandler.GetOpeningStock)
@@ -326,12 +397,12 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 
 	itemGroupRoutes := app.Group("/item-groups")
 	{
-		itemGroupRoutes.Get("/", itemGroupHandler.GetAllItemGroups)
-		itemGroupRoutes.Get("/:id", itemGroupHandler.GetItemGroupByID)
+		itemGroupRoutes.Get("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemGroupHandler.GetAllItemGroups)
+		itemGroupRoutes.Get("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemGroupHandler.GetItemGroupByID)
 
 		itemGroupRoutes.Post("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemGroupHandler.CreateItemGroup)
 		itemGroupRoutes.Put("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemGroupHandler.UpdateItemGroup)
-		itemGroupRoutes.Delete("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), itemGroupHandler.DeleteItemGroup)
+		itemGroupRoutes.Delete("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemGroupHandler.DeleteItemGroup)
 
 		itemGroupRoutes.Get("/search/by-name", itemGroupHandler.GetItemGroupByName)
 	}
@@ -340,8 +411,8 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	invoiceRoutes.Use(middleware.AuthMiddleware())
 	{
 		invoiceRoutes.Post("/", middleware.AdminMiddleware(), invoiceHandler.CreateInvoice)
-		invoiceRoutes.Get("/", invoiceHandler.GetAllInvoices)
-		invoiceRoutes.Get("/:id", invoiceHandler.GetInvoice)
+		invoiceRoutes.Get("/", middleware.AdminMiddleware(), invoiceHandler.GetAllInvoices)
+		invoiceRoutes.Get("/:id", middleware.AdminMiddleware(), invoiceHandler.GetInvoice)
 		invoiceRoutes.Put("/:id", middleware.AdminMiddleware(), invoiceHandler.UpdateInvoice)
 		invoiceRoutes.Delete("/:id", middleware.AdminMiddleware(), invoiceHandler.DeleteInvoice)
 
@@ -385,8 +456,8 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	purchaseOrderRoutes.Use(middleware.AuthMiddleware())
 	{
 		purchaseOrderRoutes.Post("/", middleware.AdminMiddleware(), purchaseOrderHandler.CreatePurchaseOrder)
-		purchaseOrderRoutes.Get("/", purchaseOrderHandler.GetAllPurchaseOrders)
-		purchaseOrderRoutes.Get("/:id", purchaseOrderHandler.GetPurchaseOrder)
+		purchaseOrderRoutes.Get("/", middleware.AdminMiddleware(), purchaseOrderHandler.GetAllPurchaseOrders)
+		purchaseOrderRoutes.Get("/:id", middleware.AdminMiddleware(), purchaseOrderHandler.GetPurchaseOrder)
 		purchaseOrderRoutes.Put("/:id", middleware.AdminMiddleware(), purchaseOrderHandler.UpdatePurchaseOrder)
 		purchaseOrderRoutes.Delete("/:id", middleware.AdminMiddleware(), purchaseOrderHandler.DeletePurchaseOrder)
 
@@ -401,8 +472,8 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	salesOrderRoutes.Use(middleware.AuthMiddleware())
 	{
 		salesOrderRoutes.Post("/", middleware.AdminMiddleware(), salesOrderHandler.CreateSalesOrder)
-		salesOrderRoutes.Get("/", salesOrderHandler.GetAllSalesOrders)
-		salesOrderRoutes.Get("/:id", salesOrderHandler.GetSalesOrder)
+		salesOrderRoutes.Get("/", middleware.AdminMiddleware(), salesOrderHandler.GetAllSalesOrders)
+		salesOrderRoutes.Get("/:id", middleware.AdminMiddleware(), salesOrderHandler.GetSalesOrder)
 		salesOrderRoutes.Put("/:id", middleware.AdminMiddleware(), salesOrderHandler.UpdateSalesOrder)
 		salesOrderRoutes.Delete("/:id", middleware.AdminMiddleware(), salesOrderHandler.DeleteSalesOrder)
 
@@ -416,8 +487,8 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	packageRoutes.Use(middleware.AuthMiddleware())
 	{
 		packageRoutes.Post("/", middleware.AdminMiddleware(), packageHandler.CreatePackage)
-		packageRoutes.Get("/", packageHandler.GetAllPackages)
-		packageRoutes.Get("/:id", packageHandler.GetPackage)
+		packageRoutes.Get("/", middleware.AdminMiddleware(), packageHandler.GetAllPackages)
+		packageRoutes.Get("/:id", middleware.AdminMiddleware(), packageHandler.GetPackage)
 		packageRoutes.Put("/:id", middleware.AdminMiddleware(), packageHandler.UpdatePackage)
 		packageRoutes.Delete("/:id", middleware.AdminMiddleware(), packageHandler.DeletePackage)
 
@@ -449,8 +520,8 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	billRoutes.Use(middleware.AuthMiddleware())
 	{
 		billRoutes.Post("/", middleware.AdminMiddleware(), billHandler.CreateBill)
-		billRoutes.Get("/", billHandler.GetAllBills)
-		billRoutes.Get("/:id", billHandler.GetBill)
+		billRoutes.Get("/", middleware.AdminMiddleware(), billHandler.GetAllBills)
+		billRoutes.Get("/:id", middleware.AdminMiddleware(), billHandler.GetBill)
 		billRoutes.Put("/:id", middleware.AdminMiddleware(), billHandler.UpdateBill)
 		billRoutes.Delete("/:id", middleware.AdminMiddleware(), billHandler.DeleteBill)
 

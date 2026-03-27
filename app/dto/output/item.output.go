@@ -18,8 +18,12 @@ type ItemOutput struct {
 	Inventory    InventoryOutput    `json:"inventory,omitempty"`
 	ReturnPolicy ReturnPolicyOutput `json:"return_policy,omitempty"`
 
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	UserID      string    `json:"user_id,omitempty"`
+	UserName    string    `json:"user_name,omitempty"`
+	CompanyID   uint      `json:"company_id,omitempty"`
+	CompanyName string    `json:"company_name,omitempty"`
 }
 
 type ManufacturerInfo struct {
@@ -194,8 +198,12 @@ func ToItemOutput(item *models.Item) (*ItemOutput, error) {
 		ReturnPolicy: ReturnPolicyOutput{
 			Returnable: item.ReturnPolicy.Returnable,
 		},
-		CreatedAt: item.CreatedAt,
-		UpdatedAt: item.UpdatedAt,
+		CreatedAt:   item.CreatedAt,
+		UpdatedAt:   item.UpdatedAt,
+		UserID:      item.CreatedBy,
+		UserName:    item.CreatedByUserName,
+		CompanyID:   item.CreatedByCompanyID,
+		CompanyName: item.CreatedByCompanyName,
 	}
 
 	return output, nil

@@ -41,6 +41,13 @@ func RunMigrations(db *gorm.DB) error {
 		}
 	}
 
+	if os.Getenv("DROP_ITEM_MODEL_ONLY") == "true" {
+		log.Println("DROP_ITEM_MODEL_ONLY=true detected, dropping only Item model...")
+		if err := DropItemModelOnly(db); err != nil {
+			log.Printf("Warning: Failed to drop Item model: %v", err)
+		}
+	}
+
 	err := db.AutoMigrate(
 		&models.Role{},
 		&models.User{},
@@ -167,6 +174,30 @@ func DropItemTables(db *gorm.DB) error {
 	}
 
 	log.Println("Item tables dropped successfully!")
+	return nil
+}
+
+func DropItemModelOnly(db *gorm.DB) error {
+	log.Println("Dropping Item model only...")
+
+	tables := []interface{}{
+		&models.ReturnPolicy{},
+		&models.Inventory{},
+		&models.PurchaseInfo{},
+		&models.SalesInfo{},
+		&models.VariantAttribute{},
+		&models.Variant{},
+		&models.ItemDetails{},
+		&models.Item{},
+	}
+
+	for _, table := range tables {
+		if err := db.Migrator().DropTable(table); err != nil {
+			log.Printf("Warning: Failed to drop table %T: %v", table, err)
+		}
+	}
+
+	log.Println("Item model dropped successfully!")
 	return nil
 }
 

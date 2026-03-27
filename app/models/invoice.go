@@ -54,10 +54,14 @@ type Invoice struct {
 
 	Attachments InvoiceAttachments `json:"attachments,omitempty" gorm:"type:json"`
 
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	CreatedBy string    `json:"created_by" gorm:"type:varchar(255)"`
-	UpdatedBy string    `json:"updated_by" gorm:"type:varchar(255)"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	CreatedBy            string    `json:"created_by" gorm:"type:varchar(255)"`
+	CreatedByUserName    string    `json:"created_by_user_name" gorm:"-"`
+	CreatedByCompanyID   uint      `json:"created_by_company_id" gorm:"-"`
+	CreatedByCompanyName string    `json:"created_by_company_name" gorm:"-"`
+	UpdatedBy            string    `json:"updated_by" gorm:"type:varchar(255)"`
+	UpdatedByUserName    string    `json:"updated_by_user_name" gorm:"-"`
 }
 
 func (Invoice) TableName() string {

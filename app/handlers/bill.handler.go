@@ -10,8 +10,36 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+type UserInfo struct {
+	UserID      string
+	UserName    string
+	CompanyID   uint
+	CompanyName string
+}
+
 type BillHandler struct {
 	service services.BillService
+}
+
+// Helper function to extract user information from context
+func extractUserInfo(c *fiber.Ctx) UserInfo {
+	userInfo := UserInfo{}
+
+	if uid := c.Locals("user_id"); uid != nil {
+		userInfo.UserID = fmt.Sprintf("%v", uid)
+	}
+
+	if email := c.Locals("user_email"); email != nil {
+		userInfo.UserName = fmt.Sprintf("%v", email)
+	}
+
+	if compID := c.Locals("company_id"); compID != nil {
+		if cid, ok := compID.(uint); ok {
+			userInfo.CompanyID = cid
+		}
+	}
+
+	return userInfo
 }
 
 func NewBillHandler(service services.BillService) *BillHandler {
@@ -89,7 +117,12 @@ func (h *BillHandler) GetAllBills(c *fiber.Ctx) error {
 		}
 	}
 
-	bills, total, err := h.service.GetAllBills(limit, offset)
+	createdBy := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		createdBy = fmt.Sprintf("%v", uid)
+	}
+
+	bills, total, err := h.service.GetAllBills(limit, offset, createdBy)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to get bills",
@@ -129,7 +162,12 @@ func (h *BillHandler) GetBillsByVendor(c *fiber.Ctx) error {
 		}
 	}
 
-	bills, total, err := h.service.GetBillsByVendor(vendorIDUint, limit, offset)
+	createdBy := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		createdBy = fmt.Sprintf("%v", uid)
+	}
+
+	bills, total, err := h.service.GetBillsByVendor(vendorIDUint, limit, offset, createdBy)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to get bills for vendor",
@@ -164,7 +202,12 @@ func (h *BillHandler) GetBillsByStatus(c *fiber.Ctx) error {
 		}
 	}
 
-	bills, total, err := h.service.GetBillsByStatus(status, limit, offset)
+	createdBy := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		createdBy = fmt.Sprintf("%v", uid)
+	}
+
+	bills, total, err := h.service.GetBillsByStatus(status, limit, offset, createdBy)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to get bills by status",
@@ -262,7 +305,12 @@ func (h *BillHandler) UpdateBillStatus(c *fiber.Ctx) error {
 func (h *BillHandler) DeleteBill(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	err := h.service.DeleteBill(id)
+	userID := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		userID = fmt.Sprintf("%v", uid)
+	}
+
+	err := h.service.DeleteBill(id, userID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Failed to delete bill",

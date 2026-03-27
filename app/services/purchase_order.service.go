@@ -36,6 +36,8 @@ type purchaseOrderService struct {
 	itemRepo      repo.ItemRepository
 	taxRepo       repo.TaxRepository
 	inventoryRepo repo.InventoryBalanceRepository
+	userRepo      repo.UserRepository
+	companyRepo   repo.CompanyRepository
 }
 
 func NewPurchaseOrderService(
@@ -45,6 +47,8 @@ func NewPurchaseOrderService(
 	itemRepo repo.ItemRepository,
 	taxRepo repo.TaxRepository,
 	inventoryRepo repo.InventoryBalanceRepository,
+	userRepo repo.UserRepository,
+	companyRepo repo.CompanyRepository,
 ) PurchaseOrderService {
 	return &purchaseOrderService{
 		poRepo:        poRepo,
@@ -53,6 +57,8 @@ func NewPurchaseOrderService(
 		itemRepo:      itemRepo,
 		taxRepo:       taxRepo,
 		inventoryRepo: inventoryRepo,
+		userRepo:      userRepo,
+		companyRepo:   companyRepo,
 	}
 }
 
@@ -171,7 +177,32 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 		CreatedAt:           time.Now(),
 		UpdatedAt:           time.Now(),
 		CreatedBy:           userID,
-		UpdatedBy:           userID,
+	}
+
+	// Fetch user details if userID is provided
+	if userID != "" {
+		var userIDUint uint
+		_, err := fmt.Sscanf(userID, "%d", &userIDUint)
+		if err == nil {
+			user, err := s.userRepo.GetByID(userIDUint)
+			if err == nil && user != nil {
+				// Set user name from email or username
+				if user.Email != nil {
+					po.CreatedByUserName = *user.Email
+				} else if user.Username != nil {
+					po.CreatedByUserName = *user.Username
+				}
+
+				// Set company details if user has a company
+				if user.CompanyID != nil {
+					po.CreatedByCompanyID = *user.CompanyID
+					company, err := s.companyRepo.FindByID(*user.CompanyID)
+					if err == nil && company != nil {
+						po.CreatedByCompanyName = company.CompanyName
+					}
+				}
+			}
+		}
 	}
 
 	if len(poInput.Attachments) > 0 {
@@ -488,7 +519,6 @@ func (s *purchaseOrderService) UpdatePurchaseOrderStatus(id string, status domai
 
 	po.Status = status
 	po.UpdatedAt = time.Now()
-	po.UpdatedBy = userID
 
 	err = s.poRepo.UpdateStatus(id, string(status))
 	if err != nil {
