@@ -9,11 +9,15 @@ import (
 type InvoiceOutput struct {
 	ID                  string                     `json:"id"`
 	InvoiceNumber       string                     `json:"invoice_number"`
+	SalesOrderID        *string                    `json:"sales_order_id,omitempty"`
+	SalesOrderNo        string                     `json:"sales_order_no,omitempty"`
 	CustomerID          uint                       `json:"customer_id"`
+	CustomerName        string                     `json:"customer_name,omitempty"`
 	Customer            *CustomerInfo              `json:"customer,omitempty"`
 	OrderNumber         string                     `json:"order_number,omitempty"`
 	InvoiceDate         time.Time                  `json:"invoice_date"`
 	Terms               string                     `json:"terms"`
+	PaymentTerms        string                     `json:"payment_terms,omitempty"`
 	DueDate             time.Time                  `json:"due_date"`
 	SalespersonID       *uint                      `json:"salesperson_id,omitempty"`
 	Salesperson         *SalespersonInfo           `json:"salesperson,omitempty"`
@@ -30,6 +34,7 @@ type InvoiceOutput struct {
 	CustomerNotes       string                     `json:"customer_notes,omitempty"`
 	TermsAndConditions  string                     `json:"terms_and_conditions,omitempty"`
 	Status              string                     `json:"status"`
+	PaymentStatus       string                     `json:"payment_status,omitempty"`
 	Attachments         []string                   `json:"attachments,omitempty"`
 	PaymentReceived     bool                       `json:"payment_received"`
 	Payments            []PaymentOutput            `json:"payments,omitempty"`
@@ -45,7 +50,7 @@ type InvoiceOutput struct {
 
 type InvoiceLineItemOutput struct {
 	ID             uint              `json:"id"`
-	ItemID         string            `json:"item_id"`
+	ItemID         *string           `json:"item_id"`
 	Item           *ItemInfo         `json:"item,omitempty"`
 	VariantSKU     *string           `json:"variant_sku,omitempty"`
 	Variant        *VariantInfo      `json:"variant,omitempty"`
@@ -362,5 +367,26 @@ func ToEmailCommunicationOutput(email *models.EmailCommunication) *EmailCommunic
 		CreatedAt:    email.CreatedAt,
 		CreatedBy:    email.CreatedBy,
 		SentAt:       email.SentAt,
+	}
+}
+
+// CreateInvoiceVariantOutput creates an invoice output with variant-specific line items
+func CreateInvoiceVariantOutput(invoiceNo string, salesOrderID *string, customerID uint, customerName string, lineItems []InvoiceLineItemOutput, subTotal float64, shippingCharges float64, taxAmount float64, total float64) *InvoiceOutput {
+	return &InvoiceOutput{
+		InvoiceNumber:   invoiceNo,
+		SalesOrderID:    salesOrderID,
+		CustomerID:      customerID,
+		CustomerName:    customerName,
+		LineItems:       lineItems,
+		SubTotal:        subTotal,
+		ShippingCharges: shippingCharges,
+		TaxAmount:       taxAmount,
+		Total:           total,
+		Status:          "issued",
+		PaymentStatus:   "unpaid",
+		InvoiceDate:     time.Now(),
+		DueDate:         time.Now().AddDate(0, 0, 15),
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
 	}
 }

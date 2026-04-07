@@ -56,12 +56,14 @@ type PaymentService interface {
 }
 
 type invoiceService struct {
-	invoiceRepo     repo.InvoiceRepository
-	itemRepo        repo.ItemRepository
-	customerRepo    repo.CustomerRepository
-	salespersonRepo repo.SalespersonRepository
-	taxRepo         repo.TaxRepository
-	paymentRepo     repo.PaymentRepository
+	invoiceRepo      repo.InvoiceRepository
+	itemRepo         repo.ItemRepository
+	customerRepo     repo.CustomerRepository
+	salespersonRepo  repo.SalespersonRepository
+	taxRepo          repo.TaxRepository
+	paymentRepo      repo.PaymentRepository
+	productStockRepo repo.ProductStockRepository
+	stockLedgerRepo  repo.StockLedgerRepository
 }
 
 func NewInvoiceService(
@@ -71,15 +73,19 @@ func NewInvoiceService(
 	salespersonRepo repo.SalespersonRepository,
 	taxRepo repo.TaxRepository,
 	paymentRepo repo.PaymentRepository,
+	productStockRepo repo.ProductStockRepository,
+	stockLedgerRepo repo.StockLedgerRepository,
 	pdfOutputDir string,
 ) InvoiceService {
 	return &invoiceService{
-		invoiceRepo:     invoiceRepo,
-		itemRepo:        itemRepo,
-		customerRepo:    customerRepo,
-		salespersonRepo: salespersonRepo,
-		taxRepo:         taxRepo,
-		paymentRepo:     paymentRepo,
+		invoiceRepo:      invoiceRepo,
+		itemRepo:         itemRepo,
+		customerRepo:     customerRepo,
+		salespersonRepo:  salespersonRepo,
+		taxRepo:          taxRepo,
+		paymentRepo:      paymentRepo,
+		productStockRepo: productStockRepo,
+		stockLedgerRepo:  stockLedgerRepo,
 	}
 }
 
@@ -114,9 +120,20 @@ func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID s
 	var subTotal float64
 
 	for i, itemInput := range input.LineItems {
-		_, err := s.itemRepo.FindByID(itemInput.ItemID)
-		if err != nil {
-			return nil, fmt.Errorf("item %s not found", itemInput.ItemID)
+		// Fetch product if ProductID is provided
+		if itemInput.ProductID != nil {
+			_, err := s.productStockRepo.GetByProductID(*itemInput.ProductID)
+			if err != nil {
+				return nil, fmt.Errorf("product %s not found", *itemInput.ProductID)
+			}
+		}
+
+		// Fetch item only if ItemID is provided
+		if itemInput.ItemID != nil {
+			_, err := s.itemRepo.FindByID(*itemInput.ItemID)
+			if err != nil {
+				return nil, fmt.Errorf("item %s not found", *itemInput.ItemID)
+			}
 		}
 
 		if itemInput.VariantSKU != nil {
@@ -127,6 +144,7 @@ func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID s
 		subTotal += amount
 
 		lineItems[i] = models.InvoiceLineItem{
+			ProductID:      itemInput.ProductID,
 			ItemID:         itemInput.ItemID,
 			VariantSKU:     itemInput.VariantSKU,
 			Description:    itemInput.Description,
@@ -279,9 +297,12 @@ func (s *invoiceService) UpdateInvoice(id string, input *input.UpdateInvoiceInpu
 		var subTotal float64
 
 		for i, itemInput := range input.LineItems {
-			_, err := s.itemRepo.FindByID(itemInput.ItemID)
-			if err != nil {
-				return nil, fmt.Errorf("item %s not found", itemInput.ItemID)
+			// Fetch item only if ItemID is provided
+			if itemInput.ItemID != nil {
+				_, err := s.itemRepo.FindByID(*itemInput.ItemID)
+				if err != nil {
+					return nil, fmt.Errorf("item %s not found", *itemInput.ItemID)
+				}
 			}
 
 			if itemInput.VariantSKU != nil {
@@ -349,7 +370,7 @@ func (s *invoiceService) DeleteInvoice(id string) error {
 		return errors.New("invoice not found")
 	}
 
-	if invoice.Status == domain.InvoiceStatusSent || invoice.Status == domain.InvoiceStatusPaid {
+	if invoice.Status == domain.InvoiceStatusIssued || invoice.Status == domain.InvoiceStatusSent || invoice.Status == domain.InvoiceStatusPaid {
 		return fmt.Errorf("cannot delete invoice with status %s", invoice.Status)
 	}
 
@@ -394,6 +415,64 @@ func (s *invoiceService) UpdateInvoiceStatus(id string, status domain.InvoiceSta
 		return nil, err
 	}
 
+	// Only handle stock deduction when transitioning to "issued" status
+	if status == domain.InvoiceStatusIssued && invoice.Status != domain.InvoiceStatusIssued {
+		// Deduct stock for each line item with product_id
+		for _, lineItem := range invoice.LineItems {
+			if lineItem.ProductID == nil {
+				continue // Skip items without product reference
+			}
+
+			// Get current product stock
+			productStock, err := s.productStockRepo.GetByProductID(*lineItem.ProductID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get stock for product %s: %w", *lineItem.ProductID, err)
+			}
+
+			// Calculate new stock levels
+			newCurrentStock := productStock.CurrentStock - lineItem.Quantity
+			newAvailableStock := productStock.AvailableStock - lineItem.Quantity
+
+			if newCurrentStock < 0 {
+				return nil, fmt.Errorf("insufficient stock for product %s. Required: %f, Available: %f", *lineItem.ProductID, lineItem.Quantity, productStock.CurrentStock)
+			}
+
+			// Update product stock
+			productStock.CurrentStock = newCurrentStock
+			productStock.AvailableStock = newAvailableStock
+			productStock.SoldStock = productStock.SoldStock + lineItem.Quantity
+			productStock.LastSoldDate = &time.Time{}
+			*productStock.LastSoldDate = time.Now()
+			productStock.UpdatedAt = time.Now()
+
+			if err := s.productStockRepo.Update(productStock); err != nil {
+				return nil, fmt.Errorf("failed to update stock for product %s: %w", *lineItem.ProductID, err)
+			}
+
+			// Create stock ledger entry using invoice_number as reference
+			ledgerEntry := &models.StockLedger{
+				ProductID:        *lineItem.ProductID,
+				MovementType:     "SALES_INVOICE",
+				Quantity:         -lineItem.Quantity, // Negative for outbound
+				Rate:             productStock.AverageCost,
+				Amount:           -lineItem.Quantity * productStock.AverageCost,
+				ReferenceType:    "INVOICE",
+				ReferenceID:      invoice.ID,
+				ReferenceNumber:  invoice.InvoiceNumber,
+				BalanceBeforeQty: productStock.CurrentStock + lineItem.Quantity, // Before deduction
+				BalanceAfterQty:  productStock.CurrentStock,                     // After deduction
+				Notes:            fmt.Sprintf("Invoice %s issued", invoice.InvoiceNumber),
+				CreatedAt:        time.Now(),
+				CreatedBy:        invoice.UpdatedBy,
+			}
+
+			if err := s.stockLedgerRepo.Create(ledgerEntry); err != nil {
+				return nil, fmt.Errorf("failed to create stock ledger entry: %w", err)
+			}
+		}
+	}
+
+	// Update invoice status
 	invoice.Status = status
 	invoice.UpdatedAt = time.Now()
 

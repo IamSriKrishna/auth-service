@@ -29,7 +29,12 @@ func (h *AdminHandler) CreateUser(c *fiber.Ctx) error {
 		})
 	}
 
-	createdBy := c.Locals("user_id").(uint)
+	// For public endpoint, createdBy may be nil if no authenticated user
+	var createdBy *uint
+	if userID := c.Locals("user_id"); userID != nil {
+		id := userID.(uint)
+		createdBy = &id
+	}
 
 	resp, err := h.adminService.CreateUser(c.Context(), createdBy, &req)
 	if err != nil {

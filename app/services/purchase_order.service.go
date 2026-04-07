@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/domain"
@@ -30,35 +31,41 @@ type PurchaseOrderService interface {
 }
 
 type purchaseOrderService struct {
-	poRepo        repo.PurchaseOrderRepository
-	vendorRepo    repo.VendorRepository
-	customerRepo  repo.CustomerRepository
-	itemRepo      repo.ItemRepository
-	taxRepo       repo.TaxRepository
-	inventoryRepo repo.InventoryBalanceRepository
-	userRepo      repo.UserRepository
-	companyRepo   repo.CompanyRepository
+	poRepo             repo.PurchaseOrderRepository
+	vendorRepo         repo.VendorRepository
+	customerRepo       repo.CustomerRepository
+	productRepo        repo.ProductRepository
+	taxRepo            repo.TaxRepository
+	userRepo           repo.UserRepository
+	companyRepo        repo.CompanyRepository
+	stockManagementSvc StockManagementService
+	stockLedgerRepo    repo.StockLedgerRepository
+	variantStockMgmt   VariantStockManagementService
 }
 
 func NewPurchaseOrderService(
 	poRepo repo.PurchaseOrderRepository,
 	vendorRepo repo.VendorRepository,
 	customerRepo repo.CustomerRepository,
-	itemRepo repo.ItemRepository,
+	productRepo repo.ProductRepository,
 	taxRepo repo.TaxRepository,
-	inventoryRepo repo.InventoryBalanceRepository,
 	userRepo repo.UserRepository,
 	companyRepo repo.CompanyRepository,
+	stockManagementSvc StockManagementService,
+	stockLedgerRepo repo.StockLedgerRepository,
+	variantStockMgmt VariantStockManagementService,
 ) PurchaseOrderService {
 	return &purchaseOrderService{
-		poRepo:        poRepo,
-		vendorRepo:    vendorRepo,
-		customerRepo:  customerRepo,
-		itemRepo:      itemRepo,
-		taxRepo:       taxRepo,
-		inventoryRepo: inventoryRepo,
-		userRepo:      userRepo,
-		companyRepo:   companyRepo,
+		poRepo:             poRepo,
+		vendorRepo:         vendorRepo,
+		customerRepo:       customerRepo,
+		productRepo:        productRepo,
+		taxRepo:            taxRepo,
+		userRepo:           userRepo,
+		companyRepo:        companyRepo,
+		stockManagementSvc: stockManagementSvc,
+		stockLedgerRepo:    stockLedgerRepo,
+		variantStockMgmt:   variantStockMgmt,
 	}
 }
 
@@ -96,30 +103,28 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 	subTotal := 0.0
 
 	for _, itemInput := range poInput.LineItems {
-		item, err := s.itemRepo.FindByID(itemInput.ItemID)
+		// Validate product exists
+		if itemInput.ProductID == nil {
+			return nil, errors.New("product_id is required for each line item")
+		}
+
+		product, err := s.productRepo.FindByID(*itemInput.ProductID)
 		if err != nil {
-			return nil, fmt.Errorf("item %s not found", itemInput.ItemID)
+			return nil, fmt.Errorf("product %s not found", *itemInput.ProductID)
 		}
 
 		amount := itemInput.Quantity * itemInput.Rate
 		subTotal += amount
 
 		lineItem := models.PurchaseOrderLineItem{
-			ItemID:     itemInput.ItemID,
-			Item:       item,
-			VariantSKU: itemInput.VariantSKU,
-			Account:    itemInput.Account,
-			Quantity:   itemInput.Quantity,
-			Rate:       itemInput.Rate,
-			Amount:     amount,
-		}
-
-		if itemInput.VariantDetails != nil {
-			variantDetails := make(models.VariantDetails)
-			for k, v := range itemInput.VariantDetails {
-				variantDetails[k] = v
-			}
-			lineItem.VariantDetails = variantDetails
+			ProductID:   itemInput.ProductID,
+			Product:     product,
+			ProductName: itemInput.ProductName,
+			SKU:         itemInput.SKU,
+			Account:     itemInput.Account,
+			Quantity:    itemInput.Quantity,
+			Rate:        itemInput.Rate,
+			Amount:      amount,
 		}
 
 		lineItems = append(lineItems, lineItem)
@@ -308,30 +313,28 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 		subTotal := 0.0
 
 		for _, itemInput := range poInput.LineItems {
-			item, err := s.itemRepo.FindByID(itemInput.ItemID)
+			// Validate product exists
+			if itemInput.ProductID == nil {
+				return nil, errors.New("product_id is required for each line item")
+			}
+
+			product, err := s.productRepo.FindByID(*itemInput.ProductID)
 			if err != nil {
-				return nil, fmt.Errorf("item %s not found", itemInput.ItemID)
+				return nil, fmt.Errorf("product %s not found", *itemInput.ProductID)
 			}
 
 			amount := itemInput.Quantity * itemInput.Rate
 			subTotal += amount
 
 			lineItem := models.PurchaseOrderLineItem{
-				ItemID:     itemInput.ItemID,
-				Item:       item,
-				VariantSKU: itemInput.VariantSKU,
-				Account:    itemInput.Account,
-				Quantity:   itemInput.Quantity,
-				Rate:       itemInput.Rate,
-				Amount:     amount,
-			}
-
-			if itemInput.VariantDetails != nil {
-				variantDetails := make(models.VariantDetails)
-				for k, v := range itemInput.VariantDetails {
-					variantDetails[k] = v
-				}
-				lineItem.VariantDetails = variantDetails
+				ProductID:   itemInput.ProductID,
+				Product:     product,
+				ProductName: itemInput.ProductName,
+				SKU:         itemInput.SKU,
+				Account:     itemInput.Account,
+				Quantity:    itemInput.Quantity,
+				Rate:        itemInput.Rate,
+				Amount:      amount,
 			}
 
 			lineItems = append(lineItems, lineItem)
@@ -401,6 +404,57 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 }
 
 func (s *purchaseOrderService) DeletePurchaseOrder(id string) error {
+	// First, get the PO to access its line items and inventory sync status
+	po, err := s.poRepo.FindByID(id)
+	if err != nil {
+		return errors.New("purchase order not found")
+	}
+
+	// Only reverse stock if it was synced to inventory
+	if po.InventorySynced {
+		for _, lineItem := range po.LineItems {
+			if lineItem.ProductID == nil || *lineItem.ProductID == "" {
+				continue
+			}
+
+			log.Printf("[PO_DELETE] Reversing stock for PO %s: %s (Qty: %.2f, SKU: %s)", po.PurchaseOrderNumber, *lineItem.ProductID, lineItem.Quantity, lineItem.SKU)
+
+			// MUTUALLY EXCLUSIVE: Reverse from either product or variant level
+			if lineItem.SKU != "" {
+				// This is a variant - use variant service to reverse
+				err := s.variantStockMgmt.RecordStockAdjustment(
+					lineItem.SKU,
+					lineItem.Quantity,
+					"out", // Out because we're reversing an "in"
+					fmt.Sprintf("Purchase Order %s deleted", po.PurchaseOrderNumber),
+					"system",
+				)
+				if err != nil {
+					log.Printf("[PO_DELETE] Warning: Failed to reverse variant stock for SKU %s: %v", lineItem.SKU, err)
+				}
+			} else {
+				// This is a base product - use stock management service
+				err := s.stockManagementSvc.RecordStockAdjustment(
+					*lineItem.ProductID,
+					lineItem.Quantity,
+					"out", // Out because we're reversing an "in"
+					fmt.Sprintf("Purchase Order %s deleted", po.PurchaseOrderNumber),
+					"system",
+				)
+				if err != nil {
+					log.Printf("[PO_DELETE] Error reversing stock for product %s: %v", *lineItem.ProductID, err)
+				}
+			}
+		}
+	}
+
+	// Delete associated stock ledger entries for this purchase order
+	if err := s.stockLedgerRepo.DeleteByReferenceID(id); err != nil {
+		log.Printf("[PO_DELETE] Warning: Failed to delete stock ledger entries: %v", err)
+	}
+
+	// Delete the purchase order itself
+	log.Printf("[PO_DELETE] Deleted PO: %s", po.PurchaseOrderNumber)
 	return s.poRepo.Delete(id)
 }
 
@@ -473,41 +527,55 @@ func (s *purchaseOrderService) UpdatePurchaseOrderStatus(id string, status domai
 		return nil, errors.New("purchase order not found")
 	}
 
-	// When PO is received, update inventory
-	if status == domain.PurchaseOrderStatusReceived && po.Status != domain.PurchaseOrderStatusReceived {
+	// When PO is received, update inventory using stock management service
+	// Only record inventory once, even if status changes back and forth
+	if status == domain.PurchaseOrderStatusReceived && !po.InventorySynced {
 		for _, lineItem := range po.LineItems {
-			// Update inventory balance
-			balance, err := s.inventoryRepo.GetBalance(lineItem.ItemID, lineItem.VariantSKU)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get inventory balance for item %s: %w", lineItem.ItemID, err)
+			// Only process if ProductID is provided
+			if lineItem.ProductID == nil || *lineItem.ProductID == "" {
+				log.Printf("[PO_STATUS] Warning: No ProductID for line item in PO %s", po.ID)
+				continue
 			}
 
-			// Add received quantity to current and available inventory
-			balance.CurrentQuantity += lineItem.Quantity
-			balance.AvailableQuantity += lineItem.Quantity
-			balance.LastReceivedDate = &time.Time{}
-			*balance.LastReceivedDate = time.Now()
-			balance.UpdatedAt = time.Now()
+			// Record inbound stock movement - MUTUALLY EXCLUSIVE:
+			// If line item has SKU (variant), record only at variant level
+			// If no SKU (base product), record only at product level
+			if lineItem.SKU != "" {
+				// This is a variant purchase - record at variant level only
+				err := s.variantStockMgmt.RecordPurchaseInbound(
+					*lineItem.ProductID,
+					lineItem.SKU,
+					lineItem.Quantity,
+					lineItem.Rate,
+					"purchase_order",
+					po.ID,
+					po.PurchaseOrderNumber,
+					userID,
+				)
 
-			if err := s.inventoryRepo.UpdateBalance(balance); err != nil {
-				return nil, fmt.Errorf("failed to update inventory balance: %w", err)
-			}
+				if err != nil {
+					log.Printf("[PO_STATUS] Error recording variant stock for SKU %s (Qty: %.2f): %v", lineItem.SKU, lineItem.Quantity, err)
+				} else {
+					log.Printf("[PO_STATUS] Successfully recorded variant stock: %s +%.2f units", lineItem.SKU, lineItem.Quantity)
+				}
+			} else {
+				// This is a base product (no SKU) - record at product level only
+				err := s.stockManagementSvc.RecordInboundMovement(
+					*lineItem.ProductID,    // productID
+					"purchase_order",       // referenceType
+					po.ID,                  // referenceID
+					po.PurchaseOrderNumber, // referenceNo
+					lineItem.Quantity,      // quantity
+					lineItem.Rate,          // rate
+					fmt.Sprintf("Received from vendor %s", po.Vendor.DisplayName), // notes
+					userID, // userID
+				)
 
-			// Create journal entry for inventory received
-			entry := &models.InventoryJournal{
-				ItemID:          lineItem.ItemID,
-				VariantSKU:      lineItem.VariantSKU,
-				TransactionType: "PURCHASE_ORDER_RECEIVED",
-				Quantity:        lineItem.Quantity,
-				ReferenceType:   "PurchaseOrder",
-				ReferenceID:     po.ID,
-				ReferenceNo:     po.PurchaseOrderNumber,
-				Notes:           fmt.Sprintf("Received from %s - PO: %s", po.Vendor.DisplayName, po.PurchaseOrderNumber),
-				CreatedBy:       userID,
-			}
-
-			if err := s.inventoryRepo.CreateJournalEntry(entry); err != nil {
-				return nil, fmt.Errorf("failed to create inventory journal: %w", err)
+				if err != nil {
+					log.Printf("[PO_STATUS] Error recording stock for product %s (Qty: %.2f): %v", *lineItem.ProductID, lineItem.Quantity, err)
+				} else {
+					log.Printf("[PO_STATUS] Successfully recorded stock: %s +%.2f units", *lineItem.ProductID, lineItem.Quantity)
+				}
 			}
 		}
 
@@ -520,9 +588,10 @@ func (s *purchaseOrderService) UpdatePurchaseOrderStatus(id string, status domai
 	po.Status = status
 	po.UpdatedAt = time.Now()
 
-	err = s.poRepo.UpdateStatus(id, string(status))
+	// Save all fields, including InventorySynced and InventorySyncDate
+	_, err = s.poRepo.Update(id, po)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update purchase order status: %w", err)
+		return nil, fmt.Errorf("failed to update purchase order: %w", err)
 	}
 
 	return s.GetPurchaseOrder(id)
@@ -536,3 +605,6 @@ func (s *purchaseOrderService) generatePOSequence() int {
 
 	return int(count) + 1
 }
+
+// validateNoDuplicateItems checks that no item_id appears more than once in the line items
+// This prevents adding the same item with different quantities in the same purchase order

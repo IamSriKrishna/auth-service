@@ -7,48 +7,54 @@ import (
 type CreateSalesOrderInput struct {
 	CustomerID           uint                      `json:"customer_id" validate:"required"`
 	ReferenceNo          string                    `json:"reference_no"`
-	SODate               time.Time                 `json:"sales_order_date" validate:"required"`
+	SalesOrderDate       time.Time                 `json:"sales_order_date" validate:"required"`
 	ExpectedShipmentDate time.Time                 `json:"expected_shipment_date" validate:"required"`
 	PaymentTerms         string                    `json:"payment_terms" validate:"required"`
 	DeliveryMethod       string                    `json:"delivery_method"`
-	SalespersonID        *uint                     `json:"salesperson_id"`
 	LineItems            []SalesOrderLineItemInput `json:"line_items" validate:"required,min=1,dive"`
 	ShippingCharges      float64                   `json:"shipping_charges" validate:"gte=0"`
-	TaxType              *string                   `json:"tax_type"`
 	TaxID                *uint                     `json:"tax_id"`
-	Adjustment           float64                   `json:"adjustment" validate:"gte=0"`
+	Adjustment           float64                   `json:"adjustment"`
 	CustomerNotes        string                    `json:"customer_notes"`
 	TermsAndConditions   string                    `json:"terms_and_conditions"`
-	Attachments          []string                  `json:"attachments"`
+	TaxRate              float64                   `json:"tax_rate" validate:"gte=0,lte=100"`
+	SalespersonID        *uint                     `json:"salesperson_id"`
+	CreatedBy            string                    `json:"created_by"`
 }
 
 type SalesOrderLineItemInput struct {
-	ItemID         string            `json:"item_id" validate:"required"`
-	VariantSKU     *string           `json:"variant_sku"`
-	Description    string            `json:"description"`
-	Quantity       float64           `json:"quantity" validate:"required,gt=0"`
-	Rate           float64           `json:"rate" validate:"required,gt=0"`
-	VariantDetails map[string]string `json:"variant_details"`
+	ProductID      string                 `json:"product_id" validate:"required"`
+	ProductName    string                 `json:"product_name" validate:"required"`
+	SKU            string                 `json:"sku" validate:"required"`
+	Account        string                 `json:"account" validate:"required"`
+	Quantity       float64                `json:"quantity" validate:"required,gt=0"`
+	Rate           float64                `json:"rate" validate:"required,gt=0"`
+	VariantSKU     string                 `json:"variant_sku"`
+	VariantDetails map[string]interface{} `json:"variant_details"`
+}
+
+type VariantDetails struct {
+	Color string `json:"color"`
+	Size  string `json:"size"`
 }
 
 type UpdateSalesOrderInput struct {
 	CustomerID           *uint                     `json:"customer_id"`
 	ReferenceNo          *string                   `json:"reference_no"`
-	SODate               *time.Time                `json:"sales_order_date"`
+	SalesOrderDate       *time.Time                `json:"sales_order_date"`
 	ExpectedShipmentDate *time.Time                `json:"expected_shipment_date"`
 	PaymentTerms         *string                   `json:"payment_terms"`
 	DeliveryMethod       *string                   `json:"delivery_method"`
-	SalespersonID        *uint                     `json:"salesperson_id"`
 	LineItems            []SalesOrderLineItemInput `json:"line_items" validate:"omitempty,dive"`
 	ShippingCharges      *float64                  `json:"shipping_charges" validate:"omitempty,gte=0"`
-	TaxType              *string                   `json:"tax_type"`
 	TaxID                *uint                     `json:"tax_id"`
-	Adjustment           *float64                  `json:"adjustment" validate:"omitempty,gte=0"`
+	Adjustment           *float64                  `json:"adjustment"`
 	CustomerNotes        *string                   `json:"customer_notes"`
 	TermsAndConditions   *string                   `json:"terms_and_conditions"`
-	Attachments          []string                  `json:"attachments"`
+	TaxRate              *float64                  `json:"tax_rate" validate:"omitempty,gte=0,lte=100"`
+	SalespersonID        *uint                     `json:"salesperson_id"`
 }
 
 type UpdateSalesOrderStatusInput struct {
-	Status string `json:"status" validate:"required,oneof=draft sent confirmed partial_shipped shipped delivered cancelled"`
+	Status string `json:"status" validate:"required,oneof=draft sent confirmed partial_delivered delivered paid cancelled"`
 }

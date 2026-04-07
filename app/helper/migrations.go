@@ -27,6 +27,27 @@ func RunMigrations(db *gorm.DB) error {
 		}
 	}
 
+	if db.Migrator().HasConstraint("sales_order_line_items", "fk_sales_order_line_items_variant") {
+		log.Println("Removing problematic foreign key constraint fk_sales_order_line_items_variant...")
+		if err := db.Migrator().DropConstraint("sales_order_line_items", "fk_sales_order_line_items_variant"); err != nil {
+			log.Printf("Warning: Failed to drop constraint: %v", err)
+		}
+	}
+
+	if os.Getenv("DROP_SALES_ORDER_TABLES") == "true" {
+		log.Println("DROP_SALES_ORDER_TABLES=true detected, dropping sales order tables...")
+		if err := DropSalesOrderTables(db); err != nil {
+			log.Printf("Warning: Failed to drop sales order tables: %v", err)
+		}
+	}
+
+	if os.Getenv("DROP_ORDER_FULFILLMENT_TABLES") == "true" {
+		log.Println("DROP_ORDER_FULFILLMENT_TABLES=true detected, dropping order and fulfillment tables...")
+		if err := DropOrderFulfillmentTables(db); err != nil {
+			log.Printf("Warning: Failed to drop order fulfillment tables: %v", err)
+		}
+	}
+
 	if os.Getenv("DROP_ALL_EXCEPT_USER") == "true" {
 		log.Println("DROP_ALL_EXCEPT_USER=true detected, dropping all tables except user-related...")
 		if err := DropAllTablesExceptUser(db); err != nil {
@@ -45,6 +66,13 @@ func RunMigrations(db *gorm.DB) error {
 		log.Println("DROP_ITEM_MODEL_ONLY=true detected, dropping only Item model...")
 		if err := DropItemModelOnly(db); err != nil {
 			log.Printf("Warning: Failed to drop Item model: %v", err)
+		}
+	}
+
+	if os.Getenv("DROP_ALL_TABLES") == "true" {
+		log.Println("DROP_ALL_TABLES=true detected, dropping ALL tables...")
+		if err := DropAllTables(db); err != nil {
+			log.Printf("Warning: Failed to drop all tables: %v", err)
 		}
 	}
 
@@ -93,10 +121,24 @@ func RunMigrations(db *gorm.DB) error {
 		&models.StockMovement{},
 		&models.Manufacturer{},
 
+		&models.Product{},
+		&models.ProductGroup{},
+		&models.ProductGroupComponent{},
+		&models.ProductDetails{},
+		&models.ProductVariant{},
+		&models.ProductVariantAttribute{},
+
 		&models.ItemGroup{},
 		&models.ItemGroupComponent{},
 		&models.ProductionOrder{},
 		&models.ProductionOrderItem{},
+
+		&models.ProductStock{},
+		&models.StockLedger{},
+
+		&models.VariantStock{},
+		&models.VariantStockMovement{},
+		&models.StockReservation{},
 
 		&models.InventoryBalance{},
 		&models.InventoryAggregation{},
@@ -142,10 +184,34 @@ func RunMigrations(db *gorm.DB) error {
 	return nil
 }
 
+func DropSalesOrderTables(db *gorm.DB) error {
+	log.Println("Dropping sales order tables...")
+
+	tables := []interface{}{
+		&models.Shipment{},
+		&models.Package{},
+		&models.PackageItem{},
+		&models.SalesOrderLineItem{},
+		&models.SalesOrder{},
+	}
+
+	for _, table := range tables {
+		if err := db.Migrator().DropTable(table); err != nil {
+			log.Printf("Warning: Failed to drop table %T: %v", table, err)
+		}
+	}
+
+	log.Println("Sales order tables dropped successfully!")
+	return nil
+}
+
 func DropItemTables(db *gorm.DB) error {
 	log.Println("Dropping item-related tables...")
 
 	tables := []interface{}{
+		&models.StockReservation{},
+		&models.VariantStockMovement{},
+		&models.VariantStock{},
 		&models.InventoryJournal{},
 		&models.InventoryAggregation{},
 		&models.InventoryBalance{},
@@ -156,6 +222,12 @@ func DropItemTables(db *gorm.DB) error {
 		&models.ProductionOrder{},
 		&models.ItemGroupComponent{},
 		&models.ItemGroup{},
+		&models.ProductVariantAttribute{},
+		&models.ProductVariant{},
+		&models.ProductDetails{},
+		&models.Product{},
+		&models.ProductGroup{},
+		&models.ProductGroupComponent{},
 		&models.ReturnPolicy{},
 		&models.Inventory{},
 		&models.VariantAttribute{},
@@ -181,6 +253,13 @@ func DropItemModelOnly(db *gorm.DB) error {
 	log.Println("Dropping Item model only...")
 
 	tables := []interface{}{
+		&models.StockReservation{},
+		&models.VariantStockMovement{},
+		&models.VariantStock{},
+		&models.ProductVariantAttribute{},
+		&models.ProductVariant{},
+		&models.ProductDetails{},
+		&models.Product{},
 		&models.ReturnPolicy{},
 		&models.Inventory{},
 		&models.PurchaseInfo{},
@@ -232,11 +311,19 @@ func DropAllTablesExceptUser(db *gorm.DB) error {
 		&models.InventoryJournal{},
 		&models.SupplyChainSummary{},
 
+		&models.StockReservation{},
+		&models.VariantStockMovement{},
+		&models.VariantStock{},
+
 		&models.VariantOpeningStock{},
 		&models.OpeningStock{},
 		&models.StockMovement{},
 		&models.ItemGroupComponent{},
 		&models.ItemGroup{},
+		&models.ProductVariantAttribute{},
+		&models.ProductVariant{},
+		&models.ProductDetails{},
+		&models.Product{},
 		&models.VariantAttribute{},
 		&models.Variant{},
 		&models.ReturnPolicy{},
@@ -286,8 +373,14 @@ func DropAllTablesExceptUser(db *gorm.DB) error {
 }
 
 func DropAllTables(db *gorm.DB) error {
-	log.Println("WARNING: Dropping ALL tables...")
+	log.Println("WARNING: Dropping ALL tables completely...")
 
+	// Disable foreign key constraints temporarily
+	if err := db.Exec("SET FOREIGN_KEY_CHECKS = 0").Error; err != nil {
+		log.Printf("Warning: Could not disable foreign key checks: %v", err)
+	}
+
+	// First, try dropping all known model tables
 	allTables := []interface{}{
 		&models.BillLineItem{},
 		&models.Bill{},
@@ -315,11 +408,19 @@ func DropAllTables(db *gorm.DB) error {
 		&models.InventoryJournal{},
 		&models.SupplyChainSummary{},
 
+		&models.StockReservation{},
+		&models.VariantStockMovement{},
+		&models.VariantStock{},
+
 		&models.VariantOpeningStock{},
 		&models.OpeningStock{},
 		&models.StockMovement{},
 		&models.ItemGroupComponent{},
 		&models.ItemGroup{},
+		&models.ProductVariantAttribute{},
+		&models.ProductVariant{},
+		&models.ProductDetails{},
+		&models.Product{},
 		&models.VariantAttribute{},
 		&models.Variant{},
 		&models.ReturnPolicy{},
@@ -353,6 +454,7 @@ func DropAllTables(db *gorm.DB) error {
 		&models.State{},
 		&models.Country{},
 		&models.BusinessType{},
+		&models.Bank{},
 
 		&models.Support{},
 		&models.UserSession{},
@@ -363,11 +465,110 @@ func DropAllTables(db *gorm.DB) error {
 
 	for _, table := range allTables {
 		if err := db.Migrator().DropTable(table); err != nil {
-			log.Printf("Warning: Failed to drop table %T: %v", table, err)
+			log.Printf("Info: Attempted to drop table %T: %v", table, err)
 		}
 	}
 
-	log.Println("All tables dropped!")
+	// Get all remaining tables from database and drop them
+	var tables []string
+	if err := db.Raw("SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()").Scan(&tables).Error; err != nil {
+		log.Printf("Warning: Could not query remaining tables: %v", err)
+	} else {
+		log.Printf("Remaining tables after initial drop: %v\n", tables)
+		for _, table := range tables {
+			if table != "" {
+				if err := db.Exec("DROP TABLE IF EXISTS `" + table + "`").Error; err != nil {
+					log.Printf("Warning: Failed to drop remaining table %s: %v", table, err)
+				} else {
+					log.Printf("Dropped remaining table: %s", table)
+				}
+			}
+		}
+	}
+
+	// Re-enable foreign key constraints
+	if err := db.Exec("SET FOREIGN_KEY_CHECKS = 1").Error; err != nil {
+		log.Printf("Warning: Could not re-enable foreign key checks: %v", err)
+	}
+
+	log.Println("All tables dropped completely!")
+	return nil
+}
+
+func DropOrderFulfillmentTables(db *gorm.DB) error {
+	log.Println("Dropping order and fulfillment related tables...")
+
+	// Order matters due to foreign key constraints
+	// Drop in reverse order of creation dependencies
+	tables := []interface{}{
+		// Fulfillment
+		&models.Shipment{},
+		&models.Package{},
+		&models.PackageItem{},
+
+		// Invoicing and Billing
+		&models.Invoice{},
+		&models.InvoiceLineItem{},
+		&models.Bill{},
+		&models.BillLineItem{},
+
+		// Sales Orders
+		&models.SalesOrderLineItem{},
+		&models.SalesOrder{},
+
+		// Purchase Orders
+		&models.PurchaseOrderLineItem{},
+		&models.PurchaseOrder{},
+
+		// Stock and Inventory Management
+		&models.StockReservation{},
+		&models.StockLedger{},
+		&models.VariantStockMovement{},
+		&models.VariantStock{},
+		&models.ProductStock{},
+		&models.InventoryJournal{},
+		&models.InventoryAggregation{},
+		&models.InventoryBalance{},
+		&models.VariantOpeningStock{},
+		&models.OpeningStock{},
+		&models.StockMovement{},
+
+		// Production
+		&models.ProductionOrderItem{},
+		&models.ProductionOrder{},
+
+		// Products and Variants
+		&models.ItemGroupComponent{},
+		&models.ProductGroupComponent{},
+		&models.ItemGroup{},
+		&models.ProductVariantAttribute{},
+		&models.ProductVariant{},
+		&models.ProductDetails{},
+		&models.ProductGroup{},
+		&models.ProductGroupInventory{},
+		&models.ReturnPolicy{},
+		&models.Inventory{},
+		&models.VariantAttribute{},
+		&models.Variant{},
+		&models.PurchaseInfo{},
+		&models.SalesInfo{},
+		&models.ItemDetails{},
+		&models.Manufacturer{},
+		&models.Item{},
+		&models.Product{},
+	}
+
+	for _, table := range tables {
+		if db.Migrator().HasTable(table) {
+			if err := db.Migrator().DropTable(table); err != nil {
+				log.Printf("Warning: Failed to drop table %T: %v", table, err)
+			} else {
+				log.Printf("Dropped table: %T", table)
+			}
+		}
+	}
+
+	log.Println("Order and fulfillment tables dropped successfully!")
 	return nil
 }
 

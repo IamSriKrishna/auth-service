@@ -3,7 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
-	"strings"
+	"log"
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/domain"
@@ -31,10 +31,11 @@ type PackageService interface {
 }
 
 type packageService struct {
-	pkgRepo      repo.PackageRepository
-	soRepo       repo.SalesOrderRepository
-	customerRepo repo.CustomerRepository
-	itemRepo     repo.ItemRepository
+	pkgRepo          repo.PackageRepository
+	soRepo           repo.SalesOrderRepository
+	customerRepo     repo.CustomerRepository
+	itemRepo         repo.ItemRepository
+	stockMovementSvc StockMovementService
 }
 
 func NewPackageService(
@@ -42,12 +43,14 @@ func NewPackageService(
 	soRepo repo.SalesOrderRepository,
 	customerRepo repo.CustomerRepository,
 	itemRepo repo.ItemRepository,
+	stockMovementSvc StockMovementService,
 ) PackageService {
 	return &packageService{
-		pkgRepo:      pkgRepo,
-		soRepo:       soRepo,
-		customerRepo: customerRepo,
-		itemRepo:     itemRepo,
+		pkgRepo:          pkgRepo,
+		soRepo:           soRepo,
+		customerRepo:     customerRepo,
+		itemRepo:         itemRepo,
+		stockMovementSvc: stockMovementSvc,
 	}
 }
 
@@ -108,28 +111,10 @@ func (s *packageService) CreatePackage(pkgInput *input.CreatePackageInput, userI
 			continue
 		}
 
-		// Fetch item details
-		item, err := s.itemRepo.FindByID(soLineItem.ItemID)
-		if err != nil {
-			return nil, fmt.Errorf("item %s not found: %w", soLineItem.ItemID, err)
-		}
-
-		// Trim VariantSKU to remove whitespace and newlines
-		var variantSKU *string
-		if soLineItem.VariantSKU != nil {
-			trimmed := strings.TrimSpace(*soLineItem.VariantSKU)
-			variantSKU = &trimmed
-		}
-
 		packageItem := models.PackageItem{
 			SalesOrderItemID: soLineItem.ID,
-			ItemID:           soLineItem.ItemID,
-			Item:             item,
-			VariantSKU:       variantSKU,
-			Variant:          soLineItem.Variant,
 			OrderedQty:       soLineItem.Quantity,
 			PackedQty:        packedQty,
-			VariantDetails:   soLineItem.VariantDetails,
 		}
 
 		packageItems = append(packageItems, packageItem)
@@ -292,6 +277,32 @@ func (s *packageService) UpdatePackageStatus(id string, status string, userID st
 	pkg, err := s.pkgRepo.FindByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("package not found: %w", err)
+	}
+
+	// Record package items info on status change
+	if status == "packed" && pkg.Status != domain.PackageStatus("packed") {
+		// Record items as packed for tracking - only if ItemID is provided
+		for _, item := range pkg.Items {
+			if item.ItemID == nil {
+				continue // Skip inventory tracking for product-only items
+			}
+			movement := &StockMovementRequest{
+				ItemID:       *item.ItemID, // Dereference the pointer
+				VariantSKU:   item.VariantSKU,
+				Quantity:     item.PackedQty,
+				MovementType: StockMovementAdjustmentOut,
+				ReferenceID:  pkg.ID,
+				ReferenceNo:  pkg.PackageSlipNo,
+				Notes:        fmt.Sprintf("Items packed for shipment - Package: %s", pkg.PackageSlipNo),
+				CreatedBy:    userID,
+				SourceType:   "package",
+				SourceID:     pkg.ID,
+				Status:       status,
+			}
+			if _, err := s.stockMovementSvc.RecordOutboundMovement(movement); err != nil {
+				log.Printf("[PACKAGE] Error recording stock movement: %v", err)
+			}
+		}
 	}
 
 	pkg.Status = domain.PackageStatus(status)

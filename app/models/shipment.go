@@ -10,9 +10,9 @@ type Shipment struct {
 	ID              string                `json:"id" gorm:"type:varchar(255);primaryKey"`
 	ShipmentNo      string                `json:"shipment_no" gorm:"column:shipment_no;type:varchar(100);uniqueIndex;not null"`
 	PackageID       string                `json:"package_id" gorm:"type:varchar(255);not null;index"`
-	Package         *Package              `json:"package,omitempty" gorm:"foreignKey:PackageID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	Package         *Package              `json:"package,omitempty" gorm:"foreignKey:PackageID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	SalesOrderID    string                `json:"sales_order_id" gorm:"type:varchar(255);not null;index"`
-	SalesOrder      *SalesOrder           `json:"sales_order,omitempty" gorm:"foreignKey:SalesOrderID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	SalesOrder      *SalesOrder           `json:"sales_order,omitempty" gorm:"foreignKey:SalesOrderID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	CustomerID      uint                  `json:"customer_id" gorm:"not null;index"`
 	Customer        *Customer             `json:"customer,omitempty" gorm:"foreignKey:CustomerID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	ShipDate        time.Time             `json:"ship_date" gorm:"not null"`

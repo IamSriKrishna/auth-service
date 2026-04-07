@@ -8,7 +8,7 @@ import (
 
 type Bank struct {
 	ID         uint           `gorm:"primaryKey" json:"id"`
-	BankName   string         `gorm:"size:255;not null;uniqueIndex" json:"bank_name"`
+	BankName   string         `gorm:"size:255;not null;index" json:"bank_name"`
 	Address    string         `gorm:"type:text" json:"address,omitempty"`
 	City       string         `gorm:"size:100" json:"city,omitempty"`
 	State      string         `gorm:"size:100" json:"state,omitempty"`

@@ -29,6 +29,7 @@ type UserInfo struct {
 	Role        string       `json:"role"`
 	Status      string       `json:"status"`
 	CompanyID   *uint        `json:"company_id,omitempty"`
+	CompanyName *string      `json:"company_name,omitempty"`
 	Company     *CompanyInfo `json:"company,omitempty"`
 	VendorID    *uint        `json:"vendor_id,omitempty"`
 	CreatedAt   time.Time    `json:"created_at"`

@@ -3,8 +3,10 @@ package handlers
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
+	"github.com/bbapp-org/auth-service/app/dto/output"
 	"github.com/bbapp-org/auth-service/app/services"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -511,5 +513,68 @@ func (h *PaymentHandler) DeletePayment(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Payment deleted successfully",
+	})
+}
+
+// CreateInvoiceFromVariants creates an invoice from sales order variants
+func (h *InvoiceHandler) CreateInvoiceFromVariants(c *fiber.Ctx) error {
+	var invoiceInput input.CreateInvoiceInput
+
+	if err := c.BodyParser(&invoiceInput); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	if err := h.validate.Struct(invoiceInput); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+	// Generate invoice number
+	importTime := time.Now()
+	invoiceNo := fmt.Sprintf("INV-%d-%05d", importTime.Year(), c.Locals("request_id"))
+	var subTotal, totalTax float64
+	lineItems := make([]output.InvoiceLineItemOutput, len(invoiceInput.LineItems))
+
+	for i, item := range invoiceInput.LineItems {
+		amount := item.Quantity * item.Rate
+		taxAmount := 0.0
+		if item.TaxPercent != nil {
+			taxAmount = amount * (*item.TaxPercent) / 100
+		}
+		subTotal += amount
+		totalTax += taxAmount
+
+		lineItems[i] = output.InvoiceLineItemOutput{
+			VariantSKU:     item.VariantSKU,
+			Description:    item.Description,
+			Quantity:       item.Quantity,
+			Rate:           item.Rate,
+			Amount:         amount,
+			VariantDetails: item.VariantDetails,
+		}
+	}
+
+	// Calculate totals
+	total := subTotal + totalTax + invoiceInput.ShippingCharges + invoiceInput.Adjustment
+
+	// Create invoice output
+	invoiceOutput := output.CreateInvoiceVariantOutput(
+		invoiceNo,
+		invoiceInput.SalesOrderID,
+		invoiceInput.CustomerID,
+		"", // Fetch customer name from DB
+		lineItems,
+		subTotal,
+		invoiceInput.ShippingCharges,
+		totalTax,
+		total,
+	)
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"data":    invoiceOutput,
+		"message": "Invoice created successfully from variants",
 	})
 }

@@ -167,7 +167,29 @@ func (r *invoiceRepository) Update(invoice *models.Invoice) error {
 }
 
 func (r *invoiceRepository) Delete(id string) error {
-	return r.db.Delete(&models.Invoice{}, "id = ?", id).Error
+	// Start transaction
+	tx := r.db.Begin()
+
+	// First, delete all payments for this invoice
+	if err := tx.Where("invoice_id = ?", id).Delete(&models.Payment{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Then, delete all payment splits for this invoice
+	if err := tx.Where("invoice_id = ?", id).Delete(&models.PaymentSplit{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Finally, delete the invoice itself
+	if err := tx.Delete(&models.Invoice{}, "id = ?", id).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Commit transaction
+	return tx.Commit().Error
 }
 
 func (r *invoiceRepository) FindByCustomerID(customerID string, limit, offset int) ([]models.Invoice, int64, error) {

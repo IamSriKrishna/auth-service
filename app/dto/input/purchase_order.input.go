@@ -30,12 +30,12 @@ type CreatePurchaseOrderInput struct {
 }
 
 type PurchaseOrderLineItemInput struct {
-	ItemID         string            `json:"item_id" validate:"required"`
-	VariantSKU     *string           `json:"variant_sku"`
-	Account        string            `json:"account" validate:"required"`
-	Quantity       float64           `json:"quantity" validate:"required,gt=0"`
-	Rate           float64           `json:"rate" validate:"required,gt=0"`
-	VariantDetails map[string]string `json:"variant_details"`
+	ProductID   *string `json:"product_id" validate:"required"`
+	ProductName string  `json:"product_name" validate:"required"`
+	SKU         string  `json:"sku"`
+	Account     string  `json:"account" validate:"required"`
+	Quantity    float64 `json:"quantity" validate:"required,gt=0"`
+	Rate        float64 `json:"rate" validate:"required,gt=0"`
 }
 
 type UpdatePurchaseOrderInput struct {

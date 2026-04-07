@@ -43,9 +43,16 @@ type Bill struct {
 }
 
 type BillLineItem struct {
-	ID              uint           `json:"id" gorm:"primaryKey"`
-	BillID          string         `json:"bill_id" gorm:"type:varchar(255);not null;index"`
-	ItemID          string         `json:"item_id" gorm:"type:varchar(255);not null;index"`
+	ID     uint   `json:"id" gorm:"primaryKey"`
+	BillID string `json:"bill_id" gorm:"type:varchar(255);not null;index"`
+
+	// Product Reference (Master Data)
+	ProductID   *string  `json:"product_id" gorm:"type:varchar(255);index"`
+	Product     *Product `json:"product,omitempty" gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	ProductName string   `json:"product_name" gorm:"type:varchar(255)"`
+
+	// Item Reference (Inventory Tracking) - Optional
+	ItemID          *string        `json:"item_id" gorm:"type:varchar(255);index"`
 	Item            *Item          `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	VariantSKU      *string        `json:"variant_sku,omitempty" gorm:"type:varchar(255);index"`
 	Variant         *Variant       `json:"variant,omitempty" gorm:"foreignKey:VariantSKU;references:SKU;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`

@@ -26,12 +26,7 @@ func (r *salesOrderRepository) FindByID(id string) (*models.SalesOrder, error) {
 	if err := r.db.
 		Preload("Customer").
 		Preload("Salesperson").
-		Preload("Tax").
 		Preload("LineItems").
-		Preload("LineItems.Item").
-		Preload("LineItems.Item.ItemDetails").
-		Preload("LineItems.Variant").
-		Preload("LineItems.Variant.Attributes").
 		Where("id = ?", id).
 		First(&so).Error; err != nil {
 		return nil, err
@@ -46,12 +41,7 @@ func (r *salesOrderRepository) FindAll(limit, offset int) ([]models.SalesOrder, 
 	query := r.db.
 		Preload("Customer").
 		Preload("Salesperson").
-		Preload("Tax").
-		Preload("LineItems").
-		Preload("LineItems.Item").
-		Preload("LineItems.Item.ItemDetails").
-		Preload("LineItems.Variant").
-		Preload("LineItems.Variant.Attributes")
+		Preload("LineItems")
 
 	if err := query.Model(&models.SalesOrder{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -76,10 +66,7 @@ func (r *salesOrderRepository) FindByCustomer(customerID uint, limit, offset int
 		Where("customer_id = ?", customerID).
 		Preload("Customer").
 		Preload("Salesperson").
-		Preload("Tax").
-		Preload("LineItems").
-		Preload("LineItems.Item").
-		Preload("LineItems.Variant")
+		Preload("LineItems")
 
 	if err := query.Model(&models.SalesOrder{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -104,10 +91,7 @@ func (r *salesOrderRepository) FindByStatus(status string, limit, offset int) ([
 		Where("status = ?", status).
 		Preload("Customer").
 		Preload("Salesperson").
-		Preload("Tax").
-		Preload("LineItems").
-		Preload("LineItems.Item").
-		Preload("LineItems.Variant")
+		Preload("LineItems")
 
 	if err := query.Model(&models.SalesOrder{}).Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -133,7 +117,29 @@ func (r *salesOrderRepository) Update(id string, so *models.SalesOrder) (*models
 }
 
 func (r *salesOrderRepository) Delete(id string) error {
-	return r.db.Where("id = ?", id).Delete(&models.SalesOrder{}).Error
+	// Start transaction
+	tx := r.db.Begin()
+
+	// First, delete all shipments related to packages of this sales order
+	if err := tx.Where("sales_order_id = ?", id).Delete(&models.Shipment{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Then, delete all packages for this sales order
+	if err := tx.Where("sales_order_id = ?", id).Delete(&models.Package{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Finally, delete the sales order itself
+	if err := tx.Where("id = ?", id).Delete(&models.SalesOrder{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Commit transaction
+	return tx.Commit().Error
 }
 
 func (r *salesOrderRepository) UpdateStatus(id string, status string) error {

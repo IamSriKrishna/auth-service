@@ -45,16 +45,15 @@ type PurchaseOrderOutput struct {
 }
 
 type PurchaseOrderLineItemOutput struct {
-	ID             uint              `json:"id"`
-	ItemID         string            `json:"item_id"`
-	Item           *ItemInfo         `json:"item,omitempty"`
-	VariantSKU     *string           `json:"variant_sku,omitempty"`
-	Variant        *VariantInfo      `json:"variant,omitempty"`
-	Account        string            `json:"account"`
-	Quantity       float64           `json:"quantity"`
-	Rate           float64           `json:"rate"`
-	Amount         float64           `json:"amount"`
-	VariantDetails map[string]string `json:"variant_details,omitempty"`
+	ID               uint    `json:"id"`
+	ProductID        *string `json:"product_id"`
+	ProductName      string  `json:"product_name"`
+	SKU              string  `json:"sku"`
+	Account          string  `json:"account"`
+	Quantity         float64 `json:"quantity"`
+	ReceivedQuantity float64 `json:"received_quantity"`
+	Rate             float64 `json:"rate"`
+	Amount           float64 `json:"amount"`
 }
 
 type PurchaseOrderListOutput struct {
@@ -66,40 +65,15 @@ func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, erro
 	lineItems := make([]PurchaseOrderLineItemOutput, len(po.LineItems))
 	for i, item := range po.LineItems {
 		lineItemOutput := PurchaseOrderLineItemOutput{
-			ID:       item.ID,
-			ItemID:   item.ItemID,
-			Account:  item.Account,
-			Quantity: item.Quantity,
-			Rate:     item.Rate,
-			Amount:   item.Amount,
-		}
-
-		if item.VariantSKU != nil {
-			lineItemOutput.VariantSKU = item.VariantSKU
-		}
-
-		if item.Item != nil {
-			lineItemOutput.Item = &ItemInfo{
-				ID:   item.Item.ID,
-				Name: item.Item.Name,
-				SKU:  item.Item.ItemDetails.SKU,
-			}
-		}
-
-		if item.Variant != nil {
-			attributeMap := make(map[string]string)
-			for _, attr := range item.Variant.Attributes {
-				attributeMap[attr.Key] = attr.Value
-			}
-			lineItemOutput.Variant = &VariantInfo{
-				ID:           item.Variant.ID,
-				SKU:          item.Variant.SKU,
-				AttributeMap: attributeMap,
-			}
-		}
-
-		if item.VariantDetails != nil {
-			lineItemOutput.VariantDetails = convertVariantDetails(item.VariantDetails)
+			ID:               item.ID,
+			ProductID:        item.ProductID,
+			ProductName:      item.ProductName,
+			SKU:              item.SKU,
+			Account:          item.Account,
+			Quantity:         item.Quantity,
+			ReceivedQuantity: item.ReceivedQuantity,
+			Rate:             item.Rate,
+			Amount:           item.Amount,
 		}
 
 		lineItems[i] = lineItemOutput

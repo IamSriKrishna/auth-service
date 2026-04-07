@@ -26,7 +26,7 @@ type PackageOutput struct {
 type PackageItemOutput struct {
 	ID               uint              `json:"id"`
 	SalesOrderItemID uint              `json:"sales_order_item_id"`
-	ItemID           string            `json:"item_id"`
+	ItemID           *string           `json:"item_id"`
 	Item             *ItemInfo         `json:"item,omitempty"`
 	VariantSKU       *string           `json:"variant_sku,omitempty"`
 	Variant          *VariantInfo      `json:"variant,omitempty"`
@@ -36,13 +36,13 @@ type PackageItemOutput struct {
 }
 
 type SalesOrderInfo struct {
-	ID               string    `json:"id"`
-	SalesOrderNo     string    `json:"sales_order_no"`
-	CustomerID       uint      `json:"customer_id"`
-	ReferenceNo      string    `json:"reference_no,omitempty"`
-	SODate           time.Time `json:"sales_order_date"`
-	ExpectedShipDate time.Time `json:"expected_shipment_date"`
-	Status           string    `json:"status"`
+	ID                   string    `json:"id"`
+	SalesOrderNo         string    `json:"sales_order_no"`
+	CustomerID           uint      `json:"customer_id"`
+	ReferenceNo          string    `json:"reference_no,omitempty"`
+	Date                 time.Time `json:"date"`
+	ExpectedShipmentDate time.Time `json:"expected_shipment_date"`
+	Status               string    `json:"status"`
 }
 
 func ToPackageOutput(pkg *models.Package) (*PackageOutput, error) {
@@ -88,13 +88,13 @@ func ToPackageOutput(pkg *models.Package) (*PackageOutput, error) {
 	var soInfo *SalesOrderInfo
 	if pkg.SalesOrder != nil {
 		soInfo = &SalesOrderInfo{
-			ID:               pkg.SalesOrder.ID,
-			SalesOrderNo:     pkg.SalesOrder.SalesOrderNumber,
-			CustomerID:       pkg.SalesOrder.CustomerID,
-			ReferenceNo:      pkg.SalesOrder.ReferenceNo,
-			SODate:           pkg.SalesOrder.SODate,
-			ExpectedShipDate: pkg.SalesOrder.ExpectedShipmentDate,
-			Status:           string(pkg.SalesOrder.Status),
+			ID:                   pkg.SalesOrder.ID,
+			SalesOrderNo:         pkg.SalesOrder.SalesOrderNumber,
+			CustomerID:           pkg.SalesOrder.CustomerID,
+			ReferenceNo:          pkg.SalesOrder.ReferenceNo,
+			Date:                 pkg.SalesOrder.Date,
+			ExpectedShipmentDate: pkg.SalesOrder.ExpectedShipmentDate,
+			Status:               string(pkg.SalesOrder.Status),
 		}
 	}
 

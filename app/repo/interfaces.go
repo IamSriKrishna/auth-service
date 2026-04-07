@@ -153,6 +153,21 @@ type ItemRepository interface {
 	UpdateVariantStock(variantID uint, newQuantity float64) error
 }
 
+type ProductRepository interface {
+	Create(product *models.Product) error
+	FindByID(id string) (*models.Product, error)
+	FindAll(limit, offset int) ([]models.Product, int64, error)
+	FindByCreatedBy(createdBy string, limit, offset int) ([]models.Product, int64, error)
+	Update(product *models.Product) error
+	Delete(id string) error
+	DeleteByCreatedBy(id string, createdBy string) error
+	DeductProductVariantStock(productID string, variantSKU string, quantity float64) error
+	CheckProductVariantReorderPoint(productID string, variantSKU string) (*models.ProductVariant, error)
+	GetProductVariantBySKU(sku string) (*models.ProductVariant, error)
+	UpdateProductVariantStock(variantID uint, newQuantity float64) error
+	GetProductVariantsByProductID(productID string) ([]models.ProductVariant, error)
+}
+
 type OpeningStockRepository interface {
 	CreateOrUpdateOpeningStock(itemID string, openingStock, ratePerUnit float64) error
 	GetOpeningStock(itemID string) (*models.OpeningStock, error)
@@ -251,6 +266,16 @@ type ItemGroupRepository interface {
 	FindActiveGroups(limit, offset int) ([]models.ItemGroup, int64, error)
 }
 
+type ProductGroupRepository interface {
+	Create(productGroup *models.ProductGroup) error
+	FindByID(id string) (*models.ProductGroup, error)
+	FindAll(limit, offset int, search string) ([]models.ProductGroup, int64, error)
+	Update(productGroup *models.ProductGroup) error
+	Delete(id string) error
+	FindByName(name string) (*models.ProductGroup, error)
+	FindActiveGroups(limit, offset int) ([]models.ProductGroup, int64, error)
+}
+
 type PurchaseOrderRepository interface {
 	Create(po *models.PurchaseOrder) (*models.PurchaseOrder, error)
 	FindByID(id string) (*models.PurchaseOrder, error)
@@ -337,4 +362,93 @@ type EmployeeAttendanceRepository interface {
 	Update(attendance *models.EmployeeAttendance) error
 	Delete(id uint) error
 	GetAttendanceStats(companyID uint, fromDate, toDate time.Time) (map[string]interface{}, error)
+}
+
+// ProductStock repository for managing product-level inventory
+type ProductStockRepository interface {
+	Create(stock *models.ProductStock) error
+	GetByID(id string) (*models.ProductStock, error)
+	GetByProductID(productID string) (*models.ProductStock, error)
+	Update(stock *models.ProductStock) error
+	Delete(id string) error
+	GetAll(offset, limit int) ([]models.ProductStock, int64, error)
+	GetByProductIDs(productIDs []string) ([]models.ProductStock, error)
+	GetLowStockProducts(threshold float64, offset, limit int) ([]models.ProductStock, int64, error)
+}
+
+// StockLedger repository for tracking all stock movements
+type StockLedgerRepository interface {
+	Create(ledger *models.StockLedger) error
+	GetByID(id uint) (*models.StockLedger, error)
+	GetByProductID(productID string, offset, limit int) ([]models.StockLedger, int64, error)
+	GetByReferenceID(referenceID string) ([]models.StockLedger, error)
+	DeleteByReferenceID(referenceID string) error
+	GetByDateRange(fromDate, toDate time.Time, offset, limit int) ([]models.StockLedger, int64, error)
+	GetProductMovementHistory(productID string, offset, limit int) ([]models.StockLedger, int64, error)
+}
+
+// VariantStock repository for managing variant-level inventory
+type VariantStockRepository interface {
+	Create(stock *models.VariantStock) error
+	GetByID(id string) (*models.VariantStock, error)
+	GetBySKU(sku string) (*models.VariantStock, error)
+	GetByProductID(productID string, offset, limit int) ([]models.VariantStock, int64, error)
+	Update(stock *models.VariantStock) error
+	Delete(id string) error
+	GetAll(offset, limit int) ([]models.VariantStock, int64, error)
+	GetBySKUs(skus []string) ([]models.VariantStock, error)
+	GetLowStockVariants(threshold float64, offset, limit int) ([]models.VariantStock, int64, error)
+}
+
+// VariantStockMovement repository for tracking variant stock movements
+type VariantStockMovementRepository interface {
+	Create(movement *models.VariantStockMovement) error
+	GetByID(id uint) (*models.VariantStockMovement, error)
+	GetByVariantSKU(sku string, offset, limit int) ([]models.VariantStockMovement, int64, error)
+	GetByReferenceID(referenceID string) ([]models.VariantStockMovement, error)
+	GetByDateRange(fromDate, toDate time.Time, offset, limit int) ([]models.VariantStockMovement, int64, error)
+	DeleteByReferenceID(referenceID string) error
+}
+
+// StockReservation repository for managing reserved stock
+type StockReservationRepository interface {
+	Create(reservation *models.StockReservation) error
+	GetByID(id uint) (*models.StockReservation, error)
+	GetBySalesOrderID(salesOrderID string) ([]models.StockReservation, error)
+	GetByVariantSKU(sku string, offset, limit int) ([]models.StockReservation, int64, error)
+	GetByStatus(status string, offset, limit int) ([]models.StockReservation, int64, error)
+	Update(reservation *models.StockReservation) error
+	Delete(id uint) error
+	UpdateStatus(id uint, status string) error
+}
+
+// ProductGroupInventory repository for managing product group stock levels
+type ProductGroupInventoryRepository interface {
+	Create(inventory *models.ProductGroupInventory) error
+	FindByID(id uint) (*models.ProductGroupInventory, error)
+	FindByProductGroupID(productGroupID string) (*models.ProductGroupInventory, error)
+	Update(inventory *models.ProductGroupInventory) error
+	Delete(id uint) error
+	GetLowStockGroups(threshold float64) ([]models.ProductGroupInventory, error)
+}
+
+// ComponentInventory repository for managing component stock within product groups
+type ComponentInventoryRepository interface {
+	Create(inventory *models.ComponentInventory) error
+	FindByID(id uint) (*models.ComponentInventory, error)
+	FindByProductGroupID(productGroupID string) ([]models.ComponentInventory, error)
+	FindByComponentProductID(productID string) ([]models.ComponentInventory, error)
+	Update(inventory *models.ComponentInventory) error
+	Delete(id uint) error
+	UpdateBatch(inventories []models.ComponentInventory) error
+}
+
+// ProductGroupTransaction repository for tracking inventory movements
+type ProductGroupTransactionRepository interface {
+	Create(transaction *models.ProductGroupTransaction) error
+	FindByID(id uint) (*models.ProductGroupTransaction, error)
+	FindByProductGroupID(productGroupID string, limit, offset int) ([]models.ProductGroupTransaction, int64, error)
+	FindByReferenceID(referenceID string) ([]models.ProductGroupTransaction, error)
+	GetByDateRange(fromDate, toDate time.Time, offset, limit int) ([]models.ProductGroupTransaction, int64, error)
+	Delete(id uint) error
 }

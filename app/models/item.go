@@ -109,7 +109,8 @@ func (VariantAttribute) TableName() string {
 
 type SalesInfo struct {
 	ID           uint    `json:"-" gorm:"primaryKey;autoIncrement"`
-	ItemID       string  `json:"item_id" gorm:"type:varchar(255);uniqueIndex;not null"`
+	ItemID       *string `json:"item_id" gorm:"type:varchar(255);index"`
+	ProductID    *string `json:"product_id" gorm:"type:varchar(255);index"`
 	Account      string  `json:"account" gorm:"not null"`
 	SellingPrice float64 `json:"selling_price,omitempty"`
 	Currency     string  `json:"currency,omitempty"`
@@ -122,7 +123,8 @@ func (SalesInfo) TableName() string {
 
 type PurchaseInfo struct {
 	ID                uint    `json:"-" gorm:"primaryKey;autoIncrement"`
-	ItemID            string  `json:"item_id" gorm:"type:varchar(255);uniqueIndex;not null"`
+	ItemID            *string `json:"item_id" gorm:"type:varchar(255);index"`
+	ProductID         *string `json:"product_id" gorm:"type:varchar(255);index"`
 	Account           string  `json:"account" gorm:"not null"`
 	CostPrice         float64 `json:"cost_price,omitempty"`
 	Currency          string  `json:"currency,omitempty"`
@@ -136,12 +138,13 @@ func (PurchaseInfo) TableName() string {
 }
 
 type Inventory struct {
-	ID                       uint   `json:"-" gorm:"primaryKey;autoIncrement"`
-	ItemID                   string `json:"item_id" gorm:"type:varchar(255);uniqueIndex;not null"`
-	TrackInventory           bool   `json:"track_inventory"`
-	InventoryAccount         string `json:"inventory_account" gorm:"type:varchar(255)"`
-	InventoryValuationMethod string `json:"inventory_valuation_method" gorm:"type:varchar(50)"`
-	ReorderPoint             int    `json:"reorder_point" gorm:"default:0"`
+	ID                       uint    `json:"-" gorm:"primaryKey;autoIncrement"`
+	ItemID                   *string `json:"item_id" gorm:"type:varchar(255);index"`
+	ProductID                *string `json:"product_id" gorm:"type:varchar(255);index"`
+	TrackInventory           bool    `json:"track_inventory"`
+	InventoryAccount         string  `json:"inventory_account" gorm:"type:varchar(255)"`
+	InventoryValuationMethod string  `json:"inventory_valuation_method" gorm:"type:varchar(50)"`
+	ReorderPoint             int     `json:"reorder_point" gorm:"default:0"`
 }
 
 func (Inventory) TableName() string {
@@ -149,9 +152,10 @@ func (Inventory) TableName() string {
 }
 
 type ReturnPolicy struct {
-	ID         uint   `json:"-" gorm:"primaryKey;autoIncrement"`
-	ItemID     string `json:"item_id" gorm:"type:varchar(255);uniqueIndex;not null"`
-	Returnable bool   `json:"returnable"`
+	ID         uint    `json:"-" gorm:"primaryKey;autoIncrement"`
+	ItemID     *string `json:"item_id" gorm:"type:varchar(255);index"`
+	ProductID  *string `json:"product_id" gorm:"type:varchar(255);index"`
+	Returnable bool    `json:"returnable"`
 }
 
 func (ReturnPolicy) TableName() string {

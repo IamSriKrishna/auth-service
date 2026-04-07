@@ -67,19 +67,24 @@ type PurchaseOrderLineItem struct {
 	ID              uint   `gorm:"primaryKey;autoIncrement" json:"id"`
 	PurchaseOrderID string `gorm:"type:varchar(255);index;not null" json:"purchase_order_id"`
 
-	ItemID string `json:"item_id" gorm:"type:varchar(255);not null;index"`
-	Item   *Item  `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	// Product Reference (Master Data) - can be standalone product OR product group
+	ProductID   *string  `json:"product_id" gorm:"type:varchar(255);index"`
+	Product     *Product `json:"product,omitempty" gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	ProductName string   `json:"product_name" gorm:"type:varchar(255)"`
+	SKU         string   `json:"sku" gorm:"type:varchar(100)"`
 
-	VariantSKU       *string        `json:"variant_sku,omitempty" gorm:"type:varchar(255);index"`
-	Variant          *Variant       `json:"variant,omitempty" gorm:"foreignKey:VariantSKU;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
-	Account          string         `json:"account" gorm:"type:varchar(100)"`
-	Quantity         float64        `json:"quantity" gorm:"not null"`
-	ReceivedQuantity float64        `json:"received_quantity" gorm:"default:0"`
-	Rate             float64        `json:"rate" gorm:"not null"`
-	Amount           float64        `json:"amount" gorm:"not null"`
-	VariantDetails   VariantDetails `json:"variant_details,omitempty" gorm:"type:json"`
-	CreatedAt        time.Time      `json:"created_at"`
-	UpdatedAt        time.Time      `json:"updated_at"`
+	// Product Group Reference - for bundled products
+	ProductGroupID *string       `json:"product_group_id,omitempty" gorm:"type:varchar(255);index"`
+	ProductGroup   *ProductGroup `json:"product_group,omitempty" gorm:"foreignKey:ProductGroupID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	IsProductGroup bool          `json:"is_product_group" gorm:"default:false"` // true if this line item is for a product group
+
+	Account          string    `json:"account" gorm:"type:varchar(100)"`
+	Quantity         float64   `json:"quantity" gorm:"not null"`
+	ReceivedQuantity float64   `json:"received_quantity" gorm:"default:0"`
+	Rate             float64   `json:"rate" gorm:"not null"`
+	Amount           float64   `json:"amount" gorm:"not null"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 func (PurchaseOrderLineItem) TableName() string {

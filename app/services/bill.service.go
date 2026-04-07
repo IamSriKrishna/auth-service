@@ -66,9 +66,14 @@ func (s *billService) CreateBill(billInput *input.CreateBillInput, userID string
 	subTotal := 0.0
 
 	for _, itemInput := range billInput.LineItems {
-		item, err := s.itemRepo.FindByID(itemInput.ItemID)
-		if err != nil {
-			return nil, errors.New("item not found: " + itemInput.ItemID)
+		// Fetch item only if ItemID is provided
+		var item *models.Item
+		if itemInput.ItemID != nil {
+			var err error
+			item, err = s.itemRepo.FindByID(*itemInput.ItemID)
+			if err != nil {
+				return nil, errors.New("item not found: " + *itemInput.ItemID)
+			}
 		}
 
 		amount := itemInput.Quantity * itemInput.Rate
@@ -249,9 +254,14 @@ func (s *billService) UpdateBill(id string, billInput *input.UpdateBillInput, us
 		subTotal := 0.0
 
 		for _, itemInput := range billInput.LineItems {
-			item, err := s.itemRepo.FindByID(itemInput.ItemID)
-			if err != nil {
-				return nil, errors.New("item not found: " + itemInput.ItemID)
+			// Fetch item only if ItemID is provided
+			var item *models.Item
+			if itemInput.ItemID != nil {
+				var err error
+				item, err = s.itemRepo.FindByID(*itemInput.ItemID)
+				if err != nil {
+					return nil, errors.New("item not found: " + *itemInput.ItemID)
+				}
 			}
 
 			amount := itemInput.Quantity * itemInput.Rate

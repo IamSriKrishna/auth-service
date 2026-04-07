@@ -29,7 +29,7 @@ func NewAdminService(
 	}
 }
 
-func (s *adminService) CreateUser(ctx context.Context, createdBy uint, req *input.CreateUserRequest) (*output.UserInfo, error) {
+func (s *adminService) CreateUser(ctx context.Context, createdBy *uint, req *input.CreateUserRequest) (*output.UserInfo, error) {
 	if req == nil {
 		return nil, errors.New("request cannot be nil")
 	}
@@ -51,7 +51,6 @@ func (s *adminService) CreateUser(ctx context.Context, createdBy uint, req *inpu
 	username := req.Username
 	passwordHashPtr := &passwordHash
 	userType := models.UserType(req.UserType)
-	createdByPtr := &createdBy
 	companyID := req.CompanyID
 
 	user := &models.User{
@@ -61,7 +60,7 @@ func (s *adminService) CreateUser(ctx context.Context, createdBy uint, req *inpu
 		PasswordHash: passwordHashPtr,
 		Status:       models.UserStatusActive,
 		UserType:     userType,
-		CreatedBy:    createdByPtr,
+		CreatedBy:    createdBy,
 		CompanyID:    &companyID,
 	}
 
@@ -85,16 +84,25 @@ func (s *adminService) CreateUser(ctx context.Context, createdBy uint, req *inpu
 		roleName = role.RoleName
 	}
 
+	var companyName *string
+	if user.CompanyID != nil && *user.CompanyID > 0 {
+		company, err := s.companyRepo.FindByID(*user.CompanyID)
+		if err == nil && company != nil {
+			companyName = &company.CompanyName
+		}
+	}
+
 	return &output.UserInfo{
-		ID:        user.ID,
-		Email:     user.Email,
-		Phone:     user.Phone,
-		Username:  user.Username,
-		UserType:  string(user.UserType),
-		Role:      roleName,
-		Status:    string(user.Status),
-		CompanyID: user.CompanyID,
-		CreatedAt: user.CreatedAt,
+		ID:          user.ID,
+		Email:       user.Email,
+		Phone:       user.Phone,
+		Username:    user.Username,
+		UserType:    string(user.UserType),
+		Role:        roleName,
+		Status:      string(user.Status),
+		CompanyID:   user.CompanyID,
+		CompanyName: companyName,
+		CreatedAt:   user.CreatedAt,
 	}, nil
 }
 
@@ -237,16 +245,24 @@ func (s *adminService) GetUsers(ctx context.Context, page, limit int, search, ro
 
 	userInfos := make([]interface{}, len(filteredUsers))
 	for i, user := range filteredUsers {
+		var companyName *string
+		if user.CompanyID != nil && *user.CompanyID > 0 {
+			company, err := s.companyRepo.FindByID(*user.CompanyID)
+			if err == nil && company != nil {
+				companyName = &company.CompanyName
+			}
+		}
 		userInfos[i] = &output.UserInfo{
-			ID:        user.ID,
-			Email:     user.Email,
-			Phone:     user.Phone,
-			Username:  user.Username,
-			UserType:  string(user.UserType),
-			Role:      user.Role.RoleName,
-			Status:    string(user.Status),
-			CompanyID: user.CompanyID,
-			CreatedAt: user.CreatedAt,
+			ID:          user.ID,
+			Email:       user.Email,
+			Phone:       user.Phone,
+			Username:    user.Username,
+			UserType:    string(user.UserType),
+			Role:        user.Role.RoleName,
+			Status:      string(user.Status),
+			CompanyID:   user.CompanyID,
+			CompanyName: companyName,
+			CreatedAt:   user.CreatedAt,
 		}
 	}
 
@@ -269,16 +285,25 @@ func (s *adminService) GetUser(ctx context.Context, userID uint) (*output.UserIn
 		return nil, errors.New("user not found")
 	}
 
+	var companyName *string
+	if user.CompanyID != nil && *user.CompanyID > 0 {
+		company, err := s.companyRepo.FindByID(*user.CompanyID)
+		if err == nil && company != nil {
+			companyName = &company.CompanyName
+		}
+	}
+
 	return &output.UserInfo{
-		ID:        user.ID,
-		Email:     user.Email,
-		Phone:     user.Phone,
-		Username:  user.Username,
-		UserType:  string(user.UserType),
-		Role:      user.Role.RoleName,
-		Status:    string(user.Status),
-		CompanyID: user.CompanyID,
-		CreatedAt: user.CreatedAt,
+		ID:          user.ID,
+		Email:       user.Email,
+		Phone:       user.Phone,
+		Username:    user.Username,
+		UserType:    string(user.UserType),
+		Role:        user.Role.RoleName,
+		Status:      string(user.Status),
+		CompanyID:   user.CompanyID,
+		CompanyName: companyName,
+		CreatedAt:   user.CreatedAt,
 	}, nil
 }
 
@@ -319,16 +344,25 @@ func (s *adminService) UpdateUser(ctx context.Context, userID uint, req *input.U
 		return nil, err
 	}
 
+	var companyName *string
+	if user.CompanyID != nil && *user.CompanyID > 0 {
+		company, err := s.companyRepo.FindByID(*user.CompanyID)
+		if err == nil && company != nil {
+			companyName = &company.CompanyName
+		}
+	}
+
 	return &output.UserInfo{
-		ID:        user.ID,
-		Email:     user.Email,
-		Phone:     user.Phone,
-		Username:  user.Username,
-		UserType:  string(user.UserType),
-		Role:      user.Role.RoleName,
-		Status:    string(user.Status),
-		CompanyID: user.CompanyID,
-		CreatedAt: user.CreatedAt,
+		ID:          user.ID,
+		Email:       user.Email,
+		Phone:       user.Phone,
+		Username:    user.Username,
+		UserType:    string(user.UserType),
+		Role:        user.Role.RoleName,
+		Status:      string(user.Status),
+		CompanyID:   user.CompanyID,
+		CompanyName: companyName,
+		CreatedAt:   user.CreatedAt,
 	}, nil
 }
 

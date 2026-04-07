@@ -5,15 +5,28 @@ import (
 )
 
 type CreateShipmentInput struct {
-	PackageID       string    `json:"package_id" validate:"required"`
-	SalesOrderID    string    `json:"sales_order_id" validate:"required"`
-	CustomerID      uint      `json:"customer_id" validate:"required"`
-	ShipDate        time.Time `json:"ship_date" validate:"required"`
-	Carrier         string    `json:"carrier"`
-	TrackingNo      string    `json:"tracking_no"`
-	TrackingURL     string    `json:"tracking_url"`
-	ShippingCharges float64   `json:"shipping_charges" validate:"gte=0"`
-	Notes           string    `json:"notes"`
+	PackageID         string                  `json:"package_id" validate:"required"`
+	SalesOrderID      string                  `json:"sales_order_id" validate:"required"`
+	CustomerID        uint                    `json:"customer_id" validate:"required"`
+	ShipDate          time.Time               `json:"ship_date" validate:"required"`
+	Carrier           string                  `json:"carrier"`
+	TrackingNo        string                  `json:"tracking_no"`
+	TrackingURL       string                  `json:"tracking_url"`
+	ShippingCharges   float64                 `json:"shipping_charges" validate:"gte=0"`
+	ShippingMethod    string                  `json:"shipping_method"`
+	ShippingAddress   string                  `json:"shipping_address"`
+	EstimatedDelivery *time.Time              `json:"estimated_delivery"`
+	LineItems         []ShipmentLineItemInput `json:"line_items" validate:"required,min=1,dive"`
+	AutoDeductStock   bool                    `json:"auto_deduct_stock"`
+	Notes             string                  `json:"notes"`
+}
+
+type ShipmentLineItemInput struct {
+	SalesOrderLineID string  `json:"sales_order_line_id"`
+	ProductID        string  `json:"product_id" validate:"required"`
+	VariantSKU       string  `json:"variant_sku" validate:"required"`
+	Quantity         float64 `json:"quantity" validate:"required,gt=0"`
+	Notes            string  `json:"notes"`
 }
 
 type UpdateShipmentInput struct {

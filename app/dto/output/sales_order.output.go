@@ -10,150 +10,87 @@ type SalesOrderOutput struct {
 	ID                   string                     `json:"id"`
 	SalesOrderNo         string                     `json:"sales_order_no"`
 	CustomerID           uint                       `json:"customer_id"`
-	Customer             *CustomerInfo              `json:"customer,omitempty"`
-	SalespersonID        *uint                      `json:"salesperson_id,omitempty"`
-	Salesperson          *SalespersonInfo           `json:"salesperson,omitempty"`
 	ReferenceNo          string                     `json:"reference_no,omitempty"`
-	SODate               time.Time                  `json:"sales_order_date"`
+	Status               string                     `json:"status"`
+	Date                 time.Time                  `json:"date"`
 	ExpectedShipmentDate time.Time                  `json:"expected_shipment_date"`
-	PaymentTerms         string                     `json:"payment_terms"`
 	DeliveryMethod       string                     `json:"delivery_method,omitempty"`
+	PaymentTerms         string                     `json:"payment_terms"`
 	LineItems            []SalesOrderLineItemOutput `json:"line_items"`
 	SubTotal             float64                    `json:"sub_total"`
 	ShippingCharges      float64                    `json:"shipping_charges"`
-	TaxType              *string                    `json:"tax_type,omitempty"`
-	TaxID                *uint                      `json:"tax_id,omitempty"`
-	Tax                  *TaxInfo                   `json:"tax,omitempty"`
-	TaxAmount            float64                    `json:"tax_amount"`
 	Adjustment           float64                    `json:"adjustment"`
+	TaxRate              float64                    `json:"tax_rate"`
+	TaxTotal             float64                    `json:"tax_total"`
 	Total                float64                    `json:"total"`
 	CustomerNotes        string                     `json:"customer_notes,omitempty"`
 	TermsAndConditions   string                     `json:"terms_and_conditions,omitempty"`
-	Status               string                     `json:"status"`
-	Attachments          []string                   `json:"attachments,omitempty"`
+	SalespersonID        *uint                      `json:"salesperson_id,omitempty"`
 	CreatedAt            time.Time                  `json:"created_at"`
 	UpdatedAt            time.Time                  `json:"updated_at"`
-	CreatedBy            string                     `json:"created_by,omitempty"`
-	UpdatedBy            string                     `json:"updated_by,omitempty"`
 }
 
 type SalesOrderLineItemOutput struct {
-	ID             uint              `json:"id"`
-	ItemID         string            `json:"item_id"`
-	Item           *ItemInfo         `json:"item,omitempty"`
-	VariantSKU     *string           `json:"variant_sku,omitempty"`
-	Variant        *VariantInfo      `json:"variant,omitempty"`
-	Description    string            `json:"description,omitempty"`
-	Quantity       float64           `json:"quantity"`
-	Rate           float64           `json:"rate"`
-	Amount         float64           `json:"amount"`
-	VariantDetails map[string]string `json:"variant_details,omitempty"`
+	ID                uint                   `json:"id"`
+	ProductID         string                 `json:"product_id"`
+	ProductName       string                 `json:"product_name"`
+	SKU               string                 `json:"sku"`
+	Account           string                 `json:"account"`
+	Quantity          float64                `json:"quantity"`
+	DeliveredQuantity float64                `json:"delivered_quantity"`
+	Rate              float64                `json:"rate"`
+	Amount            float64                `json:"amount"`
+	VariantSKU        string                 `json:"variant_sku,omitempty"`
+	VariantDetails    map[string]interface{} `json:"variant_details,omitempty"`
 }
 
 func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 	lineItems := make([]SalesOrderLineItemOutput, 0)
 
 	for _, item := range so.LineItems {
-		lineItemOutput := SalesOrderLineItemOutput{
-			ID:          item.ID,
-			ItemID:      item.ItemID,
-			VariantSKU:  item.VariantSKU,
-			Description: item.Description,
-			Quantity:    item.Quantity,
-			Rate:        item.Rate,
-			Amount:      item.Amount,
-		}
-
-		if item.Item != nil {
-			sku := ""
-			if item.Item.ItemDetails.ID > 0 {
-				sku = item.Item.ItemDetails.SKU
-			}
-			lineItemOutput.Item = &ItemInfo{
-				ID:   item.Item.ID,
-				Name: item.Item.Name,
-				SKU:  sku,
-			}
-		}
-
-		if item.Variant != nil {
-			attributeMap := make(map[string]string)
-			for _, attr := range item.Variant.Attributes {
-				attributeMap[attr.Key] = attr.Value
-			}
-			lineItemOutput.Variant = &VariantInfo{
-				ID:           item.Variant.ID,
-				SKU:          item.Variant.SKU,
-				AttributeMap: attributeMap,
-			}
-		}
-
+		variantDetails := make(map[string]interface{})
 		if item.VariantDetails != nil {
-			lineItemOutput.VariantDetails = convertVariantDetails(item.VariantDetails)
+			variantDetails = item.VariantDetails
 		}
 
+		lineItemOutput := SalesOrderLineItemOutput{
+			ID:                item.ID,
+			ProductID:         item.ProductID,
+			ProductName:       item.ProductName,
+			SKU:               item.SKU,
+			Account:           item.Account,
+			Quantity:          item.Quantity,
+			DeliveredQuantity: item.DeliveredQuantity,
+			Rate:              item.Rate,
+			Amount:            item.Amount,
+			VariantSKU:        item.VariantSKU,
+			VariantDetails:    variantDetails,
+		}
 		lineItems = append(lineItems, lineItemOutput)
-	}
-
-	attachments := so.Attachments
-	if attachments == nil {
-		attachments = []string{}
 	}
 
 	output := &SalesOrderOutput{
 		ID:                   so.ID,
 		SalesOrderNo:         so.SalesOrderNumber,
 		CustomerID:           so.CustomerID,
-		SalespersonID:        so.SalespersonID,
 		ReferenceNo:          so.ReferenceNo,
-		SODate:               so.SODate,
+		Status:               string(so.Status),
+		Date:                 so.Date,
 		ExpectedShipmentDate: so.ExpectedShipmentDate,
-		PaymentTerms:         string(so.PaymentTerms),
 		DeliveryMethod:       so.DeliveryMethod,
+		PaymentTerms:         string(so.PaymentTerms),
 		LineItems:            lineItems,
 		SubTotal:             so.SubTotal,
 		ShippingCharges:      so.ShippingCharges,
-		TaxAmount:            so.TaxAmount,
 		Adjustment:           so.Adjustment,
+		TaxRate:              so.TaxRate,
+		TaxTotal:             so.TaxTotal,
 		Total:                so.Total,
 		CustomerNotes:        so.CustomerNotes,
 		TermsAndConditions:   so.TermsAndConditions,
-		Status:               string(so.Status),
-		Attachments:          attachments,
+		SalespersonID:        so.SalespersonID,
 		CreatedAt:            so.CreatedAt,
 		UpdatedAt:            so.UpdatedAt,
-		CreatedBy:            so.CreatedBy,
-		UpdatedBy:            so.UpdatedBy,
-	}
-
-	if so.Customer != nil {
-		output.Customer = &CustomerInfo{
-			ID:          so.Customer.ID,
-			DisplayName: so.Customer.DisplayName,
-			CompanyName: so.Customer.CompanyName,
-			Email:       so.Customer.EmailAddress,
-			Phone:       so.Customer.WorkPhone,
-		}
-	}
-
-	if so.Salesperson != nil {
-		output.Salesperson = &SalespersonInfo{
-			ID:   so.Salesperson.ID,
-			Name: so.Salesperson.Name,
-		}
-	}
-
-	if so.Tax != nil {
-		output.Tax = &TaxInfo{
-			ID:      so.Tax.ID,
-			Name:    so.Tax.Name,
-			TaxType: string(so.Tax.TaxType),
-			Rate:    so.Tax.Rate,
-		}
-		if so.TaxType != nil {
-			taxTypeStr := string(*so.TaxType)
-			output.TaxType = &taxTypeStr
-		}
 	}
 
 	return output, nil

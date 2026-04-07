@@ -8,15 +8,18 @@ import (
 
 type CreateInvoiceInput struct {
 	CustomerID         uint                   `json:"customer_id" validate:"required"`
+	SalesOrderID       *string                `json:"sales_order_id"`
 	OrderNumber        string                 `json:"order_number"`
 	InvoiceDate        time.Time              `json:"invoice_date" validate:"required"`
 	Terms              string                 `json:"terms" validate:"required"`
 	DueDate            time.Time              `json:"due_date" validate:"required"`
+	PaymentTerms       string                 `json:"payment_terms"`
 	SalespersonID      *uint                  `json:"salesperson_id"`
 	Subject            string                 `json:"subject"`
 	LineItems          []InvoiceLineItemInput `json:"line_items" validate:"required,min=1,dive"`
 	ShippingCharges    float64                `json:"shipping_charges" validate:"gte=0"`
 	TaxType            *string                `json:"tax_type"`
+	TaxPercentage      *float64               `json:"tax_percentage"`
 	TaxID              *uint                  `json:"tax_id"`
 	Adjustment         float64                `json:"adjustment"`
 	CustomerNotes      string                 `json:"customer_notes"`
@@ -28,11 +31,13 @@ type CreateInvoiceInput struct {
 }
 
 type InvoiceLineItemInput struct {
-	ItemID         string            `json:"item_id" validate:"required"`
+	ProductID      *string           `json:"product_id"`
+	ItemID         *string           `json:"item_id"`
 	VariantSKU     *string           `json:"variant_sku"`
-	Description    string            `json:"description"`
+	Description    string            `json:"description" validate:"required"`
 	Quantity       float64           `json:"quantity" validate:"required,gt=0"`
 	Rate           float64           `json:"rate" validate:"required,gt=0"`
+	TaxPercent     *float64          `json:"tax_percent" validate:"omitempty,gte=0,lte=100"`
 	VariantDetails map[string]string `json:"variant_details"`
 }
 
@@ -95,5 +100,5 @@ type CreatePaymentInput struct {
 }
 
 type InvoiceStatusUpdateInput struct {
-	Status domain.InvoiceStatus `json:"status" validate:"required,oneof=draft sent partial paid overdue void"`
+	Status domain.InvoiceStatus `json:"status" validate:"required,oneof=draft issued sent partial paid overdue void"`
 }

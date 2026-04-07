@@ -30,12 +30,17 @@ type SalesOrderService interface {
 }
 
 type salesOrderService struct {
-	soRepo          repo.SalesOrderRepository
-	customerRepo    repo.CustomerRepository
-	itemRepo        repo.ItemRepository
-	taxRepo         repo.TaxRepository
-	salespersonRepo repo.SalespersonRepository
-	inventoryRepo   repo.InventoryBalanceRepository
+	soRepo             repo.SalesOrderRepository
+	customerRepo       repo.CustomerRepository
+	itemRepo           repo.ItemRepository
+	taxRepo            repo.TaxRepository
+	salespersonRepo    repo.SalespersonRepository
+	inventoryRepo      repo.InventoryBalanceRepository
+	stockMovementSvc   StockMovementService
+	productStockRepo   repo.ProductStockRepository
+	stockLedgerRepo    repo.StockLedgerRepository
+	variantStockMgmt   VariantStockManagementService
+	stockManagementSvc StockManagementService
 }
 
 func NewSalesOrderService(
@@ -45,149 +50,96 @@ func NewSalesOrderService(
 	taxRepo repo.TaxRepository,
 	salespersonRepo repo.SalespersonRepository,
 	inventoryRepo repo.InventoryBalanceRepository,
+	stockMovementSvc StockMovementService,
+	productStockRepo repo.ProductStockRepository,
+	stockLedgerRepo repo.StockLedgerRepository,
+	variantStockMgmt VariantStockManagementService,
+	stockManagementSvc StockManagementService,
 ) SalesOrderService {
 	return &salesOrderService{
-		soRepo:          soRepo,
-		customerRepo:    customerRepo,
-		itemRepo:        itemRepo,
-		taxRepo:         taxRepo,
-		salespersonRepo: salespersonRepo,
-		inventoryRepo:   inventoryRepo,
+		soRepo:             soRepo,
+		customerRepo:       customerRepo,
+		itemRepo:           itemRepo,
+		taxRepo:            taxRepo,
+		salespersonRepo:    salespersonRepo,
+		inventoryRepo:      inventoryRepo,
+		stockMovementSvc:   stockMovementSvc,
+		productStockRepo:   productStockRepo,
+		stockLedgerRepo:    stockLedgerRepo,
+		variantStockMgmt:   variantStockMgmt,
+		stockManagementSvc: stockManagementSvc,
 	}
 }
 
 func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInput, userID string) (*output.SalesOrderOutput, error) {
-	customer, err := s.customerRepo.FindByID(soInput.CustomerID)
-	if err != nil {
-		return nil, errors.New("customer not found")
-	}
-
-	var salesperson *models.Salesperson
-	if soInput.SalespersonID != nil {
-		salesperson, err = s.salespersonRepo.FindByID(*soInput.SalespersonID)
-		if err != nil {
-			return nil, errors.New("salesperson not found")
-		}
-	}
-
-	var tax *models.Tax
-	if soInput.TaxID != nil {
-		tax, err = s.taxRepo.FindByID(*soInput.TaxID)
-		if err != nil {
-			return nil, errors.New("tax not found")
-		}
-	}
-
 	lineItems := make([]models.SalesOrderLineItem, 0)
 	subTotal := 0.0
 
 	for _, itemInput := range soInput.LineItems {
-		item, err := s.itemRepo.FindByID(itemInput.ItemID)
-		if err != nil {
-			return nil, errors.New("item not found: " + itemInput.ItemID)
+		// Validate required fields
+		if itemInput.ProductID == "" {
+			return nil, errors.New("product_id is required for each line item")
+		}
+		if itemInput.ProductName == "" {
+			return nil, errors.New("product_name is required for each line item")
 		}
 
-		// For variant items, variant_sku is required
-		var variantSKU *string
-		if item.ItemDetails.Structure == "variants" {
-			if itemInput.VariantSKU == nil || *itemInput.VariantSKU == "" {
-				return nil, fmt.Errorf("variant_sku is required for item %s (%s)", itemInput.ItemID, item.Name)
-			}
-			variantSKU = itemInput.VariantSKU
-		} else {
-			variantSKU = nil // For single items, always use nil variant_sku
-		}
-
-		// Check inventory availability
-		log.Printf("[SALES_ORDER] Checking inventory - ItemID: %s, VariantSKU: %v, Quantity: %f\n", itemInput.ItemID, variantSKU, itemInput.Quantity)
-		inventoryBalance, err := s.inventoryRepo.GetBalance(itemInput.ItemID, variantSKU)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check inventory for item %s: %v", itemInput.ItemID, err)
-		}
-		log.Printf("[SALES_ORDER] Inventory Balance - ID: %d, Available: %f\n", inventoryBalance.ID, inventoryBalance.AvailableQuantity)
-
-		if inventoryBalance.AvailableQuantity < itemInput.Quantity {
-			variantName := "N/A"
-			if variantSKU != nil && item.ItemDetails.Variants != nil {
-				for _, v := range item.ItemDetails.Variants {
-					if v.SKU == *variantSKU {
-						variantName = v.SKU
-						break
-					}
-				}
-			}
-			return nil, fmt.Errorf("insufficient inventory for %s (%s). Required: %f units, Available: %f units",
-				item.Name, variantName, itemInput.Quantity, inventoryBalance.AvailableQuantity)
-		}
-
-		amount := itemInput.Quantity * itemInput.Rate
-		subTotal += amount
+		// Calculate line item totals
+		lineAmount := itemInput.Quantity * itemInput.Rate
+		subTotal += lineAmount
 
 		lineItem := models.SalesOrderLineItem{
-			ItemID:      itemInput.ItemID,
-			Item:        item,
-			VariantSKU:  variantSKU, // Use the validated variantSKU from above
-			Description: itemInput.Description,
-			Quantity:    itemInput.Quantity,
-			Rate:        itemInput.Rate,
-			Amount:      amount,
-		}
-
-		if itemInput.VariantDetails != nil {
-			variantDetails := make(models.VariantDetails)
-			for k, v := range itemInput.VariantDetails {
-				variantDetails[k] = v
-			}
-			lineItem.VariantDetails = variantDetails
+			ProductID:      itemInput.ProductID,
+			ProductName:    itemInput.ProductName,
+			SKU:            itemInput.SKU,
+			Account:        itemInput.Account,
+			Quantity:       itemInput.Quantity,
+			Rate:           itemInput.Rate,
+			Amount:         lineAmount,
+			VariantSKU:     itemInput.VariantSKU,
+			VariantDetails: models.JSONB(itemInput.VariantDetails),
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
 		}
 
 		lineItems = append(lineItems, lineItem)
 	}
 
-	taxAmount := 0.0
-	if tax != nil {
-		taxAmount = ((subTotal + soInput.ShippingCharges) * tax.Rate) / 100
-	}
+	// Calculate tax based on tax_rate
+	taxAmount := (subTotal * soInput.TaxRate) / 100
 
-	total := subTotal + soInput.ShippingCharges + taxAmount + soInput.Adjustment
+	// Calculate total with shipping charges and adjustment
+	total := subTotal + taxAmount + soInput.ShippingCharges + soInput.Adjustment
 
-	soNumber := fmt.Sprintf("SO-%s-%04d", time.Now().Format("20060102"), s.generateSOSequence())
-
-	var taxType *domain.TaxType
-	if soInput.TaxType != nil {
-		tt := domain.TaxType(*soInput.TaxType)
-		taxType = &tt
-	}
+	// Generate SO number
+	soNumber := fmt.Sprintf("SO-%s-%04d", time.Now().Format("2006"), s.generateSOSequence())
 
 	so := &models.SalesOrder{
 		ID:                   uuid.New().String(),
 		SalesOrderNumber:     soNumber,
 		CustomerID:           soInput.CustomerID,
-		Customer:             customer,
-		SalespersonID:        soInput.SalespersonID,
-		Salesperson:          salesperson,
 		ReferenceNo:          soInput.ReferenceNo,
-		SODate:               soInput.SODate,
+		Date:                 soInput.SalesOrderDate,
 		ExpectedShipmentDate: soInput.ExpectedShipmentDate,
-		PaymentTerms:         domain.PaymentTerms(soInput.PaymentTerms),
 		DeliveryMethod:       soInput.DeliveryMethod,
+		PaymentTerms:         domain.PaymentTerms(soInput.PaymentTerms),
 		LineItems:            lineItems,
 		SubTotal:             subTotal,
 		ShippingCharges:      soInput.ShippingCharges,
-		TaxType:              taxType,
-		TaxID:                soInput.TaxID,
-		Tax:                  tax,
-		TaxAmount:            taxAmount,
 		Adjustment:           soInput.Adjustment,
+		TaxID:                soInput.TaxID,
+		TaxRate:              soInput.TaxRate,
+		TaxTotal:             taxAmount,
 		Total:                total,
 		CustomerNotes:        soInput.CustomerNotes,
 		TermsAndConditions:   soInput.TermsAndConditions,
+		SalespersonID:        soInput.SalespersonID,
 		Status:               domain.SalesOrderStatusDraft,
-		Attachments:          soInput.Attachments,
+		InventoryReserved:    false,
+		InventoryDeducted:    false,
 		CreatedAt:            time.Now(),
 		UpdatedAt:            time.Now(),
 		CreatedBy:            userID,
-		UpdatedBy:            userID,
 	}
 
 	createdSO, err := s.soRepo.Create(so)
@@ -258,29 +210,15 @@ func (s *salesOrderService) UpdateSalesOrder(id string, soInput *input.UpdateSal
 	}
 
 	if soInput.CustomerID != nil {
-		customer, err := s.customerRepo.FindByID(*soInput.CustomerID)
-		if err != nil {
-			return nil, errors.New("customer not found")
-		}
 		so.CustomerID = *soInput.CustomerID
-		so.Customer = customer
-	}
-
-	if soInput.SalespersonID != nil {
-		salesperson, err := s.salespersonRepo.FindByID(*soInput.SalespersonID)
-		if err != nil {
-			return nil, errors.New("salesperson not found")
-		}
-		so.SalespersonID = soInput.SalespersonID
-		so.Salesperson = salesperson
 	}
 
 	if soInput.ReferenceNo != nil {
 		so.ReferenceNo = *soInput.ReferenceNo
 	}
 
-	if soInput.SODate != nil {
-		so.SODate = *soInput.SODate
+	if soInput.SalesOrderDate != nil {
+		so.Date = *soInput.SalesOrderDate
 	}
 
 	if soInput.ExpectedShipmentDate != nil {
@@ -295,75 +233,20 @@ func (s *salesOrderService) UpdateSalesOrder(id string, soInput *input.UpdateSal
 		so.DeliveryMethod = *soInput.DeliveryMethod
 	}
 
-	if len(soInput.LineItems) > 0 {
-		lineItems := make([]models.SalesOrderLineItem, 0)
-		subTotal := 0.0
-
-		for _, itemInput := range soInput.LineItems {
-			item, err := s.itemRepo.FindByID(itemInput.ItemID)
-			if err != nil {
-				return nil, errors.New("item not found")
-			}
-
-			amount := itemInput.Quantity * itemInput.Rate
-			subTotal += amount
-
-			lineItem := models.SalesOrderLineItem{
-				ItemID:      itemInput.ItemID,
-				Item:        item,
-				VariantSKU:  itemInput.VariantSKU,
-				Description: itemInput.Description,
-				Quantity:    itemInput.Quantity,
-				Rate:        itemInput.Rate,
-				Amount:      amount,
-			}
-
-			if itemInput.VariantDetails != nil {
-				variantDetails := make(models.VariantDetails)
-				for k, v := range itemInput.VariantDetails {
-					variantDetails[k] = v
-				}
-				lineItem.VariantDetails = variantDetails
-			}
-
-			lineItems = append(lineItems, lineItem)
-		}
-
-		so.LineItems = lineItems
-		so.SubTotal = subTotal
-
-		if so.Tax != nil {
-			so.TaxAmount = ((so.SubTotal + so.ShippingCharges) * so.Tax.Rate) / 100
-		}
-
-		so.Total = so.SubTotal + so.ShippingCharges + so.TaxAmount + so.Adjustment
-	}
-
 	if soInput.ShippingCharges != nil {
 		so.ShippingCharges = *soInput.ShippingCharges
-
-		if so.Tax != nil {
-			so.TaxAmount = ((so.SubTotal + so.ShippingCharges) * so.Tax.Rate) / 100
-		}
-
-		so.Total = so.SubTotal + so.ShippingCharges + so.TaxAmount + so.Adjustment
-	}
-
-	if soInput.TaxID != nil {
-		tax, err := s.taxRepo.FindByID(*soInput.TaxID)
-		if err != nil {
-			return nil, errors.New("tax not found")
-		}
-		so.TaxID = soInput.TaxID
-		so.Tax = tax
-
-		so.TaxAmount = ((so.SubTotal + so.ShippingCharges) * tax.Rate) / 100
-		so.Total = so.SubTotal + so.ShippingCharges + so.TaxAmount + so.Adjustment
 	}
 
 	if soInput.Adjustment != nil {
 		so.Adjustment = *soInput.Adjustment
-		so.Total = so.SubTotal + so.ShippingCharges + so.TaxAmount + *soInput.Adjustment
+	}
+
+	if soInput.TaxID != nil {
+		so.TaxID = soInput.TaxID
+	}
+
+	if soInput.TaxRate != nil {
+		so.TaxRate = *soInput.TaxRate
 	}
 
 	if soInput.CustomerNotes != nil {
@@ -374,8 +257,45 @@ func (s *salesOrderService) UpdateSalesOrder(id string, soInput *input.UpdateSal
 		so.TermsAndConditions = *soInput.TermsAndConditions
 	}
 
-	if len(soInput.Attachments) > 0 {
-		so.Attachments = soInput.Attachments
+	if soInput.SalespersonID != nil {
+		so.SalespersonID = soInput.SalespersonID
+	}
+
+	if len(soInput.LineItems) > 0 {
+		lineItems := make([]models.SalesOrderLineItem, 0)
+		subTotal := 0.0
+
+		for _, itemInput := range soInput.LineItems {
+			if itemInput.ProductID == "" {
+				return nil, errors.New("product_id is required for each line item")
+			}
+
+			lineAmount := itemInput.Quantity * itemInput.Rate
+			subTotal += lineAmount
+
+			lineItem := models.SalesOrderLineItem{
+				ProductID:      itemInput.ProductID,
+				ProductName:    itemInput.ProductName,
+				SKU:            itemInput.SKU,
+				Account:        itemInput.Account,
+				Quantity:       itemInput.Quantity,
+				Rate:           itemInput.Rate,
+				Amount:         lineAmount,
+				VariantSKU:     itemInput.VariantSKU,
+				VariantDetails: models.JSONB(itemInput.VariantDetails),
+				CreatedAt:      time.Now(),
+				UpdatedAt:      time.Now(),
+			}
+			lineItems = append(lineItems, lineItem)
+		}
+
+		so.LineItems = lineItems
+		so.SubTotal = subTotal
+
+		// Recalculate tax with the current tax rate
+		taxAmount := (subTotal * so.TaxRate) / 100
+		so.TaxTotal = taxAmount
+		so.Total = subTotal + taxAmount + so.ShippingCharges + so.Adjustment
 	}
 
 	so.UpdatedAt = time.Now()
@@ -395,11 +315,75 @@ func (s *salesOrderService) UpdateSalesOrderStatus(id string, status string, use
 		return nil, errors.New("sales order not found")
 	}
 
-	// Reserve inventory when SO is confirmed
-	if status == "confirmed" && so.Status != "confirmed" {
-		if err := s.reserveInventoryForSalesOrder(so, userID); err != nil {
-			return nil, fmt.Errorf("failed to reserve inventory: %w", err)
+	so.Status = domain.SalesOrderStatus(status)
+	so.UpdatedAt = time.Now()
+	so.UpdatedBy = userID
+
+	// Deduct inventory when status is "paid" or "delivered" and not already deducted
+	if (status == string(domain.SalesOrderStatusPaid) || status == string(domain.SalesOrderStatusDelivered)) && !so.InventoryDeducted {
+		// Deduct stock for each line item
+		for _, lineItem := range so.LineItems {
+			deducted := false
+
+			// Check if this is a variant-based product (has VariantSKU)
+			if lineItem.VariantSKU != "" {
+				// For variant-based products, try to deduct from variant stock first
+				variantStock, err := s.variantStockMgmt.GetVariantStockSummary(lineItem.VariantSKU)
+				if err == nil && variantStock != nil && variantStock.AvailableStock >= lineItem.Quantity {
+					// Variant stock exists and has sufficient quantity - perform the actual deduction
+					adjustErr := s.variantStockMgmt.RecordStockAdjustment(
+						lineItem.VariantSKU,
+						lineItem.Quantity,
+						"out",
+						fmt.Sprintf("Stock deducted for Sales Order: %s", so.SalesOrderNumber),
+						userID,
+					)
+					if adjustErr != nil {
+						log.Printf("[SO_STOCK_DEDUCTION] Error deducting variant stock for SKU=%s: %v", lineItem.VariantSKU, adjustErr)
+						return nil, fmt.Errorf("failed to deduct variant stock for SKU %s: %v", lineItem.VariantSKU, adjustErr)
+					}
+					log.Printf("[SO_STOCK_DEDUCTION] Successfully deducted %.2f units of variant %s", lineItem.Quantity, lineItem.VariantSKU)
+					deducted = true
+				} else if err != nil || variantStock == nil {
+					log.Printf("[SO_STOCK_DEDUCTION] Warning: Could not find variant stock for SKU=%s, will attempt product-level deduction", lineItem.VariantSKU)
+				} else if variantStock.AvailableStock < lineItem.Quantity {
+					log.Printf("[SO_STOCK_DEDUCTION] Insufficient variant stock: SKU=%s, Available=%.2f, Required=%.2f",
+						lineItem.VariantSKU, variantStock.AvailableStock, lineItem.Quantity)
+					return nil, fmt.Errorf("insufficient stock for variant %s: available=%.2f, required=%.2f",
+						lineItem.VariantSKU, variantStock.AvailableStock, lineItem.Quantity)
+				}
+			}
+
+			// If not deducted at variant level, try product-level stock deduction
+			if !deducted {
+				err := s.stockManagementSvc.RecordOutboundMovement(
+					lineItem.ProductID,
+					"SALES_ORDER",
+					id,
+					so.SalesOrderNumber,
+					lineItem.Quantity,
+					fmt.Sprintf("Stock deducted for Sales Order: %s", so.SalesOrderNumber),
+					userID,
+				)
+				if err != nil {
+					// If this is a variant-based product and product stock doesn't exist, that's OK
+					if lineItem.VariantSKU != "" && err.Error() == fmt.Sprintf("no stock found for product: %s", lineItem.ProductID) {
+						log.Printf("[SO_STOCK_DEDUCTION] Note: Variant-based product %s has no aggregated ProductStock, stock deduction handled at variant level", lineItem.ProductID)
+					} else {
+						log.Printf("[SO_STOCK_DEDUCTION] Error deducting stock for product %s: %v", lineItem.ProductID, err)
+						return nil, fmt.Errorf("failed to deduct stock for product %s: %v", lineItem.ProductID, err)
+					}
+				} else {
+					log.Printf("[SO_STOCK_DEDUCTION] Successfully deducted %.2f units of product %s", lineItem.Quantity, lineItem.ProductID)
+				}
+			}
 		}
+
+		// Mark inventory as deducted
+		now := time.Now()
+		so.InventoryDeducted = true
+		so.DeductedDate = &now
+		log.Printf("[SO_STOCK_DEDUCTION] Inventory deducted for Sales Order: %s", so.SalesOrderNumber)
 	}
 
 	err = s.soRepo.UpdateStatus(id, status)
@@ -411,51 +395,13 @@ func (s *salesOrderService) UpdateSalesOrderStatus(id string, status string, use
 }
 
 func (s *salesOrderService) DeleteSalesOrder(id string) error {
-	return s.soRepo.Delete(id)
-}
-
-// reserveInventoryForSalesOrder marks inventory as reserved when sales order is confirmed
-func (s *salesOrderService) reserveInventoryForSalesOrder(so *models.SalesOrder, userID string) error {
-	for _, lineItem := range so.LineItems {
-		// Get current inventory balance
-		balance, err := s.inventoryRepo.GetBalance(lineItem.ItemID, lineItem.VariantSKU)
-		if err != nil {
-			return fmt.Errorf("failed to get inventory balance for item %s: %w", lineItem.ItemID, err)
-		}
-
-		// Check if sufficient inventory is available
-		if balance.AvailableQuantity < lineItem.Quantity {
-			return fmt.Errorf("insufficient inventory for item %s. Required: %f, Available: %f", lineItem.ItemID, lineItem.Quantity, balance.AvailableQuantity)
-		}
-
-		// Reserve inventory (mark as reserved, don't deduct yet)
-		balance.ReservedQuantity = balance.ReservedQuantity + lineItem.Quantity
-		balance.AvailableQuantity = balance.AvailableQuantity - lineItem.Quantity
-		balance.UpdatedAt = time.Now()
-
-		if err := s.inventoryRepo.UpdateBalance(balance); err != nil {
-			return fmt.Errorf("failed to update inventory balance: %w", err)
-		}
-
-		// Create inventory journal entry for reservation
-		entry := &models.InventoryJournal{
-			ItemID:          lineItem.ItemID,
-			VariantSKU:      lineItem.VariantSKU,
-			TransactionType: "SALES_ORDER_RESERVED",
-			Quantity:        -lineItem.Quantity,
-			ReferenceType:   "SalesOrder",
-			ReferenceID:     so.ID,
-			ReferenceNo:     so.SalesOrderNumber,
-			Notes:           fmt.Sprintf("Inventory reserved for sales order - SO: %s", so.SalesOrderNumber),
-			CreatedBy:       userID,
-		}
-
-		if err := s.inventoryRepo.CreateJournalEntry(entry); err != nil {
-			return fmt.Errorf("failed to create inventory journal: %w", err)
-		}
+	so, err := s.soRepo.FindByID(id)
+	if err != nil {
+		return errors.New("sales order not found")
 	}
 
-	return nil
+	log.Printf("[SO_DELETE] Deleted SO: %s", so.SalesOrderNumber)
+	return s.soRepo.Delete(id)
 }
 
 func (s *salesOrderService) generateSOSequence() int {

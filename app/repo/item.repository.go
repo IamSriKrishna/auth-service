@@ -24,12 +24,13 @@ func (r *itemRepository) Create(item *models.Item) error {
 		}
 
 		item.ItemDetails.ItemID = item.ID
-		item.SalesInfo.ItemID = item.ID
-		item.Inventory.ItemID = item.ID
-		item.ReturnPolicy.ItemID = item.ID
+		itemIDPtr := item.ID
+		item.SalesInfo.ItemID = &itemIDPtr
+		item.Inventory.ItemID = &itemIDPtr
+		item.ReturnPolicy.ItemID = &itemIDPtr
 
 		if item.PurchaseInfo.Account != "" {
-			item.PurchaseInfo.ItemID = item.ID
+			item.PurchaseInfo.ItemID = &itemIDPtr
 		}
 
 		if err := tx.Create(&item.SalesInfo).Error; err != nil {

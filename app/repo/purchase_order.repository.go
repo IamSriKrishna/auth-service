@@ -5,8 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
-
 type purchaseOrderRepository struct {
 	db *gorm.DB
 }
@@ -29,8 +27,7 @@ func (r *purchaseOrderRepository) FindByID(id string) (*models.PurchaseOrder, er
 		Preload("Customer").
 		Preload("Tax").
 		Preload("LineItems").
-		Preload("LineItems.Item").
-		Preload("LineItems.Variant").
+		Preload("LineItems.Product").
 		Where("id = ?", id).
 		First(&po).Error; err != nil {
 		return nil, err
@@ -51,8 +48,7 @@ func (r *purchaseOrderRepository) FindAll(limit, offset int) ([]models.PurchaseO
 		Preload("Customer").
 		Preload("Tax").
 		Preload("LineItems").
-		Preload("LineItems.Item").
-		Preload("LineItems.Variant").
+		Preload("LineItems.Product").
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
@@ -79,8 +75,7 @@ func (r *purchaseOrderRepository) FindByVendor(vendorID uint, limit, offset int)
 		Preload("Customer").
 		Preload("Tax").
 		Preload("LineItems").
-		Preload("LineItems.Item").
-		Preload("LineItems.Variant").
+		Preload("LineItems.Product").
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
@@ -107,8 +102,7 @@ func (r *purchaseOrderRepository) FindByCustomer(customerID uint, limit, offset 
 		Preload("Customer").
 		Preload("Tax").
 		Preload("LineItems").
-		Preload("LineItems.Item").
-		Preload("LineItems.Variant").
+		Preload("LineItems.Product").
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
@@ -135,8 +129,7 @@ func (r *purchaseOrderRepository) FindByStatus(status string, limit, offset int)
 		Preload("Customer").
 		Preload("Tax").
 		Preload("LineItems").
-		Preload("LineItems.Item").
-		Preload("LineItems.Variant").
+		Preload("LineItems.Product").
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").

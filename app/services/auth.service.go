@@ -40,7 +40,7 @@ type AuthService interface {
 }
 
 type AdminService interface {
-	CreateUser(ctx context.Context, createdBy uint, req *input.CreateUserRequest) (*output.UserInfo, error)
+	CreateUser(ctx context.Context, createdBy *uint, req *input.CreateUserRequest) (*output.UserInfo, error)
 	CreateSuperAdmin(ctx context.Context, createdBy *uint, req *input.CreateSuperAdminRequest) (*output.UserInfo, error)
 	ResetPassword(ctx context.Context, req *input.ResetPasswordRequest) error
 	ResetUserPassword(ctx context.Context, req *input.ResetUserPasswordRequest, userID uint64) error
@@ -58,6 +58,7 @@ type authService struct {
 	roleRepo         repo.RoleRepository
 	refreshTokenRepo repo.RefreshTokenRepository
 	sessionRepo      repo.UserSessionRepository
+	companyRepo      repo.CompanyRepository
 	oauthConfig      input.OAuthConfig
 	firebaseAuth     *fbAuth.Client
 }
@@ -67,12 +68,14 @@ func NewAuthService(
 	roleRepo repo.RoleRepository,
 	refreshTokenRepo repo.RefreshTokenRepository,
 	sessionRepo repo.UserSessionRepository,
+	companyRepo repo.CompanyRepository,
 ) AuthService {
 	return &authService{
 		userRepo:         userRepo,
 		roleRepo:         roleRepo,
 		refreshTokenRepo: refreshTokenRepo,
 		sessionRepo:      sessionRepo,
+		companyRepo:      companyRepo,
 	}
 }
 
@@ -443,6 +446,14 @@ func (s *authService) GetUserInfo(ctx context.Context, userID uint) (*output.Use
 		return nil, errors.New("user not found")
 	}
 
+	var companyName *string
+	if user.CompanyID != nil && *user.CompanyID > 0 {
+		company, err := s.companyRepo.FindByID(*user.CompanyID)
+		if err == nil && company != nil {
+			companyName = &company.CompanyName
+		}
+	}
+
 	return &output.UserInfo{
 		ID:          user.ID,
 		Email:       user.Email,
@@ -451,6 +462,8 @@ func (s *authService) GetUserInfo(ctx context.Context, userID uint) (*output.Use
 		UserType:    string(user.UserType),
 		Role:        user.Role.RoleName,
 		Status:      string(user.Status),
+		CompanyID:   user.CompanyID,
+		CompanyName: companyName,
 		CreatedAt:   user.CreatedAt,
 		LastLoginAt: user.LastLoginAt,
 	}, nil
@@ -537,6 +550,14 @@ func (s *authService) generateTokens(user *models.User) (*output.AuthResponse, e
 	}
 	s.refreshTokenRepo.Create(tokenRecord)
 
+	var companyName *string
+	if user.CompanyID != nil && *user.CompanyID > 0 {
+		company, err := s.companyRepo.FindByID(*user.CompanyID)
+		if err == nil && company != nil {
+			companyName = &company.CompanyName
+		}
+	}
+
 	return &output.AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -550,6 +571,8 @@ func (s *authService) generateTokens(user *models.User) (*output.AuthResponse, e
 			UserType:    string(user.UserType),
 			Role:        user.Role.RoleName,
 			Status:      string(user.Status),
+			CompanyID:   user.CompanyID,
+			CompanyName: companyName,
 			CreatedAt:   user.CreatedAt,
 			LastLoginAt: user.LastLoginAt,
 		},

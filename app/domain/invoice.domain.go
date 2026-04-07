@@ -16,6 +16,7 @@ type InvoiceStatus string
 
 const (
 	InvoiceStatusDraft   InvoiceStatus = "draft"
+	InvoiceStatusIssued  InvoiceStatus = "issued"
 	InvoiceStatusSent    InvoiceStatus = "sent"
 	InvoiceStatusPartial InvoiceStatus = "partial"
 	InvoiceStatusPaid    InvoiceStatus = "paid"
@@ -53,6 +54,7 @@ const (
 	SalesOrderStatusPartialShip SalesOrderStatus = "partial_shipped"
 	SalesOrderStatusShipped     SalesOrderStatus = "shipped"
 	SalesOrderStatusDelivered   SalesOrderStatus = "delivered"
+	SalesOrderStatusPaid        SalesOrderStatus = "paid"
 	SalesOrderStatusCancelled   SalesOrderStatus = "cancelled"
 )
 

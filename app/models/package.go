@@ -10,7 +10,7 @@ type Package struct {
 	ID            string               `json:"id" gorm:"type:varchar(255);primaryKey"`
 	PackageSlipNo string               `json:"package_slip_no" gorm:"column:package_slip_no;type:varchar(100);uniqueIndex;not null"`
 	SalesOrderID  string               `json:"sales_order_id" gorm:"type:varchar(255);not null;index"`
-	SalesOrder    *SalesOrder          `json:"sales_order,omitempty" gorm:"foreignKey:SalesOrderID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	SalesOrder    *SalesOrder          `json:"sales_order,omitempty" gorm:"foreignKey:SalesOrderID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	CustomerID    uint                 `json:"customer_id" gorm:"not null;index"`
 	Customer      *Customer            `json:"customer,omitempty" gorm:"foreignKey:CustomerID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	PackageDate   time.Time            `json:"package_date" gorm:"not null"`
@@ -28,13 +28,20 @@ type PackageItem struct {
 	PackageID        string              `json:"package_id" gorm:"type:varchar(255);not null;index"`
 	SalesOrderItemID uint                `json:"sales_order_item_id" gorm:"not null;index"`
 	SalesOrderItem   *SalesOrderLineItem `json:"sales_order_item,omitempty" gorm:"foreignKey:SalesOrderItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	ItemID           string              `json:"item_id" gorm:"type:varchar(255);not null;index"`
-	Item             *Item               `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	VariantSKU       *string             `json:"variant_sku,omitempty" gorm:"type:varchar(255);index"`
-	Variant          *Variant            `json:"variant,omitempty" gorm:"foreignKey:VariantSKU;references:SKU;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
-	OrderedQty       float64             `json:"ordered_qty" gorm:"not null"`
-	PackedQty        float64             `json:"packed_qty" gorm:"not null;default:0"`
-	VariantDetails   VariantDetails      `json:"variant_details,omitempty" gorm:"type:json"`
+
+	// Product Reference (Master Data)
+	ProductID   *string  `json:"product_id" gorm:"type:varchar(255);index"`
+	Product     *Product `json:"product,omitempty" gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	ProductName string   `json:"product_name" gorm:"type:varchar(255)"`
+
+	// Item Reference (Inventory Tracking) - Optional
+	ItemID         *string        `json:"item_id" gorm:"type:varchar(255);index"`
+	Item           *Item          `json:"item,omitempty" gorm:"foreignKey:ItemID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	VariantSKU     *string        `json:"variant_sku,omitempty" gorm:"type:varchar(255);index"`
+	Variant        *Variant       `json:"variant,omitempty" gorm:"foreignKey:VariantSKU;references:SKU;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	OrderedQty     float64        `json:"ordered_qty" gorm:"not null"`
+	PackedQty      float64        `json:"packed_qty" gorm:"not null;default:0"`
+	VariantDetails VariantDetails `json:"variant_details,omitempty" gorm:"type:json"`
 }
 
 func (Package) TableName() string {

@@ -4,6 +4,7 @@ import "time"
 
 // DashboardMetricsOutput represents the main dashboard view
 type DashboardMetricsOutput struct {
+	UserInfo             UserInfoOutput             `json:"user_info"`
 	CustomerMetrics      CustomerMetricsOutput      `json:"customer_metrics"`
 	VendorMetrics        VendorMetricsOutput        `json:"vendor_metrics"`
 	ItemMetrics          ItemMetricsOutput          `json:"item_metrics"`
@@ -14,6 +15,15 @@ type DashboardMetricsOutput struct {
 	PackageMetrics       PackageMetricsOutput       `json:"package_metrics"`
 	LastUpdatedAt        time.Time                  `json:"last_updated_at"`
 	GeneratedAt          time.Time                  `json:"generated_at"`
+}
+
+type UserInfoOutput struct {
+	UserID      uint   `json:"user_id"`
+	UserName    string `json:"user_name"`
+	UserRole    string `json:"user_role"`
+	CompanyID   uint   `json:"company_id"`
+	CompanyName string `json:"company_name"`
+	Email       string `json:"email"`
 }
 
 type CustomerMetricsOutput struct {

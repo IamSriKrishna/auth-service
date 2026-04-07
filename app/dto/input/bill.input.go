@@ -17,6 +17,7 @@ type CreateBillInput struct {
 	LineItems       []BillLineItemInput `json:"line_items" validate:"required,min=1,dive"`
 	Discount        float64             `json:"discount" validate:"gte=0"`
 	TaxType         *string             `json:"tax_type"`
+	TaxPercentage   *float64            `json:"tax_percentage"`
 	TaxID           *uint               `json:"tax_id"`
 	Adjustment      float64             `json:"adjustment" validate:"gte=0"`
 	Notes           string              `json:"notes"`
@@ -24,12 +25,14 @@ type CreateBillInput struct {
 }
 
 type BillLineItemInput struct {
-	ItemID         string            `json:"item_id" validate:"required"`
-	VariantSKU     *string           `json:"variant_sku"`
-	Description    string            `json:"description"`
+	ProductID      *string           `json:"product_id"`
+	ItemID         *string           `json:"item_id"`
+	VariantSKU     *string           `json:"variant_sku" validate:"required"`
+	Description    string            `json:"description" validate:"required"`
 	Account        string            `json:"account"`
 	Quantity       float64           `json:"quantity" validate:"required,gt=0"`
 	Rate           float64           `json:"rate" validate:"required,gt=0"`
+	TaxPercent     *float64          `json:"tax_percent" validate:"omitempty,gte=0,lte=100"`
 	VariantDetails map[string]string `json:"variant_details"`
 }
 

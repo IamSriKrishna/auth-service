@@ -68,8 +68,9 @@ func (s *itemService) CreateItem(input *input.CreateItemInput, createdBy string)
 
 	itemDetails := buildItemDetails(id, input)
 
+	idPtr := id
 	salesInfo := models.SalesInfo{
-		ItemID:       id,
+		ItemID:       &idPtr,
 		Account:      input.SalesInfo.Account,
 		SellingPrice: input.SalesInfo.SellingPrice,
 		Currency:     input.SalesInfo.Currency,
@@ -79,7 +80,7 @@ func (s *itemService) CreateItem(input *input.CreateItemInput, createdBy string)
 	purchaseInfo := models.PurchaseInfo{}
 	if input.PurchaseInfo != nil {
 		purchaseInfo = models.PurchaseInfo{
-			ItemID:            id,
+			ItemID:            &idPtr,
 			Account:           input.PurchaseInfo.Account,
 			CostPrice:         input.PurchaseInfo.CostPrice,
 			Currency:          input.PurchaseInfo.Currency,
@@ -89,7 +90,7 @@ func (s *itemService) CreateItem(input *input.CreateItemInput, createdBy string)
 	}
 
 	inventory := models.Inventory{
-		ItemID:         id,
+		ItemID:         &idPtr,
 		TrackInventory: false,
 	}
 	if input.Inventory != nil {
@@ -100,7 +101,7 @@ func (s *itemService) CreateItem(input *input.CreateItemInput, createdBy string)
 	}
 
 	returnPolicy := models.ReturnPolicy{
-		ItemID:     id,
+		ItemID:     &idPtr,
 		Returnable: false,
 	}
 	if input.ReturnPolicy != nil {

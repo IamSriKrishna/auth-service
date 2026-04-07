@@ -30,7 +30,6 @@ func NewCompanyHandler(
 	}
 }
 
-
 func (h *CompanyHandler) CreateCompany(c *fiber.Ctx) error {
 	var input input.CreateCompanyInput
 	if err := c.BodyParser(&input); err != nil {
@@ -144,7 +143,6 @@ func (h *CompanyHandler) CompleteCompanySetup(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(output)
 }
 
-
 func (h *CompanyHandler) UpsertContact(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -178,7 +176,6 @@ func (h *CompanyHandler) GetContact(c *fiber.Ctx) error {
 	return c.JSON(output)
 }
 
-
 func (h *CompanyHandler) UpsertAddress(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -211,7 +208,6 @@ func (h *CompanyHandler) GetAddress(c *fiber.Ctx) error {
 
 	return c.JSON(output)
 }
-
 
 func (h *CompanyHandler) CreateBankDetail(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
@@ -278,7 +274,6 @@ func (h *CompanyHandler) DeleteBankDetail(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
-
 func (h *CompanyHandler) UpsertUPIDetail(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -311,7 +306,6 @@ func (h *CompanyHandler) GetUPIDetail(c *fiber.Ctx) error {
 
 	return c.JSON(output)
 }
-
 
 func (h *CompanyHandler) UpsertInvoiceSettings(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
@@ -346,7 +340,6 @@ func (h *CompanyHandler) GetInvoiceSettings(c *fiber.Ctx) error {
 	return c.JSON(output)
 }
 
-
 func (h *CompanyHandler) UpsertTaxSettings(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -379,7 +372,6 @@ func (h *CompanyHandler) GetTaxSettings(c *fiber.Ctx) error {
 
 	return c.JSON(output)
 }
-
 
 func (h *CompanyHandler) UpsertRegionalSettings(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
@@ -414,6 +406,29 @@ func (h *CompanyHandler) GetRegionalSettings(c *fiber.Ctx) error {
 	return c.JSON(output)
 }
 
+// GetMyCompanyProfile retrieves the company profile using the bearer token
+// The company_id is extracted from the JWT token by the AuthMiddleware
+func (h *CompanyHandler) GetMyCompanyProfile(c *fiber.Ctx) error {
+	// Extract company_id from locals (set by AuthMiddleware from JWT token)
+	companyID := c.Locals("company_id")
+	if companyID == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Company ID not found in token"})
+	}
+
+	// Type assertion to uint
+	companyIDUint, ok := companyID.(uint)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid company ID format"})
+	}
+
+	// Fetch company details
+	output, err := h.companyService.GetCompany(companyIDUint)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Company not found"})
+	}
+
+	return c.JSON(output)
+}
 
 type HelperHandler struct {
 	businessTypeService services.BusinessTypeService

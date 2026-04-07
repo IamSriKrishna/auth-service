@@ -29,11 +29,15 @@ type VendorService interface {
 }
 
 type vendorService struct {
-	repo repo.VendorRepository
+	repo        repo.VendorRepository
+	companyRepo repo.CompanyRepository
 }
 
-func NewVendorService(repo repo.VendorRepository) VendorService {
-	return &vendorService{repo: repo}
+func NewVendorService(repo repo.VendorRepository, companyRepo repo.CompanyRepository) VendorService {
+	return &vendorService{
+		repo:        repo,
+		companyRepo: companyRepo,
+	}
 }
 
 func (s *vendorService) CreateVendor(input *input.CreateVendorInput) (*output.VendorOutput, error) {
@@ -127,6 +131,18 @@ func (s *vendorService) DeleteVendor(id uint) error {
 }
 
 func (s *vendorService) CreateVendorForUser(userID, companyID uint, input *input.CreateVendorInput) (*output.VendorOutput, error) {
+	// Validate that company exists only if companyID is provided
+	if companyID > 0 {
+		company, err := s.companyRepo.FindByID(companyID)
+		if err != nil {
+			return nil, fmt.Errorf("company not found: %w", err)
+		}
+
+		if company == nil {
+			return nil, fmt.Errorf("company with ID %d does not exist", companyID)
+		}
+	}
+
 	if input.Mobile != "" {
 		existingVendor, err := s.repo.FindByMobile(input.Mobile)
 		if err == nil && existingVendor != nil {

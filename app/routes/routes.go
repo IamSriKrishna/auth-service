@@ -31,10 +31,10 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	locationRepo := repo.NewLocationRepository(db)
 	taxTypeRepo := repo.NewTaxTypeRepository(db)
 	itemRepo := repo.NewItemRepository(db)
+	productRepo := repo.NewProductRepository(db)
 	customerRepo := repo.NewCustomerRepository(db)
 	openStockRepo := repo.NewOpeningStockRepository(db)
 	manufacturerRepo := repo.NewManufacturerRepository(db)
-	brandRepo := repo.NewBrandRepository(db)
 	invoiceRepo := repo.NewInvoiceRepository(db)
 	salespersonRepo := repo.NewSalespersonRepository(db)
 	taxRepo := repo.NewTaxRepository(db)
@@ -48,11 +48,17 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	inventoryBalanceRepo := repo.NewInventoryBalanceRepository(db)
 	itemGroupRepo := repo.NewItemGroupRepository(db)
 	productionOrderRepo := repo.NewProductionOrderRepository(db)
+	productGroupRepo := repo.NewProductGroupRepository(db)
 	dashboardRepo := repo.NewDashboardRepository(db)
 	employeeRepo := repo.NewEmployeeRepository(db)
 	attendanceRepo := repo.NewEmployeeAttendanceRepository(db)
+	productStockRepo := repo.NewProductStockRepository(db)
+	stockLedgerRepo := repo.NewStockLedgerRepository(db)
+	variantStockRepo := repo.NewVariantStockRepository(db)
+	variantMovementRepo := repo.NewVariantStockMovementRepository(db)
+	reservationRepo := repo.NewStockReservationRepository(db)
 
-	authService := services.NewAuthService(userRepo, roleRepo, refreshTokenRepo, sessionRepo)
+	authService := services.NewAuthService(userRepo, roleRepo, refreshTokenRepo, sessionRepo, companyRepo)
 	adminService := services.NewAdminService(userRepo, roleRepo, companyRepo)
 	roleService := services.NewRoleService(roleRepo)
 	supportService := services.NewSupportService(supportRepo)
@@ -61,25 +67,36 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	taxTypeService := services.NewTaxTypeService(taxTypeRepo)
 	companyService := services.NewCompanyService(companyRepo, businessTypeRepo, locationRepo, taxTypeRepo, db)
 	itemService := services.NewItemService(itemRepo, vendorRepo, manufacturerRepo, inventoryBalanceRepo, userRepo, companyRepo)
-	vendorService := services.NewVendorService(vendorRepo)
+	productService := services.NewProductService(productRepo, vendorRepo, manufacturerRepo, inventoryBalanceRepo, userRepo, companyRepo)
+	vendorService := services.NewVendorService(vendorRepo, companyRepo)
 	customerService := services.NewCustomerService(customerRepo)
 	openStockService := services.NewOpeningStockService(openStockRepo, itemRepo, inventoryBalanceRepo)
 	manufacturerService := services.NewManufacturerService(manufacturerRepo)
-	brandService := services.NewBrandService(brandRepo)
-	invoiceService := services.NewInvoiceService(invoiceRepo, itemRepo, customerRepo, salespersonRepo, taxRepo, paymentRepo, "./pdf_outputs")
+	invoiceService := services.NewInvoiceService(invoiceRepo, itemRepo, customerRepo, salespersonRepo, taxRepo, paymentRepo, productStockRepo, stockLedgerRepo, "./pdf_outputs")
 	salespersonService := services.NewSalespersonService(salespersonRepo)
 	taxService := services.NewTaxService(taxRepo)
 	paymentService := services.NewPaymentService(paymentRepo, invoiceRepo)
-	purchaseOrderService := services.NewPurchaseOrderService(purchaseOrderRepo, vendorRepo, customerRepo, itemRepo, taxRepo, inventoryBalanceRepo, userRepo, companyRepo)
-	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo, inventoryBalanceRepo)
-	packageService := services.NewPackageService(packageRepo, salesOrderRepo, customerRepo, itemRepo)
-	shipmentService := services.NewShipmentService(shipmentRepo, packageRepo, salesOrderRepo, customerRepo, inventoryBalanceRepo)
+
+	// Stock Movement Service for old services (will be migrated to StockManagementService)
+	stockMovementService := services.NewStockMovementService(inventoryBalanceRepo, itemRepo)
+
+	// Stock Management Service for inventory tracking
+	stockManagementService := services.NewStockManagementService(productStockRepo, stockLedgerRepo, productRepo)
+
+	// Variant Stock Management Service for SKU-level tracking
+	variantStockManagementService := services.NewVariantStockManagementService(variantStockRepo, variantMovementRepo, reservationRepo, productStockRepo, stockLedgerRepo, productRepo, db)
+
+	purchaseOrderService := services.NewPurchaseOrderService(purchaseOrderRepo, vendorRepo, customerRepo, productRepo, taxRepo, userRepo, companyRepo, stockManagementService, stockLedgerRepo, variantStockManagementService)
+	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo, inventoryBalanceRepo, stockMovementService, productStockRepo, stockLedgerRepo, variantStockManagementService, stockManagementService)
+	packageService := services.NewPackageService(packageRepo, salesOrderRepo, customerRepo, itemRepo, stockMovementService)
+	shipmentService := services.NewShipmentService(shipmentRepo, packageRepo, salesOrderRepo, customerRepo, inventoryBalanceRepo, stockMovementService)
 	billService := services.NewBillService(billRepo, vendorRepo, itemRepo, taxRepo)
 	bankService := services.NewBankService(bankRepo)
 	itemGroupService := services.NewItemGroupService(itemGroupRepo, itemRepo)
 	inventoryService := services.NewInventoryService(itemRepo, itemGroupRepo, inventoryBalanceRepo, openStockRepo)
 	productionOrderService := services.NewProductionOrderService(productionOrderRepo, itemGroupRepo, itemRepo, inventoryService)
-	dashboardService := services.NewDashboardService(dashboardRepo)
+	productGroupService := services.NewProductGroupService(productGroupRepo, productRepo)
+	dashboardService := services.NewDashboardService(dashboardRepo, userRepo, companyRepo)
 	employeeService := services.NewEmployeeService(employeeRepo, userRepo)
 	attendanceService := services.NewEmployeeAttendanceService(attendanceRepo, employeeRepo)
 
@@ -92,10 +109,10 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	companyHandler := handlers.NewCompanyHandler(companyService, businessTypeService, locationService, taxTypeService)
 	helperHandler := handlers.NewHelperHandler(businessTypeService, locationService, taxTypeService)
 	itemHandler := handlers.NewItemHandler(itemService)
+	productHandler := handlers.NewProductHandler(productService)
 	customerHandler := handlers.NewCustomerHandler(customerService)
 	openStockHandler := handlers.NewOpeningStockHandler(openStockService)
 	manufacturerHandler := handlers.NewManufacturerHandler(manufacturerService)
-	brandHandler := handlers.NewBrandHandler(brandService)
 	invoiceHandler := handlers.NewInvoiceHandler(invoiceService)
 	salespersonHandler := handlers.NewSalespersonHandler(salespersonService)
 	taxHandler := handlers.NewTaxHandler(taxService)
@@ -107,10 +124,12 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	billHandler := handlers.NewBillHandler(billService)
 	bankHandler := handlers.NewBankHandler(bankService)
 	itemGroupHandler := handlers.NewItemGroupHandler(itemGroupService)
+	productGroupHandler := handlers.NewProductGroupHandler(productGroupService)
 	productionOrderHandler := handlers.NewProductionOrderHandler(productionOrderService)
-	dashboardHandler := handlers.NewDashboardHandler(dashboardService)
+	dashboardHandler := handlers.NewDashboardHandler(dashboardService, userRepo)
 	employeeHandler := handlers.NewEmployeeHandler(employeeService)
 	attendanceHandler := handlers.NewAttendanceHandler(attendanceService)
+	stockManagementHandler := handlers.NewStockManagementHandler(stockManagementService, variantStockManagementService)
 
 	// Swagger documentation endpoint
 	app.Get("/docs/*", swagger.HandlerDefault)
@@ -129,6 +148,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 
 		authGroup.Post("/validate-token", authHandler.ValidateToken)
 		authGroup.Post("/create-super-admin", adminHandler.CreateSuperAdmin)
+		authGroup.Post("/admin/create-user", adminHandler.CreateUser)
 	}
 
 	protectedAuthGroup := app.Group("/auth")
@@ -144,18 +164,9 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	{
 		manufacturerGroup.Get("/", manufacturerHandler.GetAllManufacturers)
 		manufacturerGroup.Get("/:id", manufacturerHandler.GetManufacturerByID)
-		manufacturerGroup.Post("/", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), manufacturerHandler.CreateManufacturer)
+		manufacturerGroup.Post("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), manufacturerHandler.CreateManufacturer)
 		manufacturerGroup.Put("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), manufacturerHandler.UpdateManufacturer)
 		manufacturerGroup.Delete("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), manufacturerHandler.DeleteManufacturer)
-	}
-
-	brandGroup := app.Group("/brands")
-	{
-		brandGroup.Get("/", brandHandler.GetAllBrands)
-		brandGroup.Get("/:id", brandHandler.GetBrandByID)
-		brandGroup.Post("/", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), brandHandler.CreateBrand)
-		brandGroup.Put("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), brandHandler.UpdateBrand)
-		brandGroup.Delete("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), brandHandler.DeleteBrand)
 	}
 
 	bankGroup := app.Group("/banks")
@@ -347,6 +358,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	companyRoutes.Use(middleware.AuthMiddleware())
 	{
 		companyRoutes.Post("/setup", companyHandler.CompleteCompanySetup)
+		companyRoutes.Get("/me", companyHandler.GetMyCompanyProfile)
 
 		companyRoutes.Get("/", companyHandler.GetAllCompanies)
 		companyRoutes.Post("/", companyHandler.CreateCompany)
@@ -395,6 +407,18 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		itemRoutes.Get("/:id/stock-summary", middleware.AuthMiddleware(), middleware.AdminMiddleware(), openStockHandler.GetStockSummary)
 	}
 
+	productRoutes := app.Group("/products")
+	{
+		productRoutes.Get("/:id", productHandler.GetProduct)
+
+		productRoutes.Get("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productHandler.GetAllProducts)
+		productRoutes.Post("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productHandler.CreateProduct)
+		productRoutes.Put("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productHandler.UpdateProduct)
+		productRoutes.Delete("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productHandler.DeleteProduct)
+
+		productRoutes.Get("/:id/variants", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productHandler.GetProductVariants)
+	}
+
 	itemGroupRoutes := app.Group("/item-groups")
 	{
 		itemGroupRoutes.Get("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemGroupHandler.GetAllItemGroups)
@@ -405,6 +429,18 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		itemGroupRoutes.Delete("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), itemGroupHandler.DeleteItemGroup)
 
 		itemGroupRoutes.Get("/search/by-name", itemGroupHandler.GetItemGroupByName)
+	}
+
+	productGroupRoutes := app.Group("/product-groups")
+	{
+		productGroupRoutes.Get("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productGroupHandler.GetAllProductGroups)
+		productGroupRoutes.Get("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productGroupHandler.GetProductGroupByID)
+
+		productGroupRoutes.Post("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productGroupHandler.CreateProductGroup)
+		productGroupRoutes.Put("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productGroupHandler.UpdateProductGroup)
+		productGroupRoutes.Delete("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productGroupHandler.DeleteProductGroup)
+
+		productGroupRoutes.Get("/search/by-name", productGroupHandler.GetProductGroupByName)
 	}
 
 	invoiceRoutes := app.Group("/invoices")
@@ -542,8 +578,18 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		productionOrderRoutes.Post("/:id/consume-item", middleware.AdminMiddleware(), productionOrderHandler.ConsumeProductionOrderItem)
 	}
 
+	// Stock Management Routes
+	stockRoutes := app.Group("/api/stock")
+	stockRoutes.Use(middleware.AuthMiddleware())
+	{
+		stockRoutes.Get("/summary", middleware.AdminMiddleware(), stockManagementHandler.GetAllStocksSummary)
+		stockRoutes.Get("/product/:product_id/movements", middleware.AdminMiddleware(), stockManagementHandler.GetProductMovements)
+		stockRoutes.Get("/debug/product/:product_id", middleware.AdminMiddleware(), stockManagementHandler.GetProductStockDebug)
+	}
+
 	// Dashboard Routes
 	dashboardRoutes := app.Group("/dashboard")
+	dashboardRoutes.Use(middleware.AuthMiddleware())
 	{
 		dashboardRoutes.Get("/", dashboardHandler.GetDashboard)
 		dashboardRoutes.Get("/activity", dashboardHandler.GetActivitySummary)

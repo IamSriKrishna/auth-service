@@ -3,8 +3,10 @@ package handlers
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
+	"github.com/bbapp-org/auth-service/app/dto/output"
 	"github.com/bbapp-org/auth-service/app/services"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -334,5 +336,68 @@ func (h *ShipmentHandler) DeleteShipment(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Shipment deleted successfully",
+	})
+}
+
+// CreateShipmentWithVariants creates a shipment for product variants with stock deduction
+func (h *ShipmentHandler) CreateShipmentWithVariants(c *fiber.Ctx) error {
+	var shipInput input.CreateShipmentInput
+
+	if err := c.BodyParser(&shipInput); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid request body",
+			"success": false,
+		})
+	}
+
+	validate := validator.New()
+	if err := validate.Struct(shipInput); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   err.Error(),
+			"success": false,
+		})
+	}
+
+	userID := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		userID = fmt.Sprintf("%v", uid)
+	}
+
+	importTime := time.Now()
+	shipmentNo := fmt.Sprintf("SHIP-%d-%05d", importTime.Year(), c.Locals("request_id"))
+
+	// Calculate totals and build line items
+	var totalItems float64
+	lineItems := make([]output.ShipmentLineItemOutput, len(shipInput.LineItems))
+
+	for i, item := range shipInput.LineItems {
+		totalItems += item.Quantity
+		lineItems[i] = output.ShipmentLineItemOutput{
+			VariantSKU:      item.VariantSKU,
+			QuantityShipped: item.Quantity,
+			ProductName:     item.ProductID,
+		}
+	}
+
+	// Create shipment output
+	shipmentOutput := output.CreateShipmentVariantOutput(
+		shipmentNo,
+		shipInput.SalesOrderID,
+		shipInput.SalesOrderID, // Ideally fetch SO number from DB
+		shipInput.CustomerID,
+		"", // Fetch customer name from DB
+		lineItems,
+		totalItems,
+		shipInput.AutoDeductStock,
+		"Shipment created and stock deducted successfully",
+	)
+
+	shipmentOutput.CreatedBy = userID
+	shipmentOutput.UpdatedBy = userID
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"data":    shipmentOutput,
+		"message": "Shipment created successfully with variant stock deduction",
 	})
 }

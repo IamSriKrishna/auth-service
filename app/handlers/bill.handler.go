@@ -3,8 +3,10 @@ package handlers
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
+	"github.com/bbapp-org/auth-service/app/dto/output"
 	"github.com/bbapp-org/auth-service/app/services"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -321,5 +323,84 @@ func (h *BillHandler) DeleteBill(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message": "Bill deleted successfully",
 		"success": true,
+	})
+}
+
+// CreateBillFromVariants creates a bill from purchase order variants
+func (h *BillHandler) CreateBillFromVariants(c *fiber.Ctx) error {
+	var billInput input.CreateBillInput
+
+	if err := c.BodyParser(&billInput); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid request body",
+			"success": false,
+		})
+	}
+
+	validate := validator.New()
+	if err := validate.Struct(billInput); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   err.Error(),
+			"success": false,
+		})
+	}
+
+	userID := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		userID = fmt.Sprintf("%v", uid)
+	}
+
+	// Generate bill number (or use provided one)
+	billNo := billInput.BillNumber
+	if billNo == "" {
+		importTime := time.Now()
+		billNo = fmt.Sprintf("BILL-%d-%05d", importTime.Year(), c.Locals("request_id"))
+	}
+
+	// Build line items with variant details
+	var subTotal, totalTax float64
+	lineItems := make([]output.BillLineItemOutput, len(billInput.LineItems))
+
+	for i, item := range billInput.LineItems {
+		amount := item.Quantity * item.Rate
+		taxAmount := 0.0
+		if item.TaxPercent != nil {
+			taxAmount = amount * (*item.TaxPercent) / 100
+		}
+		subTotal += amount
+		totalTax += taxAmount
+
+		lineItems[i] = output.BillLineItemOutput{
+			VariantSKU:     item.VariantSKU,
+			Description:    item.Description,
+			Account:        item.Account,
+			Quantity:       item.Quantity,
+			Rate:           item.Rate,
+			Amount:         amount,
+			VariantDetails: item.VariantDetails,
+		}
+	}
+
+	// Calculate totals
+	total := subTotal + totalTax + billInput.Discount + billInput.Adjustment
+
+	// Create bill output
+	billOutput := output.CreateBillVariantOutput(
+		billNo,
+		billInput.PurchaseOrderID,
+		billInput.VendorID,
+		"", // Fetch vendor name from DB
+		lineItems,
+		subTotal,
+		totalTax,
+		total,
+	)
+
+	billOutput.UserName = userID
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"success": true,
+		"data":    billOutput,
+		"message": "Bill created successfully from purchase order variants",
 	})
 }

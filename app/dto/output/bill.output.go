@@ -8,40 +8,44 @@ import (
 )
 
 type BillOutput struct {
-	ID             string               `json:"id"`
-	BillNumber     string               `json:"bill_number"`
-	VendorID       uint                 `json:"vendor_id"`
-	Vendor         *VendorInfo          `json:"vendor,omitempty"`
-	BillingAddress string               `json:"billing_address,omitempty"`
-	OrderNumber    string               `json:"order_number,omitempty"`
-	BillDate       time.Time            `json:"bill_date"`
-	DueDate        time.Time            `json:"due_date"`
-	PaymentTerms   string               `json:"payment_terms"`
-	Subject        string               `json:"subject,omitempty"`
-	LineItems      []BillLineItemOutput `json:"line_items"`
-	SubTotal       float64              `json:"sub_total"`
-	Discount       float64              `json:"discount"`
-	TaxType        *string              `json:"tax_type,omitempty"`
-	TaxID          *uint                `json:"tax_id,omitempty"`
-	Tax            *TaxInfo             `json:"tax,omitempty"`
-	TaxAmount      float64              `json:"tax_amount"`
-	Adjustment     float64              `json:"adjustment"`
-	Total          float64              `json:"total"`
-	Notes          string               `json:"notes,omitempty"`
-	Status         string               `json:"status"`
-	Attachments    []string             `json:"attachments,omitempty"`
-	CreatedAt      time.Time            `json:"created_at"`
-	UpdatedAt      time.Time            `json:"updated_at"`
-	UserID         int                  `json:"user_id,omitempty"`
-	UserName       string               `json:"user_name,omitempty"`
-	CompanyID      int                  `json:"company_id,omitempty"`
-	CompanyName    string               `json:"company_name,omitempty"`
-	UpdatedByName  string               `json:"updated_by_name,omitempty"`
+	ID              string               `json:"id"`
+	BillNumber      string               `json:"bill_number"`
+	PurchaseOrderID *string              `json:"purchase_order_id,omitempty"`
+	PurchaseOrderNo string               `json:"purchase_order_no,omitempty"`
+	VendorID        uint                 `json:"vendor_id"`
+	VendorName      string               `json:"vendor_name,omitempty"`
+	Vendor          *VendorInfo          `json:"vendor,omitempty"`
+	BillingAddress  string               `json:"billing_address,omitempty"`
+	OrderNumber     string               `json:"order_number,omitempty"`
+	BillDate        time.Time            `json:"bill_date"`
+	DueDate         time.Time            `json:"due_date"`
+	PaymentTerms    string               `json:"payment_terms"`
+	Subject         string               `json:"subject,omitempty"`
+	LineItems       []BillLineItemOutput `json:"line_items"`
+	SubTotal        float64              `json:"sub_total"`
+	Discount        float64              `json:"discount"`
+	TaxType         *string              `json:"tax_type,omitempty"`
+	TaxID           *uint                `json:"tax_id,omitempty"`
+	Tax             *TaxInfo             `json:"tax,omitempty"`
+	TaxAmount       float64              `json:"tax_amount"`
+	Adjustment      float64              `json:"adjustment"`
+	Total           float64              `json:"total"`
+	Notes           string               `json:"notes,omitempty"`
+	Status          string               `json:"status"`
+	PaymentStatus   string               `json:"payment_status,omitempty"`
+	Attachments     []string             `json:"attachments,omitempty"`
+	CreatedAt       time.Time            `json:"created_at"`
+	UpdatedAt       time.Time            `json:"updated_at"`
+	UserID          int                  `json:"user_id,omitempty"`
+	UserName        string               `json:"user_name,omitempty"`
+	CompanyID       int                  `json:"company_id,omitempty"`
+	CompanyName     string               `json:"company_name,omitempty"`
+	UpdatedByName   string               `json:"updated_by_name,omitempty"`
 }
 
 type BillLineItemOutput struct {
 	ID             uint              `json:"id"`
-	ItemID         string            `json:"item_id"`
+	ItemID         *string           `json:"item_id"`
 	Item           *ItemInfo         `json:"item,omitempty"`
 	VariantSKU     *string           `json:"variant_sku,omitempty"`
 	Variant        *VariantInfo      `json:"variant,omitempty"`
@@ -151,4 +155,24 @@ func parseUserID(userIDStr string) int {
 	var userID int
 	_, _ = fmt.Sscanf(userIDStr, "%d", &userID)
 	return userID
+}
+
+// CreateBillVariantOutput creates a bill output with variant-specific line items
+func CreateBillVariantOutput(billNo string, purchaseOrderID *string, vendorID uint, vendorName string, lineItems []BillLineItemOutput, subTotal float64, taxAmount float64, total float64) *BillOutput {
+	return &BillOutput{
+		BillNumber:      billNo,
+		PurchaseOrderID: purchaseOrderID,
+		VendorID:        vendorID,
+		VendorName:      vendorName,
+		LineItems:       lineItems,
+		SubTotal:        subTotal,
+		TaxAmount:       taxAmount,
+		Total:           total,
+		Status:          "issued",
+		PaymentStatus:   "unpaid",
+		BillDate:        time.Now(),
+		DueDate:         time.Now().AddDate(0, 1, 0),
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+	}
 }

@@ -1,20 +1,99 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
 
+	"github.com/bbapp-org/auth-service/app/repo"
 	"github.com/bbapp-org/auth-service/app/services"
 	"github.com/gofiber/fiber/v2"
 )
 
 type DashboardHandler struct {
-	service services.DashboardService
+	service  services.DashboardService
+	userRepo repo.UserRepository
 }
 
-func NewDashboardHandler(service services.DashboardService) *DashboardHandler {
+func NewDashboardHandler(service services.DashboardService, userRepo repo.UserRepository) *DashboardHandler {
 	return &DashboardHandler{
-		service: service,
+		service:  service,
+		userRepo: userRepo,
 	}
+}
+
+// extractUserContext extracts and validates user context from JWT and query parameters
+func (h *DashboardHandler) extractUserContext(c *fiber.Ctx) (userID uint, userType string, email string, companyID uint, err error) {
+	authenticatedUserID := uint(0)
+	authenticatedUserType := "superadmin"
+	authenticatedEmail := ""
+	authenticatedCompanyID := uint(0)
+
+	// Extract authenticated user information from context (from JWT)
+	if id := c.Locals("user_id"); id != nil {
+		switch v := id.(type) {
+		case uint:
+			authenticatedUserID = v
+		case int:
+			authenticatedUserID = uint(v)
+		case float64:
+			authenticatedUserID = uint(v)
+		case string:
+			fmt.Sscanf(v, "%d", &authenticatedUserID)
+		}
+	}
+
+	if ut := c.Locals("user_type"); ut != nil {
+		if userTypeStr, ok := ut.(string); ok {
+			authenticatedUserType = userTypeStr
+		}
+	}
+
+	if e := c.Locals("user_email"); e != nil {
+		if emailStr, ok := e.(string); ok {
+			authenticatedEmail = emailStr
+		}
+	}
+
+	if cid := c.Locals("company_id"); cid != nil {
+		switch v := cid.(type) {
+		case uint:
+			authenticatedCompanyID = v
+		case int:
+			authenticatedCompanyID = uint(v)
+		case float64:
+			authenticatedCompanyID = uint(v)
+		}
+	}
+
+	userID = authenticatedUserID
+	userType = authenticatedUserType
+	email = authenticatedEmail
+	companyID = authenticatedCompanyID
+
+	// Check if superadmin is requesting another user's dashboard
+	if authenticatedUserType == "superadmin" {
+		viewUserIDStr := c.Query("view_user_id")
+		if viewUserIDStr != "" {
+			var viewUserID uint64
+			_, parseErr := fmt.Sscanf(viewUserIDStr, "%d", &viewUserID)
+			if parseErr == nil && viewUserID > 0 {
+				// Validate that the user exists before showing their dashboard
+				if h.userRepo != nil {
+					user, getErr := h.userRepo.GetByID(uint(viewUserID))
+					if getErr != nil || user == nil {
+						return 0, "", "", 0, fmt.Errorf("user not found")
+					}
+					userID = uint(viewUserID)
+					userType = "admin" // Treat as if viewing from admin perspective
+				} else {
+					userID = uint(viewUserID)
+					userType = "admin"
+				}
+			}
+		}
+	}
+
+	return userID, userType, email, companyID, nil
 }
 
 // GetDashboard returns all dashboard metrics
@@ -25,7 +104,14 @@ func NewDashboardHandler(service services.DashboardService) *DashboardHandler {
 // @Success 200 {object} output.DashboardMetricsOutput
 // @Router /dashboard [get]
 func (h *DashboardHandler) GetDashboard(c *fiber.Ctx) error {
-	metrics, err := h.service.GetDashboardMetrics()
+	userID, userType, email, companyID, err := h.extractUserContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	metrics, err := h.service.GetDashboardMetricsWithUserContext(userID, userType, email, companyID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -105,7 +191,14 @@ func (h *DashboardHandler) AddShipmentTracking(c *fiber.Ctx) error {
 // @Success 200 {object} output.StockListOutput
 // @Router /dashboard/stock [get]
 func (h *DashboardHandler) GetStockSummary(c *fiber.Ctx) error {
-	stock, err := h.service.GetStockSummary()
+	userID, userType, _, _, err := h.extractUserContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	stock, err := h.service.GetStockSummaryWithUserContext(userID, userType)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -146,7 +239,14 @@ func (h *DashboardHandler) GetEntityTrends(c *fiber.Ctx) error {
 // @Success 200 {object} output.ActivitySummaryOutput
 // @Router /dashboard/activity [get]
 func (h *DashboardHandler) GetActivitySummary(c *fiber.Ctx) error {
-	activity, err := h.service.GetActivitySummary()
+	userID, userType, _, _, err := h.extractUserContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	activity, err := h.service.GetActivitySummaryWithUserContext(userID, userType)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),

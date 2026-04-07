@@ -8,8 +8,139 @@ import (
 	"gorm.io/gorm"
 )
 
+// SeedRoles creates default admin and superadmin roles
+func SeedRoles(db *gorm.DB) error {
+	log.Println("Seeding roles...")
+
+	roles := []models.Role{
+		{
+			RoleName:    "admin",
+			Description: "Admin role with full system access for a specific user scope",
+			IsActive:    true,
+			Permissions: models.StringArray{
+				"create_customer",
+				"read_customer",
+				"update_customer",
+				"delete_customer",
+				"create_vendor",
+				"read_vendor",
+				"update_vendor",
+				"delete_vendor",
+				"create_item",
+				"read_item",
+				"update_item",
+				"delete_item",
+				"view_dashboard",
+				"create_invoice",
+				"read_invoice",
+				"update_invoice",
+				"delete_invoice",
+				"create_order",
+				"read_order",
+				"update_order",
+				"delete_order",
+			},
+		},
+		{
+			RoleName:    "superadmin",
+			Description: "Superadmin role with complete system access",
+			IsActive:    true,
+			Permissions: models.StringArray{
+				"*", // All permissions
+			},
+		},
+	}
+
+	for _, role := range roles {
+		var existing models.Role
+		if err := db.Where("role_name = ?", role.RoleName).First(&existing).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				if err := db.Create(&role).Error; err != nil {
+					log.Printf("Failed to create role %s: %v", role.RoleName, err)
+					return err
+				}
+				log.Printf("Created role: %s", role.RoleName)
+			}
+		} else {
+			log.Printf("Role %s already exists", role.RoleName)
+		}
+	}
+
+	return nil
+}
+
+// SeedBanks creates default banks for company use
+func SeedBanks(db *gorm.DB) error {
+	log.Println("Seeding banks...")
+
+	banks := []models.Bank{
+		{
+			BankName: "HDFC Bank",
+			City:     "Bangalore",
+			State:    "Karnataka",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "ICICI Bank",
+			City:     "Mumbai",
+			State:    "Maharashtra",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "State Bank of India",
+			City:     "Delhi",
+			State:    "Delhi",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Axis Bank",
+			City:     "Mumbai",
+			State:    "Maharashtra",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Kotak Mahindra Bank",
+			City:     "Mumbai",
+			State:    "Maharashtra",
+			Country:  "India",
+			IsActive: true,
+		},
+	}
+
+	for _, bank := range banks {
+		var existing models.Bank
+		if err := db.Where("bank_name = ?", bank.BankName).First(&existing).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				if err := db.Create(&bank).Error; err != nil {
+					log.Printf("Failed to create bank %s: %v", bank.BankName, err)
+					return err
+				}
+				log.Printf("Created bank: %s", bank.BankName)
+			}
+		} else {
+			log.Printf("Bank %s already exists", bank.BankName)
+		}
+	}
+
+	return nil
+}
+
 func SeedInitialData(db *gorm.DB) error {
 	log.Println("Seeding initial data...")
+
+	// Seed roles first
+	if err := SeedRoles(db); err != nil {
+		log.Printf("Warning: Failed to seed roles: %v", err)
+	}
+
+	// Seed banks
+	if err := SeedBanks(db); err != nil {
+		log.Printf("Warning: Failed to seed banks: %v", err)
+	}
 
 	businessTypes := []models.BusinessType{
 		{
@@ -230,14 +361,19 @@ func SeedDefaultCompany(db *gorm.DB) error {
 			return err
 		}
 
-		bank := models.CompanyBankDetail{
+		var bank models.Bank
+		if err := tx.Where("bank_name = ?", "HDFC Bank").First(&bank).Error; err != nil {
+			return errors.New("HDFC Bank not found in database")
+		}
+
+		bankDetail := models.CompanyBankDetail{
 			CompanyID:         company.ID,
-			BankID:            1, // Will need to fetch actual bank ID from database
+			BankID:            bank.ID,
 			AccountHolderName: "BB Cloud Technologies",
 			AccountNumber:     "123456789012",
 			IsPrimary:         true,
 		}
-		if err := tx.Create(&bank).Error; err != nil {
+		if err := tx.Create(&bankDetail).Error; err != nil {
 			return err
 		}
 

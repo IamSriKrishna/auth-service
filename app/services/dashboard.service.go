@@ -13,6 +13,7 @@ import (
 type DashboardService interface {
 	// Get dashboard metrics
 	GetDashboardMetrics() (*output.DashboardMetricsOutput, error)
+	GetDashboardMetricsWithUserContext(userID uint, userType string, email string, companyID uint) (*output.DashboardMetricsOutput, error)
 	RefreshDashboardMetrics() error
 
 	// Shipment tracking
@@ -21,24 +22,30 @@ type DashboardService interface {
 
 	// Stock information
 	GetStockSummary() (*output.StockListOutput, error)
+	GetStockSummaryWithUserContext(userID uint, userType string) (*output.StockListOutput, error)
 
 	// Trends
 	GetEntityTrends(entityType string, days int) (*output.EntityTrendOutput, error)
 
 	// Activity
 	GetActivitySummary() (*output.ActivitySummaryOutput, error)
+	GetActivitySummaryWithUserContext(userID uint, userType string) (*output.ActivitySummaryOutput, error)
 
 	// Diagnostics
 	GetDiagnosticReport() (*output.DiagnosticReportOutput, error)
 }
 
 type dashboardService struct {
-	repo repo.DashboardRepository
+	repo        repo.DashboardRepository
+	userRepo    repo.UserRepository
+	companyRepo repo.CompanyRepository
 }
 
-func NewDashboardService(dashRepo repo.DashboardRepository) DashboardService {
+func NewDashboardService(dashRepo repo.DashboardRepository, userRepo repo.UserRepository, companyRepo repo.CompanyRepository) DashboardService {
 	return &dashboardService{
-		repo: dashRepo,
+		repo:        dashRepo,
+		userRepo:    userRepo,
+		companyRepo: companyRepo,
 	}
 }
 
@@ -102,6 +109,197 @@ func (s *dashboardService) GetDashboardMetrics() (*output.DashboardMetricsOutput
 	packagesCreatedToday, _ := s.repo.GetPackagesCreatedToday()
 
 	return &output.DashboardMetricsOutput{
+		CustomerMetrics: output.CustomerMetricsOutput{
+			Total:        int(totalCustomers),
+			Active:       int(activeCustomers),
+			Inactive:     int(totalCustomers - activeCustomers),
+			CreatedToday: int(customersCreatedToday),
+		},
+		VendorMetrics: output.VendorMetricsOutput{
+			Total:        int(totalVendors),
+			Active:       int(activeVendors),
+			Inactive:     int(totalVendors - activeVendors),
+			CreatedToday: int(vendorsCreatedToday),
+		},
+		ItemMetrics: output.ItemMetricsOutput{
+			Total:          int(totalItems),
+			TotalStock:     totalStock,
+			LowStockItems:  int(lowStockItems),
+			ItemGroups:     int(totalItemGroups),
+			CreatedToday:   int(itemsCreatedToday),
+			OutOfStockItem: int(outOfStockItems),
+		},
+		ShipmentMetrics: output.ShipmentMetricsOutput{
+			Total:            int(totalShipments),
+			Shipped:          int(shippedCount),
+			Pending:          int(pendingShipments),
+			InTransit:        int(inTransitShipments),
+			Delivered:        int(deliveredShipments),
+			CancelledShipped: 0,
+			AverageTime:      0,
+		},
+		InvoiceMetrics: output.InvoiceMetricsOutput{
+			Total:       int(totalInvoices),
+			TotalAmount: totalInvoiceAmount,
+			Outstanding: outstandingInvoices,
+			Paid:        int(paidInvoices),
+			Pending:     int(pendingInvoices),
+			Overdue:     int(overdueInvoices),
+		},
+		SalesOrderMetrics: output.SalesOrderMetricsOutput{
+			Total:        int(totalSalesOrders),
+			TotalAmount:  totalSalesOrderAmount,
+			Completed:    int(completedSalesOrders),
+			Pending:      int(pendingSalesOrders),
+			Cancelled:    int(cancelledSalesOrders),
+			CreatedToday: int(salesOrdersCreatedToday),
+		},
+		PurchaseOrderMetrics: output.PurchaseOrderMetricsOutput{
+			Total:        int(totalPurchaseOrders),
+			TotalAmount:  totalPurchaseOrderAmount,
+			Completed:    int(completedPurchaseOrders),
+			Pending:      int(pendingPurchaseOrders),
+			Cancelled:    int(cancelledPurchaseOrders),
+			CreatedToday: int(purchaseOrdersCreatedToday),
+		},
+		PackageMetrics: output.PackageMetricsOutput{
+			Total:        int(totalPackages),
+			Shipped:      int(shippedPackages),
+			Pending:      int(pendingPackages),
+			InTransit:    int(inTransitPackages),
+			Delivered:    int(deliveredPackages),
+			CreatedToday: int(packagesCreatedToday),
+		},
+		LastUpdatedAt: time.Now(),
+		GeneratedAt:   time.Now(),
+	}, nil
+}
+
+// GetDashboardMetricsWithUserContext returns dashboard metrics filtered by user role
+func (s *dashboardService) GetDashboardMetricsWithUserContext(userID uint, userType string, email string, companyID uint) (*output.DashboardMetricsOutput, error) {
+	// For superadmin, show all data; for admin, filter by user ID
+	shouldFilter := userType == "admin" && userID > 0
+
+	fmt.Printf("Service Debug - UserID: %d, UserType: %s, ShouldFilter: %v, CompanyID: %d\n", userID, userType, shouldFilter, companyID)
+
+	// Customer metrics
+	totalCustomers, _ := s.repo.GetTotalCustomersWithFilter(shouldFilter, userID)
+	activeCustomers, _ := s.repo.GetActiveCustomersWithFilter(shouldFilter, userID)
+	customersCreatedToday, _ := s.repo.GetCustomersCreatedTodayWithFilter(shouldFilter, userID)
+
+	fmt.Printf("Customer metrics - Total: %d (should filter:%v)\n", totalCustomers, shouldFilter)
+
+	// Vendor metrics
+	totalVendors, _ := s.repo.GetTotalVendorsWithFilter(shouldFilter, userID)
+	activeVendors, _ := s.repo.GetActiveVendorsWithFilter(shouldFilter, userID)
+	vendorsCreatedToday, _ := s.repo.GetVendorsCreatedTodayWithFilter(shouldFilter, userID)
+
+	// Item metrics
+	totalItems, _ := s.repo.GetTotalItemsWithFilter(shouldFilter, userID)
+	totalItemGroups, _ := s.repo.GetTotalItemGroupsWithFilter(shouldFilter, userID)
+	totalStock, _ := s.repo.GetTotalStockWithFilter(shouldFilter, userID)
+	lowStockItems, _ := s.repo.GetLowStockItemsWithFilter(100, shouldFilter, userID)
+	outOfStockItems, _ := s.repo.GetOutOfStockItemsWithFilter(shouldFilter, userID)
+	itemsCreatedToday, _ := s.repo.GetItemsCreatedTodayWithFilter(shouldFilter, userID)
+
+	// Shipment metrics
+	totalShipments, _ := s.repo.GetTotalShipmentsWithFilter(shouldFilter, userID)
+	shippedCount, _ := s.repo.GetShippedCountWithFilter(shouldFilter, userID)
+	pendingShipments, _ := s.repo.GetShipmentsByStatusWithFilter("pending", shouldFilter, userID)
+	deliveredShipments, _ := s.repo.GetShipmentsByStatusWithFilter("delivered", shouldFilter, userID)
+	inTransitShipments, _ := s.repo.GetShipmentsByStatusWithFilter("in_transit", shouldFilter, userID)
+
+	// Invoice metrics
+	totalInvoices, _ := s.repo.GetTotalInvoicesWithFilter(shouldFilter, userID)
+	totalInvoiceAmount, _ := s.repo.GetTotalInvoiceAmountWithFilter(shouldFilter, userID)
+	outstandingInvoices, _ := s.repo.GetOutstandingInvoicesWithFilter(shouldFilter, userID)
+	paidInvoices, _ := s.repo.GetInvoicesByStatusWithFilter("paid", shouldFilter, userID)
+	pendingInvoices, _ := s.repo.GetInvoicesByStatusWithFilter("pending", shouldFilter, userID)
+	overdueInvoices, _ := s.repo.GetOverdueInvoicesWithFilter(shouldFilter, userID)
+
+	// Sales order metrics
+	totalSalesOrders, _ := s.repo.GetTotalSalesOrdersWithFilter(shouldFilter, userID)
+	totalSalesOrderAmount, _ := s.repo.GetTotalSalesOrderAmountWithFilter(shouldFilter, userID)
+	completedSalesOrders, _ := s.repo.GetSalesOrdersByStatusWithFilter("completed", shouldFilter, userID)
+	pendingSalesOrders, _ := s.repo.GetSalesOrdersByStatusWithFilter("pending", shouldFilter, userID)
+	cancelledSalesOrders, _ := s.repo.GetSalesOrdersByStatusWithFilter("cancelled", shouldFilter, userID)
+	salesOrdersCreatedToday, _ := s.repo.GetSalesOrdersCreatedTodayWithFilter(shouldFilter, userID)
+
+	// Purchase order metrics
+	totalPurchaseOrders, _ := s.repo.GetTotalPurchaseOrdersWithFilter(shouldFilter, userID)
+	totalPurchaseOrderAmount, _ := s.repo.GetTotalPurchaseOrderAmountWithFilter(shouldFilter, userID)
+	completedPurchaseOrders, _ := s.repo.GetPurchaseOrdersByStatusWithFilter("completed", shouldFilter, userID)
+	pendingPurchaseOrders, _ := s.repo.GetPurchaseOrdersByStatusWithFilter("pending", shouldFilter, userID)
+	cancelledPurchaseOrders, _ := s.repo.GetPurchaseOrdersByStatusWithFilter("cancelled", shouldFilter, userID)
+	purchaseOrdersCreatedToday, _ := s.repo.GetPurchaseOrdersCreatedTodayWithFilter(shouldFilter, userID)
+
+	// Package metrics
+	totalPackages, _ := s.repo.GetTotalPackagesWithFilter(shouldFilter, userID)
+	shippedPackages, _ := s.repo.GetPackagesByStatusWithFilter("shipped", shouldFilter, userID)
+	pendingPackages, _ := s.repo.GetPackagesByStatusWithFilter("pending", shouldFilter, userID)
+	inTransitPackages, _ := s.repo.GetPackagesByStatusWithFilter("in_transit", shouldFilter, userID)
+	deliveredPackages, _ := s.repo.GetPackagesByStatusWithFilter("delivered", shouldFilter, userID)
+	packagesCreatedToday, _ := s.repo.GetPackagesCreatedTodayWithFilter(shouldFilter, userID)
+
+	// Prepare user info by fetching from database
+	userInfo := output.UserInfoOutput{
+		UserID:      userID,
+		UserRole:    userType,
+		CompanyID:   companyID,
+		CompanyName: "",
+		UserName:    "",
+		Email:       email,
+	}
+
+	fmt.Printf("\n=== Service: Fetching User Info ===\n")
+	fmt.Printf("UserID: %d, UserType: %s, CompanyID: %d\n", userID, userType, companyID)
+
+	// Fetch actual user data from database
+	if userID > 0 && s.userRepo != nil {
+		fmt.Printf("Attempting to fetch user %d from database\n", userID)
+		user, err := s.userRepo.GetByID(userID)
+		if err != nil {
+			fmt.Printf("Error fetching user: %v\n", err)
+		} else if user != nil {
+			fmt.Printf("User found: %+v\n", user)
+			if user.Username != nil {
+				userInfo.UserName = *user.Username
+				fmt.Printf("Set username: %s\n", userInfo.UserName)
+			}
+			if user.Email != nil {
+				userInfo.Email = *user.Email
+				fmt.Printf("Set email: %s\n", userInfo.Email)
+			}
+		} else {
+			fmt.Println("User is nil")
+		}
+	} else {
+		fmt.Printf("Skipping user fetch: userID=%d, userRepo=%v\n", userID, s.userRepo != nil)
+	}
+
+	// Fetch company data from database
+	if companyID > 0 && s.companyRepo != nil {
+		fmt.Printf("Attempting to fetch company %d from database\n", companyID)
+		company, err := s.companyRepo.FindByID(companyID)
+		if err != nil {
+			fmt.Printf("Error fetching company: %v\n", err)
+		} else if company != nil {
+			fmt.Printf("Company found: %+v\n", company)
+			userInfo.CompanyName = company.CompanyName
+			fmt.Printf("Set company name: %s\n", userInfo.CompanyName)
+		} else {
+			fmt.Println("Company is nil")
+		}
+	} else {
+		fmt.Printf("Skipping company fetch: companyID=%d, companyRepo=%v\n", companyID, s.companyRepo != nil)
+	}
+
+	fmt.Printf("=== Final User Info ===\n")
+	fmt.Printf("UserID: %d, UserName: %s, UserRole: %s, CompanyID: %d, CompanyName: %s, Email: %s\n\n",
+		userInfo.UserID, userInfo.UserName, userInfo.UserRole, userInfo.CompanyID, userInfo.CompanyName, userInfo.Email)
+
+	return &output.DashboardMetricsOutput{
+		UserInfo: userInfo,
 		CustomerMetrics: output.CustomerMetricsOutput{
 			Total:        int(totalCustomers),
 			Active:       int(activeCustomers),
@@ -289,7 +487,77 @@ func (s *dashboardService) GetStockSummary() (*output.StockListOutput, error) {
 	stockDetails := make([]output.StockDetailOutput, 0)
 	fmt.Printf("DEBUG: itemStockDetails count: %d, nil: %v\n", len(itemStockDetails), itemStockDetails == nil)
 
-	if itemStockDetails != nil && len(itemStockDetails) > 0 {
+	if len(itemStockDetails) > 0 {
+		for _, item := range itemStockDetails {
+			fmt.Printf("DEBUG: Processing item: %v\n", item)
+			stockDetails = append(stockDetails, output.StockDetailOutput{
+				ItemID:            item["item_id"].(string),
+				ItemName:          item["item_name"].(string),
+				CurrentQuantity:   item["current_quantity"].(float64),
+				AvailableQuantity: item["available_quantity"].(float64),
+				ReservedQuantity:  item["reserved_quantity"].(float64),
+				InTransitQuantity: item["in_transit_quantity"].(float64),
+				Status:            item["status"].(string),
+			})
+		}
+	}
+
+	fmt.Printf("DEBUG: Final stockDetails count: %d\n", len(stockDetails))
+
+	return &output.StockListOutput{
+		Data:          stockDetails,
+		TotalItems:    int(inStock),
+		InStock:       int(inStock) - int(lowStock) - int(outOfStock),
+		LowStock:      int(lowStock),
+		OutOfStock:    int(outOfStock),
+		TotalQuantity: totalStock,
+	}, nil
+}
+
+// GetStockSummaryWithUserContext retrieves stock summary with user filtering
+func (s *dashboardService) GetStockSummaryWithUserContext(userID uint, userType string) (*output.StockListOutput, error) {
+	shouldFilter := userType == "admin" && userID > 0
+
+	var inStock, lowStock, outOfStock, totalStock int64
+
+	if shouldFilter {
+		inStock, _ = s.repo.GetTotalItemsWithFilter(shouldFilter, userID)
+		lowStock, _ = s.repo.GetLowStockItemsWithFilter(100, shouldFilter, userID)
+		outOfStock, _ = s.repo.GetOutOfStockItemsWithFilter(shouldFilter, userID)
+		totalStock, _ = s.repo.GetTotalStockWithFilter(shouldFilter, userID)
+	} else {
+		inStock, _ = s.repo.GetTotalItems()
+		lowStock, _ = s.repo.GetLowStockItems(100)
+		outOfStock, _ = s.repo.GetOutOfStockItems()
+		totalStock, _ = s.repo.GetTotalStock()
+	}
+
+	// Get detailed stock information
+	var itemStockDetails []map[string]interface{}
+	var err error
+
+	if shouldFilter {
+		itemStockDetails, err = s.repo.GetItemStockDetailsWithFilter(shouldFilter, userID)
+	} else {
+		itemStockDetails, err = s.repo.GetItemStockDetails()
+	}
+
+	if err != nil {
+		fmt.Printf("Error getting item stock details: %v\n", err)
+		return &output.StockListOutput{
+			Data:          make([]output.StockDetailOutput, 0),
+			TotalItems:    int(inStock),
+			InStock:       int(inStock) - int(lowStock) - int(outOfStock),
+			LowStock:      int(lowStock),
+			OutOfStock:    int(outOfStock),
+			TotalQuantity: totalStock,
+		}, nil
+	}
+
+	stockDetails := make([]output.StockDetailOutput, 0)
+	fmt.Printf("DEBUG: itemStockDetails count: %d, nil: %v\n", len(itemStockDetails), itemStockDetails == nil)
+
+	if len(itemStockDetails) > 0 {
 		for _, item := range itemStockDetails {
 			fmt.Printf("DEBUG: Processing item: %v\n", item)
 			stockDetails = append(stockDetails, output.StockDetailOutput{
@@ -349,6 +617,41 @@ func (s *dashboardService) GetActivitySummary() (*output.ActivitySummaryOutput, 
 	purchaseOrdersCreatedToday, _ := s.repo.GetPurchaseOrdersCreatedToday()
 	shippedToday, _ := s.repo.GetShippedToday()
 	deliveredToday, _ := s.repo.GetShipmentsByStatus("delivered")
+
+	return &output.ActivitySummaryOutput{
+		CreatedCustomersToday:      int(customersCreatedToday),
+		CreatedVendorsToday:        int(vendorsCreatedToday),
+		CreatedItemsToday:          int(itemsCreatedToday),
+		CreatedSalesOrdersToday:    int(salesOrdersCreatedToday),
+		CreatedPurchaseOrdersToday: int(purchaseOrdersCreatedToday),
+		ShippedToday:               int(shippedToday),
+		DeliveredToday:             int(deliveredToday),
+	}, nil
+}
+
+// GetActivitySummaryWithUserContext retrieves activity summary for today with user filtering
+func (s *dashboardService) GetActivitySummaryWithUserContext(userID uint, userType string) (*output.ActivitySummaryOutput, error) {
+	shouldFilter := userType == "admin" && userID > 0
+
+	var customersCreatedToday, vendorsCreatedToday, itemsCreatedToday int64
+	var salesOrdersCreatedToday, purchaseOrdersCreatedToday, shippedToday, deliveredToday int64
+
+	if shouldFilter {
+		customersCreatedToday, _ = s.repo.GetCustomersCreatedTodayWithFilter(shouldFilter, userID)
+		vendorsCreatedToday, _ = s.repo.GetVendorsCreatedTodayWithFilter(shouldFilter, userID)
+		itemsCreatedToday, _ = s.repo.GetItemsCreatedTodayWithFilter(shouldFilter, userID)
+		salesOrdersCreatedToday, _ = s.repo.GetSalesOrdersCreatedTodayWithFilter(shouldFilter, userID)
+		purchaseOrdersCreatedToday, _ = s.repo.GetPurchaseOrdersCreatedTodayWithFilter(shouldFilter, userID)
+	} else {
+		customersCreatedToday, _ = s.repo.GetCustomersCreatedToday()
+		vendorsCreatedToday, _ = s.repo.GetVendorsCreatedToday()
+		itemsCreatedToday, _ = s.repo.GetItemsCreatedToday()
+		salesOrdersCreatedToday, _ = s.repo.GetSalesOrdersCreatedToday()
+		purchaseOrdersCreatedToday, _ = s.repo.GetPurchaseOrdersCreatedToday()
+	}
+
+	shippedToday, _ = s.repo.GetShippedToday()
+	deliveredToday, _ = s.repo.GetShipmentsByStatus("delivered")
 
 	return &output.ActivitySummaryOutput{
 		CreatedCustomersToday:      int(customersCreatedToday),
