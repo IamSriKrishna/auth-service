@@ -92,6 +92,51 @@ func (r *productStockRepository) GetLowStockProducts(threshold float64, offset, 
 	return stocks, total, nil
 }
 
+// GetAllByUser retrieves all product stocks for a specific user
+func (r *productStockRepository) GetAllByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error) {
+	var stocks []models.ProductStock
+	var total int64
+
+	err := r.db.Model(&models.ProductStock{}).
+		Joins("JOIN products ON product_stocks.product_id = products.id").
+		Where("products.created_by = ?", userID).
+		Count(&total).
+		Preload("Product").
+		Offset(offset).
+		Limit(limit).
+		Order("product_stocks.created_at DESC").
+		Find(&stocks).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return stocks, total, nil
+}
+
+// GetLowStockProductsByUser retrieves low stock products for a specific user
+func (r *productStockRepository) GetLowStockProductsByUser(userID uint, threshold float64, offset, limit int) ([]models.ProductStock, int64, error) {
+	var stocks []models.ProductStock
+	var total int64
+
+	query := r.db.Model(&models.ProductStock{}).
+		Joins("JOIN products ON product_stocks.product_id = products.id").
+		Where("products.created_by = ? AND product_stocks.available_stock <= ?", userID, threshold)
+
+	err := query.Count(&total).
+		Preload("Product").
+		Offset(offset).
+		Limit(limit).
+		Order("product_stocks.available_stock ASC").
+		Find(&stocks).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return stocks, total, nil
+}
+
 type stockLedgerRepository struct {
 	db *gorm.DB
 }

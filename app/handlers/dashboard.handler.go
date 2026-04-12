@@ -70,26 +70,33 @@ func (h *DashboardHandler) extractUserContext(c *fiber.Ctx) (userID uint, userTy
 	email = authenticatedEmail
 	companyID = authenticatedCompanyID
 
-	// Check if superadmin is requesting another user's dashboard
-	if authenticatedUserType == "superadmin" {
-		viewUserIDStr := c.Query("view_user_id")
-		if viewUserIDStr != "" {
-			var viewUserID uint64
-			_, parseErr := fmt.Sscanf(viewUserIDStr, "%d", &viewUserID)
-			if parseErr == nil && viewUserID > 0 {
-				// Validate that the user exists before showing their dashboard
-				if h.userRepo != nil {
-					user, getErr := h.userRepo.GetByID(uint(viewUserID))
-					if getErr != nil || user == nil {
-						return 0, "", "", 0, fmt.Errorf("user not found")
-					}
-					userID = uint(viewUserID)
-					userType = "admin" // Treat as if viewing from admin perspective
-				} else {
-					userID = uint(viewUserID)
-					userType = "admin"
-				}
+	// Check if view_user_id is provided in query parameters
+	viewUserIDStr := c.Query("view_user_id")
+	if viewUserIDStr != "" {
+		var viewUserID uint64
+		_, parseErr := fmt.Sscanf(viewUserIDStr, "%d", &viewUserID)
+		if parseErr != nil || viewUserID <= 0 {
+			return 0, "", "", 0, fmt.Errorf("invalid view_user_id parameter")
+		}
+
+		// Permission check: Only superadmin can view any user's dashboard, others can only view their own
+		if authenticatedUserType != "superadmin" && uint(viewUserID) != authenticatedUserID {
+			return 0, "", "", 0, fmt.Errorf("unauthorized: cannot view another user's dashboard")
+		}
+
+		// Validate that the user exists
+		if h.userRepo != nil {
+			user, getErr := h.userRepo.GetByID(uint(viewUserID))
+			if getErr != nil || user == nil {
+				return 0, "", "", 0, fmt.Errorf("user not found with id: %d", viewUserID)
 			}
+		}
+
+		// Set the userID to the requested view_user_id
+		userID = uint(viewUserID)
+		// If viewing another user and authenticated user is superadmin, treat context as admin
+		if uint(viewUserID) != authenticatedUserID && authenticatedUserType == "superadmin" {
+			userType = "admin"
 		}
 	}
 

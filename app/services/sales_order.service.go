@@ -405,10 +405,27 @@ func (s *salesOrderService) DeleteSalesOrder(id string) error {
 }
 
 func (s *salesOrderService) generateSOSequence() int {
+	year := time.Now().Format("2006")
 	var count int64
-	today := time.Now().Format("2006-01-02")
+	db := s.soRepo.GetDB()
+	lockName := fmt.Sprintf("so_seq_%s", year)
 
-	s.soRepo.GetDB().Where("DATE(created_at) = ?", today).Model(&models.SalesOrder{}).Count(&count)
+	// Acquire a named lock to ensure only one goroutine increments the counter at a time
+	var lockResult int
+	result := db.Raw("SELECT GET_LOCK(?, 30)", lockName).Scan(&lockResult)
+	if result.Error != nil || lockResult != 1 {
+		log.Printf("[SO_SEQUENCE] Warning: Failed to acquire lock for sequence generation: %v, lockResult=%d", result.Error, lockResult)
+	}
 
-	return int(count) + 1
+	// Count ALL SOs for this year (not just today) to ensure globally unique sequence numbers
+	// This prevents duplicate numbers when no SOs are created on some days
+	db.Where("YEAR(created_at) = ?", year).Model(&models.SalesOrder{}).Count(&count)
+
+	sequence := int(count) + 1
+
+	// Release the lock
+	db.Raw("SELECT RELEASE_LOCK(?)", lockName).Scan(&lockResult)
+
+	log.Printf("[SO_SEQUENCE] Generated SO sequence number %d for year %s", sequence, year)
+	return sequence
 }

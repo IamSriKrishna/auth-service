@@ -323,3 +323,5 @@ func (s *shipmentService) deductInventoryForShipment(so *models.SalesOrder, user
 	}
 	return nil
 }
+
+

@@ -47,7 +47,7 @@ type SalesOrder struct {
 
 type SalesOrderLineItem struct {
 	ID                uint      `json:"id" gorm:"primaryKey"`
-	SalesOrderID      string    `json:"sales_order_id" gorm:"type:varchar(255);not null;index;foreignKey:ID;references:ID"`
+	SalesOrderID      string    `json:"sales_order_id" gorm:"type:varchar(255);not null;index"`
 	ProductID         string    `json:"product_id" gorm:"type:varchar(255);not null;index"`
 	ProductName       string    `json:"product_name" gorm:"type:varchar(255)"`
 	SKU               string    `json:"sku" gorm:"type:varchar(100)"`

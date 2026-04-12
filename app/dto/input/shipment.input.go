@@ -16,7 +16,7 @@ type CreateShipmentInput struct {
 	ShippingMethod    string                  `json:"shipping_method"`
 	ShippingAddress   string                  `json:"shipping_address"`
 	EstimatedDelivery *time.Time              `json:"estimated_delivery"`
-	LineItems         []ShipmentLineItemInput `json:"line_items" validate:"required,min=1,dive"`
+	LineItems         []ShipmentLineItemInput `json:"line_items" validate:"omitempty,min=1,dive"`
 	AutoDeductStock   bool                    `json:"auto_deduct_stock"`
 	Notes             string                  `json:"notes"`
 }

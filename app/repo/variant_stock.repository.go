@@ -84,6 +84,27 @@ func (r *variantStockRepository) GetAll(offset, limit int) ([]models.VariantStoc
 	return stocks, total, nil
 }
 
+func (r *variantStockRepository) GetAllByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error) {
+	var stocks []models.VariantStock
+	var total int64
+
+	err := r.db.Model(&models.VariantStock{}).
+		Joins("JOIN products ON variant_stocks.product_id = products.id").
+		Where("products.created_by = ?", userID).
+		Count(&total).
+		Preload("Product").
+		Offset(offset).
+		Limit(limit).
+		Order("variant_stocks.created_at DESC").
+		Find(&stocks).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return stocks, total, nil
+}
+
 func (r *variantStockRepository) GetBySKUs(skus []string) ([]models.VariantStock, error) {
 	var stocks []models.VariantStock
 	err := r.db.Preload("Product").

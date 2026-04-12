@@ -31,18 +31,17 @@ type CreateInvoiceInput struct {
 }
 
 type InvoiceLineItemInput struct {
-	ProductID      *string           `json:"product_id"`
-	ItemID         *string           `json:"item_id"`
-	VariantSKU     *string           `json:"variant_sku"`
-	Description    string            `json:"description" validate:"required"`
-	Quantity       float64           `json:"quantity" validate:"required,gt=0"`
-	Rate           float64           `json:"rate" validate:"required,gt=0"`
-	TaxPercent     *float64          `json:"tax_percent" validate:"omitempty,gte=0,lte=100"`
-	VariantDetails map[string]string `json:"variant_details"`
+	ProductID   *string `json:"product_id" validate:"required"`
+	ProductName string  `json:"product_name" validate:"required"`
+	SKU         string  `json:"sku"`
+	Account     string  `json:"account"`
+	Quantity    float64 `json:"quantity" validate:"required,gt=0"`
+	Rate        float64 `json:"rate" validate:"required,gt=0"`
 }
 
 type UpdateInvoiceInput struct {
 	CustomerID         *uint                  `json:"customer_id"`
+	SalesOrderID       *string                `json:"sales_order_id"`
 	OrderNumber        *string                `json:"order_number"`
 	InvoiceDate        *time.Time             `json:"invoice_date"`
 	Terms              *string                `json:"terms"`

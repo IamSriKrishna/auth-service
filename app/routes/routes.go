@@ -72,7 +72,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	customerService := services.NewCustomerService(customerRepo)
 	openStockService := services.NewOpeningStockService(openStockRepo, itemRepo, inventoryBalanceRepo)
 	manufacturerService := services.NewManufacturerService(manufacturerRepo)
-	invoiceService := services.NewInvoiceService(invoiceRepo, itemRepo, customerRepo, salespersonRepo, taxRepo, paymentRepo, productStockRepo, stockLedgerRepo, "./pdf_outputs")
+	invoiceService := services.NewInvoiceService(invoiceRepo, itemRepo, customerRepo, salespersonRepo, taxRepo, paymentRepo, productRepo, productStockRepo, stockLedgerRepo, "./pdf_outputs")
 	salespersonService := services.NewSalespersonService(salespersonRepo)
 	taxService := services.NewTaxService(taxRepo)
 	paymentService := services.NewPaymentService(paymentRepo, invoiceRepo)
@@ -90,7 +90,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo, inventoryBalanceRepo, stockMovementService, productStockRepo, stockLedgerRepo, variantStockManagementService, stockManagementService)
 	packageService := services.NewPackageService(packageRepo, salesOrderRepo, customerRepo, itemRepo, stockMovementService)
 	shipmentService := services.NewShipmentService(shipmentRepo, packageRepo, salesOrderRepo, customerRepo, inventoryBalanceRepo, stockMovementService)
-	billService := services.NewBillService(billRepo, vendorRepo, itemRepo, taxRepo)
+	billService := services.NewBillService(billRepo, vendorRepo, productRepo, taxRepo)
 	bankService := services.NewBankService(bankRepo)
 	itemGroupService := services.NewItemGroupService(itemGroupRepo, itemRepo)
 	inventoryService := services.NewInventoryService(itemRepo, itemGroupRepo, inventoryBalanceRepo, openStockRepo)
@@ -129,7 +129,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService, userRepo)
 	employeeHandler := handlers.NewEmployeeHandler(employeeService)
 	attendanceHandler := handlers.NewAttendanceHandler(attendanceService)
-	stockManagementHandler := handlers.NewStockManagementHandler(stockManagementService, variantStockManagementService)
+	stockManagementHandler := handlers.NewStockManagementHandlerWithUserRepo(stockManagementService, variantStockManagementService, userRepo)
 
 	// Swagger documentation endpoint
 	app.Get("/docs/*", swagger.HandlerDefault)

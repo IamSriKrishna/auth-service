@@ -27,6 +27,6 @@ type UpdatePackageInput struct {
 	Status        *string                `json:"status" validate:"omitempty,oneof=created packed shipped delivered cancelled"`
 }
 
-type UpdatePackageStatusInput struct {
-	Status string `json:"status" validate:"required,oneof=created packed shipped delivered cancelled"`
-}
+	type UpdatePackageStatusInput struct {
+		Status string `json:"status" validate:"required,oneof=created packed shipped delivered cancelled"`
+	}

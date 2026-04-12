@@ -1,10 +1,13 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"strconv"
 	"time"
 
+	"github.com/bbapp-org/auth-service/app/models"
+	"github.com/bbapp-org/auth-service/app/repo"
 	"github.com/bbapp-org/auth-service/app/services"
 	"github.com/gofiber/fiber/v2"
 )
@@ -12,6 +15,7 @@ import (
 type StockManagementHandler struct {
 	service          services.StockManagementService
 	variantStockMgmt services.VariantStockManagementService
+	userRepo         repo.UserRepository
 }
 
 func NewStockManagementHandler(service services.StockManagementService, variantStockMgmt services.VariantStockManagementService) *StockManagementHandler {
@@ -19,6 +23,71 @@ func NewStockManagementHandler(service services.StockManagementService, variantS
 		service:          service,
 		variantStockMgmt: variantStockMgmt,
 	}
+}
+
+func NewStockManagementHandlerWithUserRepo(service services.StockManagementService, variantStockMgmt services.VariantStockManagementService, userRepo repo.UserRepository) *StockManagementHandler {
+	return &StockManagementHandler{
+		service:          service,
+		variantStockMgmt: variantStockMgmt,
+		userRepo:         userRepo,
+	}
+}
+
+// extractViewUserID validates the view_user_id parameter and checks permissions
+// Always returns authenticated user ID by default, or view_user_id if provided and authorized
+func (h *StockManagementHandler) extractViewUserID(c *fiber.Ctx) (uint, error) {
+	// Get authenticated user info
+	authenticatedUserID := uint(0)
+	authenticatedUserType := ""
+
+	if id := c.Locals("user_id"); id != nil {
+		switch v := id.(type) {
+		case uint:
+			authenticatedUserID = v
+		case int:
+			authenticatedUserID = uint(v)
+		case float64:
+			authenticatedUserID = uint(v)
+		case string:
+			fmt.Sscanf(v, "%d", &authenticatedUserID)
+		}
+	}
+
+	if ut := c.Locals("user_type"); ut != nil {
+		if userTypeStr, ok := ut.(string); ok {
+			authenticatedUserType = userTypeStr
+		}
+	}
+
+	// Default to authenticated user
+	userID := authenticatedUserID
+
+	// Check if view_user_id is provided in query parameters
+	viewUserIDStr := c.Query("view_user_id")
+	if viewUserIDStr != "" {
+		var viewUserID uint64
+		_, parseErr := fmt.Sscanf(viewUserIDStr, "%d", &viewUserID)
+		if parseErr != nil || viewUserID <= 0 {
+			return 0, fmt.Errorf("invalid view_user_id parameter")
+		}
+
+		// Permission check: Only superadmin can view any user's stock, others can only view their own
+		if authenticatedUserType != "superadmin" && uint(viewUserID) != authenticatedUserID {
+			return 0, fmt.Errorf("unauthorized: cannot view another user's stock")
+		}
+
+		// Validate that the user exists
+		if h.userRepo != nil {
+			user, getErr := h.userRepo.GetByID(uint(viewUserID))
+			if getErr != nil || user == nil {
+				return 0, fmt.Errorf("user not found with id: %d", viewUserID)
+			}
+		}
+
+		userID = uint(viewUserID)
+	}
+
+	return userID, nil
 }
 
 // GET /api/stock/products/:productId
@@ -278,6 +347,14 @@ func (h *StockManagementHandler) RecordAdjustment(c *fiber.Ctx) error {
 // GET /api/stock/summary
 // Get updated stock summary for all products
 func (h *StockManagementHandler) GetAllStocksSummary(c *fiber.Ctx) error {
+	// Validate view_user_id if provided
+	viewUserID, err := h.extractViewUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
 	limit := 100
 	offset := 0
 
@@ -293,11 +370,16 @@ func (h *StockManagementHandler) GetAllStocksSummary(c *fiber.Ctx) error {
 		}
 	}
 
-	// Get product stocks
-	stocks, _, err := h.service.GetAllProductStock(offset, limit)
-	if err != nil {
+	// Get product stocks - always filtered by authenticated user
+	var stocks []models.ProductStock
+	var total int64
+	var getAllErr error
+
+	stocks, total, getAllErr = h.service.GetAllProductStockByUser(viewUserID, offset, limit)
+
+	if getAllErr != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error": getAllErr.Error(),
 		})
 	}
 
@@ -331,11 +413,15 @@ func (h *StockManagementHandler) GetAllStocksSummary(c *fiber.Ctx) error {
 		})
 	}
 
-	// Get variant stocks
-	variantStocks, _, err := h.variantStockMgmt.GetAllVariantStocks(offset, limit)
-	if err != nil {
+	// Get variant stocks - always filtered by authenticated user
+	var variantStocks []models.VariantStock
+	var variantGetErr error
+
+	variantStocks, _, variantGetErr = h.variantStockMgmt.GetAllVariantStocksByUser(viewUserID, offset, limit)
+
+	if variantGetErr != nil {
 		// Log error but continue - variants are optional
-		log.Printf("[STOCK_SUMMARY] Error fetching variant stocks: %v", err)
+		log.Printf("[STOCK_SUMMARY] Error fetching variant stocks: %v", variantGetErr)
 	} else {
 		// Add variant stocks
 		for _, vStock := range variantStocks {
@@ -366,6 +452,7 @@ func (h *StockManagementHandler) GetAllStocksSummary(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"stocks":                   stocksResponse,
+		"total":                    total,
 		"total_stock_value":        totalStockValue,
 		"total_sold_product_value": totalSoldProductValue,
 	})

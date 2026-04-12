@@ -28,23 +28,23 @@ type BillService interface {
 }
 
 type billService struct {
-	billRepo   repo.BillRepository
-	vendorRepo repo.VendorRepository
-	itemRepo   repo.ItemRepository
-	taxRepo    repo.TaxRepository
+	billRepo    repo.BillRepository
+	vendorRepo  repo.VendorRepository
+	productRepo repo.ProductRepository
+	taxRepo     repo.TaxRepository
 }
 
 func NewBillService(
 	billRepo repo.BillRepository,
 	vendorRepo repo.VendorRepository,
-	itemRepo repo.ItemRepository,
+	productRepo repo.ProductRepository,
 	taxRepo repo.TaxRepository,
 ) BillService {
 	return &billService{
-		billRepo:   billRepo,
-		vendorRepo: vendorRepo,
-		itemRepo:   itemRepo,
-		taxRepo:    taxRepo,
+		billRepo:    billRepo,
+		vendorRepo:  vendorRepo,
+		productRepo: productRepo,
+		taxRepo:     taxRepo,
 	}
 }
 
@@ -66,41 +66,23 @@ func (s *billService) CreateBill(billInput *input.CreateBillInput, userID string
 	subTotal := 0.0
 
 	for _, itemInput := range billInput.LineItems {
-		// Fetch item only if ItemID is provided
-		var item *models.Item
-		if itemInput.ItemID != nil {
-			var err error
-			item, err = s.itemRepo.FindByID(*itemInput.ItemID)
-			if err != nil {
-				return nil, errors.New("item not found: " + *itemInput.ItemID)
-			}
+		// Fetch product
+		product, err := s.productRepo.FindByID(*itemInput.ProductID)
+		if err != nil {
+			return nil, errors.New("product not found: " + *itemInput.ProductID)
 		}
 
 		amount := itemInput.Quantity * itemInput.Rate
 		subTotal += amount
 
 		lineItem := models.BillLineItem{
-			ItemID:      itemInput.ItemID,
-			Item:        item,
-			VariantSKU:  itemInput.VariantSKU,
-			Description: itemInput.Description,
+			ProductID:   itemInput.ProductID,
+			Product:     product,
+			Description: itemInput.ProductName,
 			Account:     itemInput.Account,
 			Quantity:    itemInput.Quantity,
 			Rate:        itemInput.Rate,
 			Amount:      amount,
-		}
-
-		if itemInput.VariantDetails != nil {
-			variantDetails := make(models.VariantDetails)
-			for k, v := range itemInput.VariantDetails {
-				variantDetails[k] = v
-			}
-			lineItem.VariantDetails = variantDetails
-		} else if itemInput.VariantSKU != nil {
-			// Create variant_details with just variant_sku if no details provided
-			variantDetails := make(models.VariantDetails)
-			variantDetails["variant_sku"] = *itemInput.VariantSKU
-			lineItem.VariantDetails = variantDetails
 		}
 
 		lineItems = append(lineItems, lineItem)
@@ -254,36 +236,23 @@ func (s *billService) UpdateBill(id string, billInput *input.UpdateBillInput, us
 		subTotal := 0.0
 
 		for _, itemInput := range billInput.LineItems {
-			// Fetch item only if ItemID is provided
-			var item *models.Item
-			if itemInput.ItemID != nil {
-				var err error
-				item, err = s.itemRepo.FindByID(*itemInput.ItemID)
-				if err != nil {
-					return nil, errors.New("item not found: " + *itemInput.ItemID)
-				}
+			// Fetch product
+			product, err := s.productRepo.FindByID(*itemInput.ProductID)
+			if err != nil {
+				return nil, errors.New("product not found: " + *itemInput.ProductID)
 			}
 
 			amount := itemInput.Quantity * itemInput.Rate
 			subTotal += amount
 
 			lineItem := models.BillLineItem{
-				ItemID:      itemInput.ItemID,
-				Item:        item,
-				VariantSKU:  itemInput.VariantSKU,
-				Description: itemInput.Description,
+				ProductID:   itemInput.ProductID,
+				Product:     product,
+				Description: itemInput.ProductName,
 				Account:     itemInput.Account,
 				Quantity:    itemInput.Quantity,
 				Rate:        itemInput.Rate,
 				Amount:      amount,
-			}
-
-			if itemInput.VariantDetails != nil {
-				variantDetails := make(models.VariantDetails)
-				for k, v := range itemInput.VariantDetails {
-					variantDetails[k] = v
-				}
-				lineItem.VariantDetails = variantDetails
 			}
 
 			lineItems = append(lineItems, lineItem)

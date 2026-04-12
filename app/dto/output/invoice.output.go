@@ -49,16 +49,15 @@ type InvoiceOutput struct {
 }
 
 type InvoiceLineItemOutput struct {
-	ID             uint              `json:"id"`
-	ItemID         *string           `json:"item_id"`
-	Item           *ItemInfo         `json:"item,omitempty"`
-	VariantSKU     *string           `json:"variant_sku,omitempty"`
-	Variant        *VariantInfo      `json:"variant,omitempty"`
-	Description    string            `json:"description,omitempty"`
-	Quantity       float64           `json:"quantity"`
-	Rate           float64           `json:"rate"`
-	Amount         float64           `json:"amount"`
-	VariantDetails map[string]string `json:"variant_details,omitempty"`
+	ProductID      string                 `json:"product_id"`
+	ProductName    string                 `json:"product_name"`
+	SKU            string                 `json:"sku"`
+	Account        string                 `json:"account"`
+	Quantity       float64                `json:"quantity"`
+	Rate           float64                `json:"rate"`
+	Amount         float64                `json:"amount"`
+	VariantSKU     string                 `json:"variant_sku,omitempty"`
+	VariantDetails map[string]interface{} `json:"variant_details,omitempty"`
 }
 
 type InvoiceListOutput struct {
@@ -113,35 +112,38 @@ type PaymentListOutput struct {
 func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 	lineItems := make([]InvoiceLineItemOutput, len(invoice.LineItems))
 	for i, item := range invoice.LineItems {
+		productID := ""
+		if item.ProductID != nil {
+			productID = *item.ProductID
+		}
+
+		sku := ""
+		if item.VariantDetails != nil && item.VariantDetails["sku"] != "" {
+			sku = item.VariantDetails["sku"]
+		}
+
+		account := ""
+		if item.VariantDetails != nil && item.VariantDetails["account"] != "" {
+			account = item.VariantDetails["account"]
+		}
+
 		lineItemOutput := InvoiceLineItemOutput{
-			ID:             item.ID,
-			ItemID:         item.ItemID,
-			VariantSKU:     item.VariantSKU,
-			Description:    item.Description,
-			Quantity:       item.Quantity,
-			Rate:           item.Rate,
-			Amount:         item.Amount,
-			VariantDetails: convertVariantDetails(item.VariantDetails),
+			ProductID:   productID,
+			ProductName: item.ProductName,
+			SKU:         sku,
+			Account:     account,
+			Quantity:    item.Quantity,
+			Rate:        item.Rate,
+			Amount:      item.Amount,
+			VariantSKU:  sku,
 		}
 
-		if item.Item != nil {
-			lineItemOutput.Item = &ItemInfo{
-				ID:   item.Item.ID,
-				Name: item.Item.Name,
-				SKU:  item.Item.ItemDetails.SKU,
+		if len(item.VariantDetails) > 0 {
+			variantMap := make(map[string]interface{})
+			for k, v := range item.VariantDetails {
+				variantMap[k] = v
 			}
-		}
-
-		if item.Variant != nil {
-			attributeMap := make(map[string]string)
-			for _, attr := range item.Variant.Attributes {
-				attributeMap[attr.Key] = attr.Value
-			}
-			lineItemOutput.Variant = &VariantInfo{
-				ID:           item.Variant.ID,
-				SKU:          item.Variant.SKU,
-				AttributeMap: attributeMap,
-			}
+			lineItemOutput.VariantDetails = variantMap
 		}
 
 		lineItems[i] = lineItemOutput
@@ -150,6 +152,7 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 	output := &InvoiceOutput{
 		ID:                 invoice.ID,
 		InvoiceNumber:      invoice.InvoiceNumber,
+		SalesOrderID:       invoice.SalesOrderID,
 		CustomerID:         invoice.CustomerID,
 		OrderNumber:        invoice.OrderNumber,
 		InvoiceDate:        invoice.InvoiceDate,

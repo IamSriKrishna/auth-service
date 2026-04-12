@@ -150,6 +150,8 @@ func RunMigrations(db *gorm.DB) error {
 		&models.Salesperson{},
 		&models.Tax{},
 		&models.Payment{},
+		&models.PaymentSplit{},
+		&models.EmailCommunication{},
 
 		&models.PurchaseOrder{},
 		&models.PurchaseOrderLineItem{},

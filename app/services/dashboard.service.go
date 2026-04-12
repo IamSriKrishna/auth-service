@@ -463,41 +463,51 @@ func (s *dashboardService) GetShipmentTracking(shipmentID string, limit int) (*o
 	return result, nil
 }
 
-// GetStockSummary retrieves the stock summary
+// GetStockSummary retrieves the product stock summary
 func (s *dashboardService) GetStockSummary() (*output.StockListOutput, error) {
-	inStock, _ := s.repo.GetTotalItems()
-	lowStock, _ := s.repo.GetLowStockItems(100)
-	outOfStock, _ := s.repo.GetOutOfStockItems()
-	totalStock, _ := s.repo.GetTotalStock()
+	inStock, _ := s.repo.GetInStockProducts()
+	lowStock, _ := s.repo.GetLowStockProducts(100)
+	outOfStock, _ := s.repo.GetOutOfStockProducts()
+	totalStock, _ := s.repo.GetTotalProductStock()
 
-	// Get detailed stock information
-	itemStockDetails, err := s.repo.GetItemStockDetails()
+	// Get detailed product stock information
+	productStockDetails, err := s.repo.GetProductStockDetails()
 	if err != nil {
-		fmt.Printf("Error getting item stock details: %v\n", err)
+		fmt.Printf("Error getting product stock details: %v\n", err)
 		return &output.StockListOutput{
-			Data:          make([]output.StockDetailOutput, 0),
-			TotalItems:    int(inStock),
-			InStock:       int(inStock) - int(lowStock) - int(outOfStock),
-			LowStock:      int(lowStock),
-			OutOfStock:    int(outOfStock),
-			TotalQuantity: totalStock,
+			Data:            make([]output.ProductStockDetailOutput, 0),
+			TotalProducts:   int(inStock),
+			InStockCount:    int(inStock) - int(lowStock) - int(outOfStock),
+			LowStockCount:   int(lowStock),
+			OutOfStockCount: int(outOfStock),
+			TotalQuantity:   totalStock,
 		}, nil
 	}
 
-	stockDetails := make([]output.StockDetailOutput, 0)
-	fmt.Printf("DEBUG: itemStockDetails count: %d, nil: %v\n", len(itemStockDetails), itemStockDetails == nil)
+	stockDetails := make([]output.ProductStockDetailOutput, 0)
+	fmt.Printf("DEBUG: productStockDetails count: %d, nil: %v\n", len(productStockDetails), productStockDetails == nil)
 
-	if len(itemStockDetails) > 0 {
-		for _, item := range itemStockDetails {
-			fmt.Printf("DEBUG: Processing item: %v\n", item)
-			stockDetails = append(stockDetails, output.StockDetailOutput{
-				ItemID:            item["item_id"].(string),
-				ItemName:          item["item_name"].(string),
-				CurrentQuantity:   item["current_quantity"].(float64),
-				AvailableQuantity: item["available_quantity"].(float64),
-				ReservedQuantity:  item["reserved_quantity"].(float64),
-				InTransitQuantity: item["in_transit_quantity"].(float64),
-				Status:            item["status"].(string),
+	if len(productStockDetails) > 0 {
+		for _, product := range productStockDetails {
+			fmt.Printf("DEBUG: Processing product: %v\n", product)
+
+			lastPurchasedDate, _ := product["last_purchased_date"].(*time.Time)
+			lastSoldDate, _ := product["last_sold_date"].(*time.Time)
+
+			stockDetails = append(stockDetails, output.ProductStockDetailOutput{
+				ProductID:         product["product_id"].(string),
+				ProductName:       product["product_name"].(string),
+				SKU:               product["sku"].(string),
+				CurrentStock:      product["current_stock"].(float64),
+				AvailableStock:    product["available_stock"].(float64),
+				ReservedStock:     product["reserved_stock"].(float64),
+				PurchasedStock:    product["purchased_stock"].(float64),
+				SoldStock:         product["sold_stock"].(float64),
+				AverageCost:       product["average_cost"].(float64),
+				RevaluationAmount: product["revaluation_amount"].(float64),
+				LastPurchasedDate: lastPurchasedDate,
+				LastSoldDate:      lastSoldDate,
+				Status:            product["status"].(string),
 			})
 		}
 	}
@@ -505,69 +515,80 @@ func (s *dashboardService) GetStockSummary() (*output.StockListOutput, error) {
 	fmt.Printf("DEBUG: Final stockDetails count: %d\n", len(stockDetails))
 
 	return &output.StockListOutput{
-		Data:          stockDetails,
-		TotalItems:    int(inStock),
-		InStock:       int(inStock) - int(lowStock) - int(outOfStock),
-		LowStock:      int(lowStock),
-		OutOfStock:    int(outOfStock),
-		TotalQuantity: totalStock,
+		Data:            stockDetails,
+		TotalProducts:   int(inStock),
+		InStockCount:    int(inStock) - int(lowStock) - int(outOfStock),
+		LowStockCount:   int(lowStock),
+		OutOfStockCount: int(outOfStock),
+		TotalQuantity:   totalStock,
 	}, nil
 }
 
-// GetStockSummaryWithUserContext retrieves stock summary with user filtering
+// GetStockSummaryWithUserContext retrieves product stock summary with user filtering
 func (s *dashboardService) GetStockSummaryWithUserContext(userID uint, userType string) (*output.StockListOutput, error) {
 	shouldFilter := userType == "admin" && userID > 0
 
-	var inStock, lowStock, outOfStock, totalStock int64
-
-	if shouldFilter {
-		inStock, _ = s.repo.GetTotalItemsWithFilter(shouldFilter, userID)
-		lowStock, _ = s.repo.GetLowStockItemsWithFilter(100, shouldFilter, userID)
-		outOfStock, _ = s.repo.GetOutOfStockItemsWithFilter(shouldFilter, userID)
-		totalStock, _ = s.repo.GetTotalStockWithFilter(shouldFilter, userID)
-	} else {
-		inStock, _ = s.repo.GetTotalItems()
-		lowStock, _ = s.repo.GetLowStockItems(100)
-		outOfStock, _ = s.repo.GetOutOfStockItems()
-		totalStock, _ = s.repo.GetTotalStock()
-	}
-
-	// Get detailed stock information
-	var itemStockDetails []map[string]interface{}
+	var inStock, lowStock, outOfStock int64
+	var totalStock float64
 	var err error
 
 	if shouldFilter {
-		itemStockDetails, err = s.repo.GetItemStockDetailsWithFilter(shouldFilter, userID)
+		inStock, _ = s.repo.GetInStockProductsWithFilter(shouldFilter, userID)
+		lowStock, _ = s.repo.GetLowStockProductsWithFilter(100, shouldFilter, userID)
+		outOfStock, _ = s.repo.GetOutOfStockProductsWithFilter(shouldFilter, userID)
+		totalStock, _ = s.repo.GetTotalProductStockWithFilter(shouldFilter, userID)
 	} else {
-		itemStockDetails, err = s.repo.GetItemStockDetails()
+		inStock, _ = s.repo.GetInStockProducts()
+		lowStock, _ = s.repo.GetLowStockProducts(100)
+		outOfStock, _ = s.repo.GetOutOfStockProducts()
+		totalStock, _ = s.repo.GetTotalProductStock()
+	}
+
+	// Get detailed product stock information
+	var productStockDetails []map[string]interface{}
+
+	if shouldFilter {
+		productStockDetails, err = s.repo.GetProductStockDetailsWithFilter(shouldFilter, userID)
+	} else {
+		productStockDetails, err = s.repo.GetProductStockDetails()
 	}
 
 	if err != nil {
-		fmt.Printf("Error getting item stock details: %v\n", err)
+		fmt.Printf("Error getting product stock details: %v\n", err)
 		return &output.StockListOutput{
-			Data:          make([]output.StockDetailOutput, 0),
-			TotalItems:    int(inStock),
-			InStock:       int(inStock) - int(lowStock) - int(outOfStock),
-			LowStock:      int(lowStock),
-			OutOfStock:    int(outOfStock),
-			TotalQuantity: totalStock,
+			Data:            make([]output.ProductStockDetailOutput, 0),
+			TotalProducts:   int(inStock),
+			InStockCount:    int(inStock) - int(lowStock) - int(outOfStock),
+			LowStockCount:   int(lowStock),
+			OutOfStockCount: int(outOfStock),
+			TotalQuantity:   totalStock,
 		}, nil
 	}
 
-	stockDetails := make([]output.StockDetailOutput, 0)
-	fmt.Printf("DEBUG: itemStockDetails count: %d, nil: %v\n", len(itemStockDetails), itemStockDetails == nil)
+	stockDetails := make([]output.ProductStockDetailOutput, 0)
+	fmt.Printf("DEBUG: productStockDetails count: %d, nil: %v\n", len(productStockDetails), productStockDetails == nil)
 
-	if len(itemStockDetails) > 0 {
-		for _, item := range itemStockDetails {
-			fmt.Printf("DEBUG: Processing item: %v\n", item)
-			stockDetails = append(stockDetails, output.StockDetailOutput{
-				ItemID:            item["item_id"].(string),
-				ItemName:          item["item_name"].(string),
-				CurrentQuantity:   item["current_quantity"].(float64),
-				AvailableQuantity: item["available_quantity"].(float64),
-				ReservedQuantity:  item["reserved_quantity"].(float64),
-				InTransitQuantity: item["in_transit_quantity"].(float64),
-				Status:            item["status"].(string),
+	if len(productStockDetails) > 0 {
+		for _, product := range productStockDetails {
+			fmt.Printf("DEBUG: Processing product: %v\n", product)
+
+			lastPurchasedDate, _ := product["last_purchased_date"].(*time.Time)
+			lastSoldDate, _ := product["last_sold_date"].(*time.Time)
+
+			stockDetails = append(stockDetails, output.ProductStockDetailOutput{
+				ProductID:         product["product_id"].(string),
+				ProductName:       product["product_name"].(string),
+				SKU:               product["sku"].(string),
+				CurrentStock:      product["current_stock"].(float64),
+				AvailableStock:    product["available_stock"].(float64),
+				ReservedStock:     product["reserved_stock"].(float64),
+				PurchasedStock:    product["purchased_stock"].(float64),
+				SoldStock:         product["sold_stock"].(float64),
+				AverageCost:       product["average_cost"].(float64),
+				RevaluationAmount: product["revaluation_amount"].(float64),
+				LastPurchasedDate: lastPurchasedDate,
+				LastSoldDate:      lastSoldDate,
+				Status:            product["status"].(string),
 			})
 		}
 	}
@@ -575,12 +596,12 @@ func (s *dashboardService) GetStockSummaryWithUserContext(userID uint, userType 
 	fmt.Printf("DEBUG: Final stockDetails count: %d\n", len(stockDetails))
 
 	return &output.StockListOutput{
-		Data:          stockDetails,
-		TotalItems:    int(inStock),
-		InStock:       int(inStock) - int(lowStock) - int(outOfStock),
-		LowStock:      int(lowStock),
-		OutOfStock:    int(outOfStock),
-		TotalQuantity: totalStock,
+		Data:            stockDetails,
+		TotalProducts:   int(inStock),
+		InStockCount:    int(inStock) - int(lowStock) - int(outOfStock),
+		LowStockCount:   int(lowStock),
+		OutOfStockCount: int(outOfStock),
+		TotalQuantity:   totalStock,
 	}, nil
 }
 
@@ -642,16 +663,17 @@ func (s *dashboardService) GetActivitySummaryWithUserContext(userID uint, userTy
 		itemsCreatedToday, _ = s.repo.GetItemsCreatedTodayWithFilter(shouldFilter, userID)
 		salesOrdersCreatedToday, _ = s.repo.GetSalesOrdersCreatedTodayWithFilter(shouldFilter, userID)
 		purchaseOrdersCreatedToday, _ = s.repo.GetPurchaseOrdersCreatedTodayWithFilter(shouldFilter, userID)
+		shippedToday, _ = s.repo.GetShippedTodayWithFilter(shouldFilter, userID)
+		deliveredToday, _ = s.repo.GetShipmentsByStatusWithFilter("delivered", shouldFilter, userID)
 	} else {
 		customersCreatedToday, _ = s.repo.GetCustomersCreatedToday()
 		vendorsCreatedToday, _ = s.repo.GetVendorsCreatedToday()
 		itemsCreatedToday, _ = s.repo.GetItemsCreatedToday()
 		salesOrdersCreatedToday, _ = s.repo.GetSalesOrdersCreatedToday()
 		purchaseOrdersCreatedToday, _ = s.repo.GetPurchaseOrdersCreatedToday()
+		shippedToday, _ = s.repo.GetShippedToday()
+		deliveredToday, _ = s.repo.GetShipmentsByStatus("delivered")
 	}
-
-	shippedToday, _ = s.repo.GetShippedToday()
-	deliveredToday, _ = s.repo.GetShipmentsByStatus("delivered")
 
 	return &output.ActivitySummaryOutput{
 		CreatedCustomersToday:      int(customersCreatedToday),

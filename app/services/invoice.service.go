@@ -62,6 +62,7 @@ type invoiceService struct {
 	salespersonRepo  repo.SalespersonRepository
 	taxRepo          repo.TaxRepository
 	paymentRepo      repo.PaymentRepository
+	productRepo      repo.ProductRepository
 	productStockRepo repo.ProductStockRepository
 	stockLedgerRepo  repo.StockLedgerRepository
 }
@@ -73,6 +74,7 @@ func NewInvoiceService(
 	salespersonRepo repo.SalespersonRepository,
 	taxRepo repo.TaxRepository,
 	paymentRepo repo.PaymentRepository,
+	productRepo repo.ProductRepository,
 	productStockRepo repo.ProductStockRepository,
 	stockLedgerRepo repo.StockLedgerRepository,
 	pdfOutputDir string,
@@ -84,6 +86,7 @@ func NewInvoiceService(
 		salespersonRepo:  salespersonRepo,
 		taxRepo:          taxRepo,
 		paymentRepo:      paymentRepo,
+		productRepo:      productRepo,
 		productStockRepo: productStockRepo,
 		stockLedgerRepo:  stockLedgerRepo,
 	}
@@ -120,38 +123,28 @@ func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID s
 	var subTotal float64
 
 	for i, itemInput := range input.LineItems {
-		// Fetch product if ProductID is provided
-		if itemInput.ProductID != nil {
-			_, err := s.productStockRepo.GetByProductID(*itemInput.ProductID)
-			if err != nil {
-				return nil, fmt.Errorf("product %s not found", *itemInput.ProductID)
-			}
-		}
-
-		// Fetch item only if ItemID is provided
-		if itemInput.ItemID != nil {
-			_, err := s.itemRepo.FindByID(*itemInput.ItemID)
-			if err != nil {
-				return nil, fmt.Errorf("item %s not found", *itemInput.ItemID)
-			}
-		}
-
-		if itemInput.VariantSKU != nil {
-			// Variant SKU will be stored directly, no need for ID validation
+		// Fetch product
+		_, err := s.productRepo.FindByID(*itemInput.ProductID)
+		if err != nil {
+			return nil, fmt.Errorf("product %s not found", *itemInput.ProductID)
 		}
 
 		amount := itemInput.Quantity * itemInput.Rate
 		subTotal += amount
 
+		variantDetails := models.VariantDetails{
+			"sku":     itemInput.SKU,
+			"account": itemInput.Account,
+		}
+
 		lineItems[i] = models.InvoiceLineItem{
 			ProductID:      itemInput.ProductID,
-			ItemID:         itemInput.ItemID,
-			VariantSKU:     itemInput.VariantSKU,
-			Description:    itemInput.Description,
+			ProductName:    itemInput.ProductName,
+			Description:    itemInput.ProductName,
 			Quantity:       itemInput.Quantity,
 			Rate:           itemInput.Rate,
 			Amount:         amount,
-			VariantDetails: itemInput.VariantDetails,
+			VariantDetails: variantDetails,
 		}
 	}
 
@@ -165,6 +158,7 @@ func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID s
 	invoice := &models.Invoice{
 		ID:                 id,
 		InvoiceNumber:      invoiceNumber,
+		SalesOrderID:       input.SalesOrderID,
 		CustomerID:         input.CustomerID,
 		OrderNumber:        input.OrderNumber,
 		InvoiceDate:        input.InvoiceDate,
@@ -260,6 +254,10 @@ func (s *invoiceService) UpdateInvoice(id string, input *input.UpdateInvoiceInpu
 		invoice.SalespersonID = input.SalespersonID
 	}
 
+	if input.SalesOrderID != nil {
+		invoice.SalesOrderID = input.SalesOrderID
+	}
+
 	if input.OrderNumber != nil {
 		invoice.OrderNumber = *input.OrderNumber
 	}
@@ -297,29 +295,28 @@ func (s *invoiceService) UpdateInvoice(id string, input *input.UpdateInvoiceInpu
 		var subTotal float64
 
 		for i, itemInput := range input.LineItems {
-			// Fetch item only if ItemID is provided
-			if itemInput.ItemID != nil {
-				_, err := s.itemRepo.FindByID(*itemInput.ItemID)
-				if err != nil {
-					return nil, fmt.Errorf("item %s not found", *itemInput.ItemID)
-				}
-			}
-
-			if itemInput.VariantSKU != nil {
-				// Variant SKU will be stored directly, no need for ID validation
+			// Fetch product
+			_, err := s.productRepo.FindByID(*itemInput.ProductID)
+			if err != nil {
+				return nil, fmt.Errorf("product %s not found", *itemInput.ProductID)
 			}
 
 			amount := itemInput.Quantity * itemInput.Rate
 			subTotal += amount
 
+			variantDetails := models.VariantDetails{
+				"sku":     itemInput.SKU,
+				"account": itemInput.Account,
+			}
+
 			lineItems[i] = models.InvoiceLineItem{
-				ItemID:         itemInput.ItemID,
-				VariantSKU:     itemInput.VariantSKU,
-				Description:    itemInput.Description,
+				ProductID:      itemInput.ProductID,
+				ProductName:    itemInput.ProductName,
+				Description:    itemInput.ProductName,
 				Quantity:       itemInput.Quantity,
 				Rate:           itemInput.Rate,
 				Amount:         amount,
-				VariantDetails: itemInput.VariantDetails,
+				VariantDetails: variantDetails,
 			}
 		}
 

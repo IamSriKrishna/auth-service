@@ -32,6 +32,7 @@ type VariantStockManagementService interface {
 	GetReservationsForSalesOrder(salesOrderID string) ([]models.StockReservation, error)
 	GetLowStockVariants(offset, limit int) ([]models.VariantStock, int64, error)
 	GetAllVariantStocks(offset, limit int) ([]models.VariantStock, int64, error)
+	GetAllVariantStocksByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error)
 
 	// Reconciliation
 	SyncAggregateStock(productID string) error
@@ -553,6 +554,11 @@ func (s *variantStockManagementService) GetLowStockVariants(offset, limit int) (
 // GetAllVariantStocks returns all variant stocks with pagination
 func (s *variantStockManagementService) GetAllVariantStocks(offset, limit int) ([]models.VariantStock, int64, error) {
 	return s.variantStockRepo.GetAll(offset, limit)
+}
+
+// GetAllVariantStocksByUser returns all variant stocks for a specific user
+func (s *variantStockManagementService) GetAllVariantStocksByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error) {
+	return s.variantStockRepo.GetAllByUser(userID, offset, limit)
 }
 
 // SyncAggregateStock syncs variant stock to product level

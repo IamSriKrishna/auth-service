@@ -52,6 +52,7 @@ type DashboardRepository interface {
 	GetShippedToday() (int64, error)
 	GetTotalShipmentsWithFilter(shouldFilter bool, userID uint) (int64, error)
 	GetShippedCountWithFilter(shouldFilter bool, userID uint) (int64, error)
+	GetShippedTodayWithFilter(shouldFilter bool, userID uint) (int64, error)
 	GetShipmentsByStatusWithFilter(status string, shouldFilter bool, userID uint) (int64, error)
 
 	// Invoice metrics
@@ -93,6 +94,20 @@ type DashboardRepository interface {
 	GetTotalPackagesWithFilter(shouldFilter bool, userID uint) (int64, error)
 	GetPackagesByStatusWithFilter(status string, shouldFilter bool, userID uint) (int64, error)
 	GetPackagesCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error)
+
+	// Product stock metrics
+	GetTotalProducts() (int64, error)
+	GetInStockProducts() (int64, error)
+	GetLowStockProducts(threshold float64) (int64, error)
+	GetOutOfStockProducts() (int64, error)
+	GetTotalProductStock() (float64, error)
+	GetProductStockDetails() ([]map[string]interface{}, error)
+	GetProductStockDetailsWithFilter(shouldFilter bool, userID uint) ([]map[string]interface{}, error)
+	GetTotalProductsWithFilter(shouldFilter bool, userID uint) (int64, error)
+	GetInStockProductsWithFilter(shouldFilter bool, userID uint) (int64, error)
+	GetLowStockProductsWithFilter(threshold float64, shouldFilter bool, userID uint) (int64, error)
+	GetOutOfStockProductsWithFilter(shouldFilter bool, userID uint) (int64, error)
+	GetTotalProductStockWithFilter(shouldFilter bool, userID uint) (float64, error)
 
 	// Shipment tracking
 	AddShipmentTracking(tracking *models.ShipmentTracking) error
@@ -372,6 +387,18 @@ func (r *dashboardRepository) GetShippedToday() (int64, error) {
 	err := r.db.Model(&models.Shipment{}).
 		Where("status = ? AND updated_at >= ?", "shipped", today).
 		Count(&count).Error
+	return count, err
+}
+
+func (r *dashboardRepository) GetShippedTodayWithFilter(shouldFilter bool, userID uint) (int64, error) {
+	var count int64
+	today := time.Now().Truncate(24 * time.Hour)
+	query := r.db.Model(&models.Shipment{}).
+		Where("status = ? AND updated_at >= ?", "shipped", today)
+	if shouldFilter {
+		query = query.Where("created_by = ?", userID)
+	}
+	err := query.Count(&count).Error
 	return count, err
 }
 
@@ -891,4 +918,281 @@ func (r *dashboardRepository) GetPackagesCreatedTodayWithFilter(shouldFilter boo
 	}
 	err := query.Count(&count).Error
 	return count, err
+}
+
+// Product stock metrics - Aggregated from variant stocks
+func (r *dashboardRepository) GetTotalProducts() (int64, error) {
+	var count int64
+	err := r.db.Model(&models.VariantStock{}).
+		Distinct("product_id").
+		Count(&count).Error
+	return count, err
+}
+
+func (r *dashboardRepository) GetInStockProducts() (int64, error) {
+	var count int64
+	err := r.db.Model(&models.VariantStock{}).
+		Select("DISTINCT product_id").
+		Where("available_stock > 0").
+		Count(&count).Error
+	return count, err
+}
+
+func (r *dashboardRepository) GetLowStockProducts(threshold float64) (int64, error) {
+	var count int64
+	err := r.db.Model(&models.VariantStock{}).
+		Select("DISTINCT product_id").
+		Where("available_stock > 0 AND available_stock <= ?", threshold).
+		Count(&count).Error
+	return count, err
+}
+
+func (r *dashboardRepository) GetOutOfStockProducts() (int64, error) {
+	var count int64
+	err := r.db.Model(&models.VariantStock{}).
+		Select("DISTINCT product_id").
+		Where("available_stock <= 0").
+		Count(&count).Error
+	return count, err
+}
+
+func (r *dashboardRepository) GetTotalProductStock() (float64, error) {
+	var total float64
+	err := r.db.Model(&models.VariantStock{}).
+		Select("COALESCE(SUM(current_stock), 0)").
+		Row().
+		Scan(&total)
+	return total, err
+}
+
+func (r *dashboardRepository) GetProductStockDetails() ([]map[string]interface{}, error) {
+	// Aggregate variant stocks by product
+	type ProductStockAggregate struct {
+		ProductID         string `gorm:"column:product_id"`
+		ProductName       string `gorm:"column:product_name"`
+		CurrentStock      float64
+		AvailableStock    float64
+		ReservedStock     float64
+		PurchasedStock    float64
+		SoldStock         float64
+		AverageCost       float64
+		RevaluationAmount float64
+		LastPurchasedDate *time.Time
+		LastSoldDate      *time.Time
+	}
+
+	var products []ProductStockAggregate
+	err := r.db.Model(&models.VariantStock{}).
+		Select(`
+			product_id,
+			product_name,
+			COALESCE(SUM(current_stock), 0) AS current_stock,
+			COALESCE(SUM(available_stock), 0) AS available_stock,
+			COALESCE(SUM(reserved_stock), 0) AS reserved_stock,
+			COALESCE(SUM(purchased_stock), 0) AS purchased_stock,
+			COALESCE(SUM(sold_stock), 0) AS sold_stock,
+			COALESCE(AVG(average_cost), 0) AS average_cost,
+			COALESCE(SUM(revaluation_amount), 0) AS revaluation_amount,
+			MAX(last_purchased_date) AS last_purchased_date,
+			MAX(last_sold_date) AS last_sold_date
+		`).
+		Group("product_id, product_name").
+		Scan(&products).Error
+
+	if err != nil {
+		fmt.Printf("GetProductStockDetails Error fetching products: %v\n", err)
+		return nil, err
+	}
+
+	fmt.Printf("GetProductStockDetails: Found %d products\n", len(products))
+
+	result := make([]map[string]interface{}, 0)
+
+	for _, product := range products {
+		stockStatus := "in_stock"
+		if product.AvailableStock <= 0 {
+			stockStatus = "out_of_stock"
+		} else if product.AvailableStock <= 100 { // default threshold
+			stockStatus = "low_stock"
+		}
+
+		result = append(result, map[string]interface{}{
+			"product_id":          product.ProductID,
+			"product_name":        product.ProductName,
+			"sku":                 "", // Not available at product level
+			"current_stock":       product.CurrentStock,
+			"available_stock":     product.AvailableStock,
+			"reserved_stock":      product.ReservedStock,
+			"purchased_stock":     product.PurchasedStock,
+			"sold_stock":          product.SoldStock,
+			"average_cost":        product.AverageCost,
+			"revaluation_amount":  product.RevaluationAmount,
+			"last_purchased_date": product.LastPurchasedDate,
+			"last_sold_date":      product.LastSoldDate,
+			"status":              stockStatus,
+		})
+	}
+
+	fmt.Printf("GetProductStockDetails: Returning %d results\n", len(result))
+	return result, nil
+}
+
+func (r *dashboardRepository) GetProductStockDetailsWithFilter(shouldFilter bool, userID uint) ([]map[string]interface{}, error) {
+	// Aggregate variant stocks by product, filtered by user
+	type ProductStockAggregate struct {
+		ProductID         string `gorm:"column:product_id"`
+		ProductName       string `gorm:"column:product_name"`
+		CurrentStock      float64
+		AvailableStock    float64
+		ReservedStock     float64
+		PurchasedStock    float64
+		SoldStock         float64
+		AverageCost       float64
+		RevaluationAmount float64
+		LastPurchasedDate *time.Time
+		LastSoldDate      *time.Time
+	}
+
+	var products []ProductStockAggregate
+	query := r.db.Model(&models.VariantStock{})
+
+	if shouldFilter {
+		// Join with products table and filter by created_by
+		query = query.
+			Joins("JOIN products ON variant_stocks.product_id = products.id").
+			Where("products.created_by = ?", fmt.Sprintf("%d", userID))
+	}
+
+	err := query.
+		Select(`
+			product_id,
+			product_name,
+			COALESCE(SUM(current_stock), 0) AS current_stock,
+			COALESCE(SUM(available_stock), 0) AS available_stock,
+			COALESCE(SUM(reserved_stock), 0) AS reserved_stock,
+			COALESCE(SUM(purchased_stock), 0) AS purchased_stock,
+			COALESCE(SUM(sold_stock), 0) AS sold_stock,
+			COALESCE(AVG(average_cost), 0) AS average_cost,
+			COALESCE(SUM(revaluation_amount), 0) AS revaluation_amount,
+			MAX(last_purchased_date) AS last_purchased_date,
+			MAX(last_sold_date) AS last_sold_date
+		`).
+		Group("product_id, product_name").
+		Scan(&products).Error
+
+	if err != nil {
+		fmt.Printf("GetProductStockDetailsWithFilter Error fetching products: %v\n", err)
+		return nil, err
+	}
+
+	fmt.Printf("GetProductStockDetailsWithFilter (shouldFilter=%v, userID=%d): Found %d products\n", shouldFilter, userID, len(products))
+
+	result := make([]map[string]interface{}, 0)
+
+	for _, product := range products {
+		stockStatus := "in_stock"
+		if product.AvailableStock <= 0 {
+			stockStatus = "out_of_stock"
+		} else if product.AvailableStock <= 100 { // default threshold
+			stockStatus = "low_stock"
+		}
+
+		result = append(result, map[string]interface{}{
+			"product_id":          product.ProductID,
+			"product_name":        product.ProductName,
+			"sku":                 "", // Not available at product level
+			"current_stock":       product.CurrentStock,
+			"available_stock":     product.AvailableStock,
+			"reserved_stock":      product.ReservedStock,
+			"purchased_stock":     product.PurchasedStock,
+			"sold_stock":          product.SoldStock,
+			"average_cost":        product.AverageCost,
+			"revaluation_amount":  product.RevaluationAmount,
+			"last_purchased_date": product.LastPurchasedDate,
+			"last_sold_date":      product.LastSoldDate,
+			"status":              stockStatus,
+		})
+	}
+
+	fmt.Printf("GetProductStockDetailsWithFilter: Returning %d results\n", len(result))
+	return result, nil
+}
+
+func (r *dashboardRepository) GetTotalProductsWithFilter(shouldFilter bool, userID uint) (int64, error) {
+	var count int64
+	query := r.db.Model(&models.VariantStock{}).Distinct("product_id")
+
+	if shouldFilter {
+		query = query.
+			Joins("JOIN products ON variant_stocks.product_id = products.id").
+			Where("products.created_by = ?", fmt.Sprintf("%d", userID))
+	}
+
+	err := query.Count(&count).Error
+	return count, err
+}
+
+func (r *dashboardRepository) GetInStockProductsWithFilter(shouldFilter bool, userID uint) (int64, error) {
+	var count int64
+	query := r.db.Model(&models.VariantStock{}).
+		Select("DISTINCT product_id").
+		Where("available_stock > 0")
+
+	if shouldFilter {
+		query = query.
+			Joins("JOIN products ON variant_stocks.product_id = products.id").
+			Where("products.created_by = ?", fmt.Sprintf("%d", userID))
+	}
+
+	err := query.Count(&count).Error
+	return count, err
+}
+
+func (r *dashboardRepository) GetLowStockProductsWithFilter(threshold float64, shouldFilter bool, userID uint) (int64, error) {
+	var count int64
+	query := r.db.Model(&models.VariantStock{}).
+		Select("DISTINCT product_id").
+		Where("available_stock > 0 AND available_stock <= ?", threshold)
+
+	if shouldFilter {
+		query = query.
+			Joins("JOIN products ON variant_stocks.product_id = products.id").
+			Where("products.created_by = ?", fmt.Sprintf("%d", userID))
+	}
+
+	err := query.Count(&count).Error
+	return count, err
+}
+
+func (r *dashboardRepository) GetOutOfStockProductsWithFilter(shouldFilter bool, userID uint) (int64, error) {
+	var count int64
+	query := r.db.Model(&models.VariantStock{}).
+		Select("DISTINCT product_id").
+		Where("available_stock <= 0")
+
+	if shouldFilter {
+		query = query.
+			Joins("JOIN products ON variant_stocks.product_id = products.id").
+			Where("products.created_by = ?", fmt.Sprintf("%d", userID))
+	}
+
+	err := query.Count(&count).Error
+	return count, err
+}
+
+func (r *dashboardRepository) GetTotalProductStockWithFilter(shouldFilter bool, userID uint) (float64, error) {
+	var total float64
+	query := r.db.Model(&models.VariantStock{})
+
+	if shouldFilter {
+		query = query.
+			Joins("JOIN products ON variant_stocks.product_id = products.id").
+			Where("products.created_by = ?", fmt.Sprintf("%d", userID))
+	}
+
+	err := query.
+		Select("COALESCE(SUM(current_stock), 0)").
+		Row().
+		Scan(&total)
+	return total, err
 }

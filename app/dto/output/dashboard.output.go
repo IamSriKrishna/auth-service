@@ -132,25 +132,31 @@ type EntityTrendsListOutput struct {
 	Timeframe string              `json:"timeframe"`
 }
 
-// StockDetailOutput represents detailed stock information
-type StockDetailOutput struct {
-	ItemID            string  `json:"item_id"`
-	ItemName          string  `json:"item_name"`
-	CurrentQuantity   float64 `json:"current_quantity"`
-	AvailableQuantity float64 `json:"available_quantity"`
-	ReservedQuantity  float64 `json:"reserved_quantity"`
-	InTransitQuantity float64 `json:"in_transit_quantity"`
-	Status            string  `json:"status"` // in_stock, low_stock, out_of_stock
+// ProductStockDetailOutput represents detailed product stock information with aggregate data from all variants
+type ProductStockDetailOutput struct {
+	ProductID         string     `json:"product_id"`
+	ProductName       string     `json:"product_name"`
+	SKU               string     `json:"sku,omitempty"`      // Optional - aggregated from variants
+	CurrentStock      float64    `json:"current_stock"`      // Total units across all variants
+	AvailableStock    float64    `json:"available_stock"`    // Available = Current - Reserved (aggregated)
+	ReservedStock     float64    `json:"reserved_stock"`     // Units reserved for sales orders (aggregated)
+	PurchasedStock    float64    `json:"purchased_stock"`    // Total units purchased (all time, aggregated)
+	SoldStock         float64    `json:"sold_stock"`         // Total units sold (all time, aggregated)
+	AverageCost       float64    `json:"average_cost"`       // Weighted average purchase cost
+	RevaluationAmount float64    `json:"revaluation_amount"` // Stock revaluation adjustments (aggregated)
+	LastPurchasedDate *time.Time `json:"last_purchased_date,omitempty"`
+	LastSoldDate      *time.Time `json:"last_sold_date,omitempty"`
+	Status            string     `json:"status"` // in_stock, low_stock, out_of_stock
 }
 
-// StockListOutput represents list of stock items
+// StockListOutput represents list of product stock
 type StockListOutput struct {
-	Data          []StockDetailOutput `json:"data"`
-	TotalItems    int                 `json:"total_items"`
-	InStock       int                 `json:"in_stock_count"`
-	LowStock      int                 `json:"low_stock_count"`
-	OutOfStock    int                 `json:"out_of_stock_count"`
-	TotalQuantity int64               `json:"total_quantity"`
+	Data            []ProductStockDetailOutput `json:"data"`
+	TotalProducts   int                        `json:"total_products"`
+	InStockCount    int                        `json:"in_stock_count"`
+	LowStockCount   int                        `json:"low_stock_count"`
+	OutOfStockCount int                        `json:"out_of_stock_count"`
+	TotalQuantity   float64                    `json:"total_quantity"`
 }
 
 // ActivitySummaryOutput represents recent activity

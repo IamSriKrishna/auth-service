@@ -357,32 +357,26 @@ func (h *BillHandler) CreateBillFromVariants(c *fiber.Ctx) error {
 		billNo = fmt.Sprintf("BILL-%d-%05d", importTime.Year(), c.Locals("request_id"))
 	}
 
-	// Build line items with variant details
-	var subTotal, totalTax float64
+	// Build line items
+	var subTotal float64
 	lineItems := make([]output.BillLineItemOutput, len(billInput.LineItems))
 
 	for i, item := range billInput.LineItems {
 		amount := item.Quantity * item.Rate
-		taxAmount := 0.0
-		if item.TaxPercent != nil {
-			taxAmount = amount * (*item.TaxPercent) / 100
-		}
 		subTotal += amount
-		totalTax += taxAmount
 
 		lineItems[i] = output.BillLineItemOutput{
-			VariantSKU:     item.VariantSKU,
-			Description:    item.Description,
-			Account:        item.Account,
-			Quantity:       item.Quantity,
-			Rate:           item.Rate,
-			Amount:         amount,
-			VariantDetails: item.VariantDetails,
+			VariantSKU:  &item.SKU,
+			Description: item.ProductName,
+			Account:     item.Account,
+			Quantity:    item.Quantity,
+			Rate:        item.Rate,
+			Amount:      amount,
 		}
 	}
 
 	// Calculate totals
-	total := subTotal + totalTax + billInput.Discount + billInput.Adjustment
+	total := subTotal + billInput.Discount + billInput.Adjustment
 
 	// Create bill output
 	billOutput := output.CreateBillVariantOutput(
@@ -392,7 +386,7 @@ func (h *BillHandler) CreateBillFromVariants(c *fiber.Ctx) error {
 		"", // Fetch vendor name from DB
 		lineItems,
 		subTotal,
-		totalTax,
+		0, // totalTax
 		total,
 	)
 

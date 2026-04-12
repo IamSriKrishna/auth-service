@@ -34,7 +34,9 @@ type StockManagementService interface {
 	// Stock operations
 	GetProductStock(productID string) (*models.ProductStock, error)
 	GetAllProductStock(offset, limit int) ([]models.ProductStock, int64, error)
+	GetAllProductStockByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error)
 	GetLowStockProducts(threshold float64, offset, limit int) ([]models.ProductStock, int64, error)
+	GetLowStockProductsByUser(userID uint, threshold float64, offset, limit int) ([]models.ProductStock, int64, error)
 
 	// Movement recording
 	RecordInboundMovement(productID, referenceType, referenceID, referenceNo string, quantity, rate float64, notes, userID string) error
@@ -82,9 +84,19 @@ func (s *stockManagementService) GetAllProductStock(offset, limit int) ([]models
 	return s.productStockRepo.GetAll(offset, limit)
 }
 
+// GetAllProductStockByUser retrieves all product stocks for a specific user
+func (s *stockManagementService) GetAllProductStockByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error) {
+	return s.productStockRepo.GetAllByUser(userID, offset, limit)
+}
+
 // GetLowStockProducts retrieves products with stock below threshold
 func (s *stockManagementService) GetLowStockProducts(threshold float64, offset, limit int) ([]models.ProductStock, int64, error) {
 	return s.productStockRepo.GetLowStockProducts(threshold, offset, limit)
+}
+
+// GetLowStockProductsByUser retrieves low stock products for a specific user
+func (s *stockManagementService) GetLowStockProductsByUser(userID uint, threshold float64, offset, limit int) ([]models.ProductStock, int64, error) {
+	return s.productStockRepo.GetLowStockProductsByUser(userID, threshold, offset, limit)
 }
 
 // RecordInboundMovement records stock increase (purchase, return, adjustment)

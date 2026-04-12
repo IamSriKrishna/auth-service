@@ -534,30 +534,26 @@ func (h *InvoiceHandler) CreateInvoiceFromVariants(c *fiber.Ctx) error {
 	// Generate invoice number
 	importTime := time.Now()
 	invoiceNo := fmt.Sprintf("INV-%d-%05d", importTime.Year(), c.Locals("request_id"))
-	var subTotal, totalTax float64
+	var subTotal float64
 	lineItems := make([]output.InvoiceLineItemOutput, len(invoiceInput.LineItems))
 
 	for i, item := range invoiceInput.LineItems {
 		amount := item.Quantity * item.Rate
-		taxAmount := 0.0
-		if item.TaxPercent != nil {
-			taxAmount = amount * (*item.TaxPercent) / 100
-		}
 		subTotal += amount
-		totalTax += taxAmount
 
 		lineItems[i] = output.InvoiceLineItemOutput{
-			VariantSKU:     item.VariantSKU,
-			Description:    item.Description,
-			Quantity:       item.Quantity,
-			Rate:           item.Rate,
-			Amount:         amount,
-			VariantDetails: item.VariantDetails,
+			ProductID:   *item.ProductID,
+			ProductName: item.ProductName,
+			SKU:         item.SKU,
+			Account:     item.Account,
+			Quantity:    item.Quantity,
+			Rate:        item.Rate,
+			Amount:      amount,
 		}
 	}
 
 	// Calculate totals
-	total := subTotal + totalTax + invoiceInput.ShippingCharges + invoiceInput.Adjustment
+	total := subTotal + invoiceInput.ShippingCharges + invoiceInput.Adjustment
 
 	// Create invoice output
 	invoiceOutput := output.CreateInvoiceVariantOutput(
@@ -568,7 +564,7 @@ func (h *InvoiceHandler) CreateInvoiceFromVariants(c *fiber.Ctx) error {
 		lineItems,
 		subTotal,
 		invoiceInput.ShippingCharges,
-		totalTax,
+		0, // totalTax
 		total,
 	)
 
