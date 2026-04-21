@@ -1,12 +1,12 @@
 package input
 
 type DatabaseConfig struct {
-	Host     string
-	Port     int
-	User     string
-	Password string
-	DBName   string
-	SSLMode  string
+	Host                string
+	Port                int
+	User                string
+	Password            string
+	DBName              string
+	SSLMode             string
 	ReadReplicaHost     string
 	ReadReplicaPort     int
 	ReadReplicaUser     string
@@ -19,10 +19,16 @@ type ServerConfig struct {
 }
 
 type AppConfig struct {
-	Environment string
-	JWTSecret   string
-	ServerPort  string
+	Environment    string
+	JWTSecret      string
+	ServerPort     string
 	AllowedOrigins string
+}
+
+type CloudinaryConfig struct {
+	CloudName string
+	APIKey    string
+	APISecret string
 }
 
 type GCSConfig struct {
@@ -30,7 +36,6 @@ type GCSConfig struct {
 	ProjectID     string
 	PublicBaseURL string
 }
-
 
 type OAuthConfig struct {
 	GoogleClientID        string

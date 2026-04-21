@@ -5,12 +5,12 @@ import "time"
 // VariantStock tracks inventory for product variants
 // This enables granular stock tracking at the SKU/variant level
 type VariantStock struct {
-	ID          string   `gorm:"type:varchar(255);primaryKey" json:"id"`
-	ProductID   string   `gorm:"type:varchar(255);index;not null" json:"product_id"`
-	Product     *Product `json:"product,omitempty" gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	VariantSKU  string   `gorm:"type:varchar(100);uniqueIndex;not null" json:"variant_sku"`
-	VariantName string   `gorm:"type:varchar(255)" json:"variant_name"`
-	ProductName string   `gorm:"type:varchar(255)" json:"product_name"`
+	ID        string `gorm:"type:varchar(255);primaryKey" json:"id"`
+	ProductID string `gorm:"type:varchar(255);index;not null" json:"product_id"`
+	// NOTE: Removed the Product relation field to avoid foreign key constraints that block product group IDs (pg_xxx)
+	VariantSKU  string `gorm:"type:varchar(100);uniqueIndex;not null" json:"variant_sku"`
+	VariantName string `gorm:"type:varchar(255)" json:"variant_name"`
+	ProductName string `gorm:"type:varchar(255)" json:"product_name"`
 
 	// Stock quantities
 	CurrentStock   float64 `gorm:"default:0;not null" json:"current_stock"`    // Total units on hand

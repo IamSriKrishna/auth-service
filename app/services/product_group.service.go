@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
 	"github.com/bbapp-org/auth-service/app/dto/output"
@@ -24,14 +25,40 @@ type ProductGroupService interface {
 }
 
 type productGroupService struct {
-	productGroupRepo repo.ProductGroupRepository
-	productRepo      repo.ProductRepository
+	productGroupRepo             repo.ProductGroupRepository
+	productRepo                  repo.ProductRepository
+	variantStockMgmtService      VariantStockManagementService
+	productGroupInventoryService ProductGroupInventoryService
+	stockManagementService       StockManagementService
+	productStockRepo             repo.ProductStockRepository
 }
 
-func NewProductGroupService(productGroupRepo repo.ProductGroupRepository, productRepo repo.ProductRepository) ProductGroupService {
+func NewProductGroupService(
+	productGroupRepo repo.ProductGroupRepository,
+	productRepo repo.ProductRepository,
+) ProductGroupService {
 	return &productGroupService{
 		productGroupRepo: productGroupRepo,
 		productRepo:      productRepo,
+	}
+}
+
+// NewProductGroupServiceWithStockMgmt creates a new ProductGroupService with inventory management
+func NewProductGroupServiceWithStockMgmt(
+	productGroupRepo repo.ProductGroupRepository,
+	productRepo repo.ProductRepository,
+	variantStockMgmtService VariantStockManagementService,
+	productGroupInventoryService ProductGroupInventoryService,
+	stockManagementService StockManagementService,
+	productStockRepo repo.ProductStockRepository,
+) ProductGroupService {
+	return &productGroupService{
+		productGroupRepo:             productGroupRepo,
+		productRepo:                  productRepo,
+		variantStockMgmtService:      variantStockMgmtService,
+		productGroupInventoryService: productGroupInventoryService,
+		stockManagementService:       stockManagementService,
+		productStockRepo:             productStockRepo,
 	}
 }
 
@@ -79,9 +106,20 @@ func (s *productGroupService) Create(input *input.CreateProductGroupInput) (*out
 		}
 	}
 
-	// Create ProductGroup
+	// Generate ProductGroup ID before stock deduction (in case we need it for reference)
 	productGroupID := "pg_" + uuid.New().String()[:8]
 
+	// ====== STOCK VALIDATION AND DEDUCTION ======
+	// Check and deduct stock from component variants
+	if s.variantStockMgmtService == nil {
+		return nil, fmt.Errorf("stock management service not initialized - cannot create product group")
+	}
+
+	if err := s.checkAndDeductStock(productGroupID, input.Products); err != nil {
+		return nil, fmt.Errorf("stock validation failed: %w", err)
+	}
+
+	// Create components
 	components := make([]models.ProductGroupComponent, 0, len(input.Products))
 	for _, comp := range input.Products {
 		// Convert VariantDetails from interface{} to models.VariantDetails
@@ -122,6 +160,12 @@ func (s *productGroupService) Create(input *input.CreateProductGroupInput) (*out
 	err := s.productGroupRepo.Create(productGroup)
 	if err != nil {
 		return nil, err
+	}
+
+	// Create stock entry for the product group itself
+	if err := s.createProductGroupStock(productGroupID, input); err != nil {
+		log.Printf("[PG_STOCK] Warning: Failed to create product group stock entry: %v", err)
+		// Don't fail - product group is already created
 	}
 
 	return s.toOutput(productGroup)
@@ -253,6 +297,138 @@ func (s *productGroupService) FindByName(name string) (*output.ProductGroupOutpu
 	}
 
 	return s.toOutput(productGroup)
+}
+
+// checkAndDeductStock checks availability and deducts stock for all components
+// This is called during product group creation to ensure components are reserved
+func (s *productGroupService) checkAndDeductStock(productGroupID string, components []input.ProductGroupComponentInput) error {
+	// First, check all components have sufficient stock available
+	for _, comp := range components {
+		if comp.VariantSku == nil || *comp.VariantSku == "" {
+			log.Printf("[PG_STOCK] Warning: Variant SKU not specified for product %s, skipping stock check", comp.ProductID)
+			continue
+		}
+
+		// Get current stock for variant
+		variantStock, err := s.variantStockMgmtService.GetVariantStockSummary(*comp.VariantSku)
+		if err != nil {
+			return fmt.Errorf("variant %s stock not found for product %s", *comp.VariantSku, comp.ProductID)
+		}
+
+		// Check if enough stock is available
+		if variantStock.AvailableStock < comp.Quantity {
+			return fmt.Errorf("insufficient stock for variant %s: required=%.0f, available=%.2f",
+				*comp.VariantSku, comp.Quantity, variantStock.AvailableStock)
+		}
+
+		log.Printf("[PG_STOCK] Stock check passed for %s: required=%.0f, available=%.2f",
+			*comp.VariantSku, comp.Quantity, variantStock.AvailableStock)
+	}
+
+	// All checks passed, now deduct the stock
+	for _, comp := range components {
+		if comp.VariantSku == nil || *comp.VariantSku == "" {
+			continue
+		}
+
+		reason := fmt.Sprintf("Product Group Assembly: PG-%s", productGroupID)
+
+		// Use RecordStockAdjustment with "out" type to deduct stock
+		err := s.variantStockMgmtService.RecordStockAdjustment(
+			*comp.VariantSku,
+			comp.Quantity,
+			"out",
+			reason,
+			"system", // userID - could be enhanced to get from context
+		)
+		if err != nil {
+			return fmt.Errorf("failed to deduct stock for variant %s: %w", *comp.VariantSku, err)
+		}
+
+		log.Printf("[PG_STOCK] Deducted %.0f units from variant %s for product group %s",
+			comp.Quantity, *comp.VariantSku, productGroupID)
+	}
+
+	return nil
+}
+
+// createProductGroupStock creates a stock entry for the product group itself
+// Records in BOTH ProductGroupInventory (for internal tracking) AND ProductStock (for stock APIs)
+// This allows the product group to appear in /api/stock/summary, /api/dashboard/stock
+func (s *productGroupService) createProductGroupStock(productGroupID string, input *input.CreateProductGroupInput) error {
+	log.Printf("[PG_STOCK] ===== START: Creating stock for PG %s (%s) =====", productGroupID, input.Name)
+
+	// Get the initial stock quantity from the first component
+	// (all components have equal quantity per product group design)
+	assemblyQty := input.Products[0].Quantity
+	log.Printf("[PG_STOCK] Assembly quantity: %.0f", assemblyQty)
+
+	// Calculate total cost and selling price from components
+	totalCost := 0.0
+	totalSellingPrice := 0.0
+
+	for _, comp := range input.Products {
+		product, err := s.productRepo.FindByID(comp.ProductID)
+		if err != nil {
+			log.Printf("[PG_STOCK] Warning: Could not find product %s for cost calculation", comp.ProductID)
+			continue
+		}
+
+		componentCost := product.PurchaseInfo.CostPrice * comp.Quantity
+		componentPrice := product.SalesInfo.SellingPrice * comp.Quantity
+
+		totalCost += componentCost
+		totalSellingPrice += componentPrice
+
+		log.Printf("[PG_STOCK] Component %s: Cost=%.2f, Selling=%.2f", comp.ProductID, componentCost, componentPrice)
+	}
+
+	log.Printf("[PG_STOCK] Total: Cost=%.2f, Selling=%.2f", totalCost, totalSellingPrice)
+
+	// IMPORTANT: We create VariantStock entry for the product group
+	// The dashboard stock API (/dashboard/stock) queries from VariantStock table, not ProductStock
+	// VariantStock doesn't have foreign key constraints, so we can use pg_xxx IDs directly
+	if s.variantStockMgmtService == nil {
+		log.Printf("[PG_STOCK] ✗ variantStockMgmtService is nil, cannot create VariantStock entry")
+		return fmt.Errorf("variant stock management service not available")
+	}
+
+	log.Printf("[PG_STOCK] Starting VariantStock initialization for %s", productGroupID)
+
+	// Initialize variant stock for the product group
+	variantStock, err := s.variantStockMgmtService.InitializeVariantStock(
+		productGroupID,    // productID - use PG ID
+		productGroupID,    // variantSKU - use PG ID as SKU
+		input.Name,        // variantName - use PG name
+		input.Name,        // productName - use PG name
+		totalSellingPrice, // sellingPrice
+		totalCost,         // costPrice (total cost)
+	)
+	if err != nil {
+		log.Printf("[PG_STOCK] ✗ Error initializing variant stock: %v", err)
+		return fmt.Errorf("failed to initialize variant stock: %w", err)
+	}
+	log.Printf("[PG_STOCK] ✓ Initialized VariantStock: ID=%s, SKU=%s, ProductName=%s", variantStock.ID, variantStock.VariantSKU, variantStock.ProductName)
+
+	// Record initial stock in variant stock
+	pgReason := fmt.Sprintf("Product Group Assembly: %s", input.Name)
+	log.Printf("[PG_STOCK] Recording stock adjustment: SKU=%s, Qty=%.0f, Type=in", productGroupID, assemblyQty)
+
+	err = s.variantStockMgmtService.RecordStockAdjustment(
+		productGroupID,
+		assemblyQty,
+		"in",
+		pgReason,
+		"system",
+	)
+	if err != nil {
+		log.Printf("[PG_STOCK] ✗ Error recording variant stock adjustment: %v", err)
+		return fmt.Errorf("failed to record stock adjustment: %w", err)
+	}
+	log.Printf("[PG_STOCK] ✓ Recorded stock adjustment: %.0f units added to %s", assemblyQty, productGroupID)
+
+	log.Printf("[PG_STOCK] ===== END: Successfully created VariantStock entry for product group %s (%s) with %.0f units =====", productGroupID, input.Name, assemblyQty)
+	return nil
 }
 
 func (s *productGroupService) toOutput(productGroup *models.ProductGroup) (*output.ProductGroupOutput, error) {

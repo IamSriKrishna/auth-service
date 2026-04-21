@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
@@ -21,17 +22,52 @@ func NewEmployeeHandler(employeeService services.EmployeeService) *EmployeeHandl
 
 func (h *EmployeeHandler) CreateEmployee(c *fiber.Ctx) error {
 	var req input.CreateEmployeeRequest
-	if err := c.BodyParser(&req); err != nil {
+
+	// Parse form data
+	if err := c.FormValue("name"); err == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 			Error:   true,
-			Message: "Invalid request body",
+			Message: "Name is required",
+		})
+	}
+
+	req.Name = c.FormValue("name")
+	req.Email = c.FormValue("email")
+	req.Number = c.FormValue("number")
+	req.Address = c.FormValue("address")
+	req.EmployeeType = c.FormValue("employee_type")
+
+	// Parse monthly_salary
+	monthlySalaryStr := c.FormValue("monthly_salary")
+	if monthlySalaryStr == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
+			Error:   true,
+			Message: "Monthly salary is required",
+		})
+	}
+
+	var monthlySalary float64
+	if _, err := fmt.Sscanf(monthlySalaryStr, "%f", &monthlySalary); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
+			Error:   true,
+			Message: "Invalid monthly salary format",
+		})
+	}
+	req.MonthlySalary = monthlySalary
+
+	// Get file from form
+	file, err := c.FormFile("document")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
+			Error:   true,
+			Message: "Document file is required",
 		})
 	}
 
 	createdByID := c.Locals("user_id").(uint)
 	companyID := c.Locals("company_id").(uint)
 
-	resp, err := h.employeeService.CreateEmployee(c.Context(), createdByID, companyID, &req)
+	resp, err := h.employeeService.CreateEmployeeWithFile(c.Context(), createdByID, companyID, &req, file)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 			Error:   true,

@@ -21,7 +21,7 @@ func (r *variantStockRepository) Create(stock *models.VariantStock) error {
 
 func (r *variantStockRepository) GetByID(id string) (*models.VariantStock, error) {
 	var stock models.VariantStock
-	err := r.db.Preload("Product").Where("id = ?", id).First(&stock).Error
+	err := r.db.Where("id = ?", id).First(&stock).Error
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +30,7 @@ func (r *variantStockRepository) GetByID(id string) (*models.VariantStock, error
 
 func (r *variantStockRepository) GetBySKU(sku string) (*models.VariantStock, error) {
 	var stock models.VariantStock
-	err := r.db.Preload("Product").Where("variant_sku = ?", sku).First(&stock).Error
+	err := r.db.Where("variant_sku = ?", sku).First(&stock).Error
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,6 @@ func (r *variantStockRepository) GetByProductID(productID string, offset, limit 
 	err := r.db.Model(&models.VariantStock{}).
 		Where("product_id = ?", productID).
 		Count(&total).
-		Preload("Product").
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -71,7 +70,6 @@ func (r *variantStockRepository) GetAll(offset, limit int) ([]models.VariantStoc
 
 	err := r.db.Model(&models.VariantStock{}).
 		Count(&total).
-		Preload("Product").
 		Offset(offset).
 		Limit(limit).
 		Order("created_at DESC").
@@ -88,11 +86,14 @@ func (r *variantStockRepository) GetAllByUser(userID uint, offset, limit int) ([
 	var stocks []models.VariantStock
 	var total int64
 
+	// Use LEFT JOIN to include both products AND product groups (pg_xxx)
+	// Product groups don't have entries in the products table, but their variant stocks
+	// should be visible to the user who created them via the product group creation flow
+	// For product groups, we include them since they're accessed via PG permissions
 	err := r.db.Model(&models.VariantStock{}).
-		Joins("JOIN products ON variant_stocks.product_id = products.id").
-		Where("products.created_by = ?", userID).
+		Joins("LEFT JOIN products ON variant_stocks.product_id = products.id").
+		Where("products.created_by = ? OR variant_stocks.product_id LIKE 'pg_%'", userID).
 		Count(&total).
-		Preload("Product").
 		Offset(offset).
 		Limit(limit).
 		Order("variant_stocks.created_at DESC").
@@ -107,7 +108,7 @@ func (r *variantStockRepository) GetAllByUser(userID uint, offset, limit int) ([
 
 func (r *variantStockRepository) GetBySKUs(skus []string) ([]models.VariantStock, error) {
 	var stocks []models.VariantStock
-	err := r.db.Preload("Product").
+	err := r.db.
 		Where("variant_sku IN ?", skus).
 		Find(&stocks).Error
 	return stocks, err
@@ -121,7 +122,6 @@ func (r *variantStockRepository) GetLowStockVariants(threshold float64, offset, 
 		Where("available_stock <= ?", threshold)
 
 	err := query.Count(&total).
-		Preload("Product").
 		Offset(offset).
 		Limit(limit).
 		Order("available_stock ASC").

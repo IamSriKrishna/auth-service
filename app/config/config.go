@@ -11,10 +11,11 @@ import (
 )
 
 type Config struct {
-	Service  input.ServiceConfig
-	Database input.DatabaseConfig
-	Server   input.ServerConfig
-	App      input.AppConfig
+	Service    input.ServiceConfig
+	Database   input.DatabaseConfig
+	Server     input.ServerConfig
+	App        input.AppConfig
+	Cloudinary input.CloudinaryConfig
 }
 
 func LoadConfig() *Config {
@@ -42,7 +43,11 @@ func LoadConfig() *Config {
 			ServerPort:     getEnv("SERVER_PORT", "8088"),
 			AllowedOrigins: getEnv("CORS_ALLOWED_ORIGINS", "*"),
 		},
-		
+		Cloudinary: input.CloudinaryConfig{
+			CloudName: getEnv("CLOUDINARY_CLOUD_NAME", ""),
+			APIKey:    getEnv("CLOUDINARY_API_KEY", ""),
+			APISecret: getEnv("CLOUDINARY_API_SECRET", ""),
+		},
 	}
 
 	log.Printf("MySQL database configuration loaded:")

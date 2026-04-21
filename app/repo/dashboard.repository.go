@@ -982,7 +982,9 @@ func (r *dashboardRepository) GetProductStockDetails() ([]map[string]interface{}
 	}
 
 	var products []ProductStockAggregate
+	// Use LEFT JOIN to include product groups (pg_xxx) which may not have corresponding products
 	err := r.db.Model(&models.VariantStock{}).
+		Joins("LEFT JOIN products ON variant_stocks.product_id = products.id").
 		Select(`
 			product_id,
 			product_name,
@@ -1057,10 +1059,11 @@ func (r *dashboardRepository) GetProductStockDetailsWithFilter(shouldFilter bool
 	query := r.db.Model(&models.VariantStock{})
 
 	if shouldFilter {
-		// Join with products table and filter by created_by
+		// Use LEFT JOIN to include product groups (pg_xxx) which don't have corresponding products
+		// Filter for: (real products created by user) OR (product groups)
 		query = query.
-			Joins("JOIN products ON variant_stocks.product_id = products.id").
-			Where("products.created_by = ?", fmt.Sprintf("%d", userID))
+			Joins("LEFT JOIN products ON variant_stocks.product_id = products.id").
+			Where("(products.created_by = ?) OR (variant_stocks.product_id LIKE 'pg_%')", fmt.Sprintf("%d", userID))
 	}
 
 	err := query.

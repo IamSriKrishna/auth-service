@@ -20,6 +20,20 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 
 	httpClient := utils.NewHTTPClient(cfg.Service.CustomerServiceURL, 10*time.Second)
 
+	// Initialize Cloudinary
+	cloudinaryClient, err := utils.InitCloudinary(cfg.Cloudinary.CloudName, cfg.Cloudinary.APIKey, cfg.Cloudinary.APISecret)
+	if err != nil {
+		app.Static("/", "./public", fiber.Static{
+			Compress:  true,
+			ByteRange: true,
+		})
+		// Log error but continue - Cloudinary is optional
+		app.Use(func(c *fiber.Ctx) error {
+			// You can log here if needed
+			return c.Next()
+		})
+	}
+
 	userRepo := repo.NewUserRepository(db, httpClient)
 	roleRepo := repo.NewRoleRepository(db)
 	refreshTokenRepo := repo.NewRefreshTokenRepository(db)
@@ -57,6 +71,9 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	variantStockRepo := repo.NewVariantStockRepository(db)
 	variantMovementRepo := repo.NewVariantStockMovementRepository(db)
 	reservationRepo := repo.NewStockReservationRepository(db)
+	pgInventoryRepo := repo.NewProductGroupInventoryRepository(db)
+	compInventoryRepo := repo.NewComponentInventoryRepository(db)
+	pgTransactionRepo := repo.NewProductGroupTransactionRepository(db)
 
 	authService := services.NewAuthService(userRepo, roleRepo, refreshTokenRepo, sessionRepo, companyRepo)
 	adminService := services.NewAdminService(userRepo, roleRepo, companyRepo)
@@ -86,6 +103,9 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	// Variant Stock Management Service for SKU-level tracking
 	variantStockManagementService := services.NewVariantStockManagementService(variantStockRepo, variantMovementRepo, reservationRepo, productStockRepo, stockLedgerRepo, productRepo, db)
 
+	// Product Group Inventory Service for tracking product group stock
+	productGroupInventoryService := services.NewProductGroupInventoryService(pgInventoryRepo, compInventoryRepo, pgTransactionRepo, productGroupRepo, productRepo)
+
 	purchaseOrderService := services.NewPurchaseOrderService(purchaseOrderRepo, vendorRepo, customerRepo, productRepo, taxRepo, userRepo, companyRepo, stockManagementService, stockLedgerRepo, variantStockManagementService)
 	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo, inventoryBalanceRepo, stockMovementService, productStockRepo, stockLedgerRepo, variantStockManagementService, stockManagementService)
 	packageService := services.NewPackageService(packageRepo, salesOrderRepo, customerRepo, itemRepo, stockMovementService)
@@ -95,9 +115,9 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	itemGroupService := services.NewItemGroupService(itemGroupRepo, itemRepo)
 	inventoryService := services.NewInventoryService(itemRepo, itemGroupRepo, inventoryBalanceRepo, openStockRepo)
 	productionOrderService := services.NewProductionOrderService(productionOrderRepo, itemGroupRepo, itemRepo, inventoryService)
-	productGroupService := services.NewProductGroupService(productGroupRepo, productRepo)
+	productGroupService := services.NewProductGroupServiceWithStockMgmt(productGroupRepo, productRepo, variantStockManagementService, productGroupInventoryService, stockManagementService, productStockRepo)
 	dashboardService := services.NewDashboardService(dashboardRepo, userRepo, companyRepo)
-	employeeService := services.NewEmployeeService(employeeRepo, userRepo)
+	employeeService := services.NewEmployeeService(employeeRepo, userRepo, cloudinaryClient)
 	attendanceService := services.NewEmployeeAttendanceService(attendanceRepo, employeeRepo)
 
 	authHandler := handlers.NewAuthHandler(authService)

@@ -3,15 +3,18 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
+	"mime/multipart"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
 	"github.com/bbapp-org/auth-service/app/dto/output"
 	"github.com/bbapp-org/auth-service/app/models"
 	"github.com/bbapp-org/auth-service/app/repo"
+	"github.com/bbapp-org/auth-service/app/utils"
 )
 
 type EmployeeService interface {
-	CreateEmployee(ctx context.Context, createdByID, companyID uint, req *input.CreateEmployeeRequest) (*output.EmployeeOutput, error)
+	CreateEmployeeWithFile(ctx context.Context, createdByID, companyID uint, req *input.CreateEmployeeRequest, file *multipart.FileHeader) (*output.EmployeeOutput, error)
 	GetEmployeeByID(ctx context.Context, employeeID, createdByID uint) (*output.EmployeeOutput, error)
 	GetEmployeesByUser(ctx context.Context, createdByID, companyID uint, page, limit int) (*output.PaginatedResponse, error)
 	UpdateEmployee(ctx context.Context, employeeID, createdByID uint, req *input.UpdateEmployeeRequest) (*output.EmployeeOutput, error)
@@ -21,49 +24,80 @@ type EmployeeService interface {
 type employeeService struct {
 	employeeRepo repo.EmployeeRepository
 	userRepo     repo.UserRepository
+	cloudinary   *utils.CloudinaryUploader
 }
 
 func NewEmployeeService(
 	employeeRepo repo.EmployeeRepository,
 	userRepo repo.UserRepository,
+	cloudinary *utils.CloudinaryUploader,
 ) EmployeeService {
 	return &employeeService{
 		employeeRepo: employeeRepo,
 		userRepo:     userRepo,
+		cloudinary:   cloudinary,
 	}
 }
 
-func (s *employeeService) CreateEmployee(ctx context.Context, createdByID, companyID uint, req *input.CreateEmployeeRequest) (*output.EmployeeOutput, error) {
+func (s *employeeService) CreateEmployeeWithFile(ctx context.Context, createdByID, companyID uint, req *input.CreateEmployeeRequest, file *multipart.FileHeader) (*output.EmployeeOutput, error) {
 	if req == nil {
 		return nil, errors.New("request cannot be nil")
 	}
 
-	// Create employee
+	if file == nil {
+		return nil, errors.New("document file is required")
+	}
+
+	// Create employee first without document URL
 	employee := &models.Employee{
-		Name:         req.Name,
-		Email:        req.Email,
-		Number:       req.Number,
-		Address:      req.Address,
-		EmployeeType: req.EmployeeType,
-		UserID:       createdByID,
-		CompanyID:    companyID,
+		Name:          req.Name,
+		Email:         req.Email,
+		Number:        req.Number,
+		Address:       req.Address,
+		EmployeeType:  req.EmployeeType,
+		MonthlySalary: req.MonthlySalary,
+		UserID:        createdByID,
+		CompanyID:     companyID,
 	}
 
 	if err := s.employeeRepo.Create(employee); err != nil {
 		return nil, err
 	}
 
+	// Upload document to Cloudinary
+	if s.cloudinary != nil {
+		fileReader, err := file.Open()
+		if err != nil {
+			return nil, errors.New("failed to open document file: " + err.Error())
+		}
+		defer fileReader.Close()
+
+		fmt.Printf("DEBUG: Uploading document %s for employee %d\n", file.Filename, employee.ID)
+		documentURL, err := s.cloudinary.UploadEmployeeDocumentFromReader(ctx, fileReader, file.Filename, employee.ID)
+		if err != nil {
+			return nil, errors.New("failed to upload document: " + err.Error())
+		}
+		fmt.Printf("DEBUG: Document uploaded successfully, URL: %s\n", documentURL)
+		employee.DocumentURL = documentURL
+
+		if err := s.employeeRepo.Update(employee); err != nil {
+			return nil, err
+		}
+	}
+
 	return &output.EmployeeOutput{
-		ID:           employee.ID,
-		Name:         employee.Name,
-		Email:        employee.Email,
-		Number:       employee.Number,
-		Address:      employee.Address,
-		EmployeeType: employee.EmployeeType,
-		UserID:       employee.UserID,
-		CompanyID:    employee.CompanyID,
-		CreatedAt:    employee.CreatedAt,
-		UpdatedAt:    employee.UpdatedAt,
+		ID:            employee.ID,
+		Name:          employee.Name,
+		Email:         employee.Email,
+		Number:        employee.Number,
+		Address:       employee.Address,
+		EmployeeType:  employee.EmployeeType,
+		MonthlySalary: employee.MonthlySalary,
+		DocumentURL:   employee.DocumentURL,
+		UserID:        employee.UserID,
+		CompanyID:     employee.CompanyID,
+		CreatedAt:     employee.CreatedAt,
+		UpdatedAt:     employee.UpdatedAt,
 	}, nil
 }
 
@@ -79,16 +113,18 @@ func (s *employeeService) GetEmployeeByID(ctx context.Context, employeeID, creat
 	}
 
 	return &output.EmployeeOutput{
-		ID:           employee.ID,
-		Name:         employee.Name,
-		Email:        employee.Email,
-		Number:       employee.Number,
-		Address:      employee.Address,
-		EmployeeType: employee.EmployeeType,
-		UserID:       employee.UserID,
-		CompanyID:    employee.CompanyID,
-		CreatedAt:    employee.CreatedAt,
-		UpdatedAt:    employee.UpdatedAt,
+		ID:            employee.ID,
+		Name:          employee.Name,
+		Email:         employee.Email,
+		Number:        employee.Number,
+		Address:       employee.Address,
+		EmployeeType:  employee.EmployeeType,
+		MonthlySalary: employee.MonthlySalary,
+		DocumentURL:   employee.DocumentURL,
+		UserID:        employee.UserID,
+		CompanyID:     employee.CompanyID,
+		CreatedAt:     employee.CreatedAt,
+		UpdatedAt:     employee.UpdatedAt,
 	}, nil
 }
 
@@ -109,15 +145,17 @@ func (s *employeeService) GetEmployeesByUser(ctx context.Context, createdByID, c
 	var employeeOutputs []output.EmployeeListOutput
 	for _, emp := range employees {
 		employeeOutputs = append(employeeOutputs, output.EmployeeListOutput{
-			ID:           emp.ID,
-			Name:         emp.Name,
-			Email:        emp.Email,
-			Number:       emp.Number,
-			Address:      emp.Address,
-			EmployeeType: emp.EmployeeType,
-			UserID:       emp.UserID,
-			CompanyID:    emp.CompanyID,
-			CreatedAt:    emp.CreatedAt,
+			ID:            emp.ID,
+			Name:          emp.Name,
+			Email:         emp.Email,
+			Number:        emp.Number,
+			Address:       emp.Address,
+			EmployeeType:  emp.EmployeeType,
+			MonthlySalary: emp.MonthlySalary,
+			DocumentURL:   emp.DocumentURL,
+			UserID:        emp.UserID,
+			CompanyID:     emp.CompanyID,
+			CreatedAt:     emp.CreatedAt,
 		})
 	}
 
@@ -166,22 +204,27 @@ func (s *employeeService) UpdateEmployee(ctx context.Context, employeeID, create
 	if req.EmployeeType != nil {
 		employee.EmployeeType = *req.EmployeeType
 	}
+	if req.MonthlySalary != nil {
+		employee.MonthlySalary = *req.MonthlySalary
+	}
 
 	if err := s.employeeRepo.Update(employee); err != nil {
 		return nil, err
 	}
 
 	return &output.EmployeeOutput{
-		ID:           employee.ID,
-		Name:         employee.Name,
-		Email:        employee.Email,
-		Number:       employee.Number,
-		Address:      employee.Address,
-		EmployeeType: employee.EmployeeType,
-		UserID:       employee.UserID,
-		CompanyID:    employee.CompanyID,
-		CreatedAt:    employee.CreatedAt,
-		UpdatedAt:    employee.UpdatedAt,
+		ID:            employee.ID,
+		Name:          employee.Name,
+		Email:         employee.Email,
+		Number:        employee.Number,
+		Address:       employee.Address,
+		EmployeeType:  employee.EmployeeType,
+		MonthlySalary: employee.MonthlySalary,
+		DocumentURL:   employee.DocumentURL,
+		UserID:        employee.UserID,
+		CompanyID:     employee.CompanyID,
+		CreatedAt:     employee.CreatedAt,
+		UpdatedAt:     employee.UpdatedAt,
 	}, nil
 }
 
