@@ -19,6 +19,7 @@ type VariantStock struct {
 	ReservedStock  float64 `gorm:"default:0;not null" json:"reserved_stock"`   // Units reserved for sales orders
 	AvailableStock float64 `gorm:"default:0;not null" json:"available_stock"`  // Available = Current - Reserved
 	InTransitStock float64 `gorm:"default:0;not null" json:"in_transit_stock"` // Stock in shipment process
+	DamagedStock   float64 `gorm:"default:0;not null" json:"damaged_stock"`    // Units marked as damaged/defective
 
 	// Reorder management
 	ReorderLevel float64 `json:"reorder_level" gorm:"default:0"`    // Minimum stock level
@@ -29,6 +30,11 @@ type VariantStock struct {
 	AverageCost       float64 `gorm:"default:0" json:"average_cost"`       // Weighted average purchase cost
 	SellingPrice      float64 `gorm:"default:0" json:"selling_price"`      // Current selling price
 	RevaluationAmount float64 `gorm:"default:0" json:"revaluation_amount"` // Stock revaluation adjustments
+
+	// Damage tracking
+	DamageReason string     `gorm:"type:text" json:"damage_reason,omitempty"`      // Reason for damage/defect
+	DamagedAt    *time.Time `json:"damaged_at,omitempty"`                          // When item was marked as damaged
+	DamagedBy    string     `gorm:"type:varchar(255)" json:"damaged_by,omitempty"` // User who marked as damaged
 
 	// Tracking
 	LastPurchasedDate *time.Time `json:"last_purchased_date,omitempty"`

@@ -97,3 +97,18 @@ const (
 	ProductionOrderStatusCompleted  ProductionOrderStatus = "completed"
 	ProductionOrderStatusCancelled  ProductionOrderStatus = "cancelled"
 )
+
+type PaymentMode string
+
+const (
+	PaymentModeCash   PaymentMode = "cash"
+	PaymentModeOnline PaymentMode = "online"
+)
+
+type PaymentStatus string
+
+const (
+	PaymentStatusPending   PaymentStatus = "pending"
+	PaymentStatusPartial   PaymentStatus = "partial"
+	PaymentStatusCompleted PaymentStatus = "completed"
+)

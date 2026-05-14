@@ -50,6 +50,11 @@ type StockManagementService interface {
 
 	// Stock summary
 	GetStockSummary(productID string) (map[string]interface{}, error)
+
+	// Damaged product management
+	MarkProductAsDamaged(productID string, quantity float64, reason, userID string) error
+	GetDamagedProducts(offset, limit int) ([]models.ProductStock, int64, error)
+	GetDamagedProductsByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error)
 }
 
 type stockManagementService struct {
@@ -358,4 +363,82 @@ func (s *stockManagementService) GetStockSummary(productID string) (map[string]i
 		"last_sold":       stock.LastSoldDate,
 		"last_sync":       stock.LastStockSyncAt,
 	}, nil
+}
+
+// MarkProductAsDamaged marks a product stock as damaged and reduces available stock
+func (s *stockManagementService) MarkProductAsDamaged(productID string, quantity float64, reason, userID string) error {
+	if quantity <= 0 {
+		return errors.New("damage quantity must be positive")
+	}
+
+	if reason == "" {
+		return errors.New("damage reason is required")
+	}
+
+	log.Printf("[DAMAGE_TRACKING] Marking product as damaged: Product=%s, Qty=%.2f, Reason=%s",
+		productID, quantity, reason)
+
+	// Get product stock
+	stock, err := s.productStockRepo.GetByProductID(productID)
+	if err != nil {
+		return fmt.Errorf("product stock not found: %s", productID)
+	}
+
+	// Check if available stock is sufficient
+	if stock.AvailableStock < quantity {
+		return fmt.Errorf("insufficient available stock: have %.2f, trying to mark %.2f as damaged",
+			stock.AvailableStock, quantity)
+	}
+
+	// Update stock
+	prevDamagedStock := stock.DamagedStock
+	stock.DamagedStock += quantity
+	stock.AvailableStock -= quantity
+	stock.DamageReason = reason
+	now := time.Now()
+	stock.DamagedAt = &now
+	stock.DamagedBy = userID
+	stock.UpdatedAt = now
+
+	if err := s.productStockRepo.Update(stock); err != nil {
+		return fmt.Errorf("failed to update product stock with damage: %w", err)
+	}
+
+	// Record ledger entry for damage
+	amount := quantity * stock.AverageCost
+	ledger := &models.StockLedger{
+		ProductID:        productID,
+		MovementType:     "DAMAGE",  // New movement type for damages
+		Quantity:         -quantity, // Negative to indicate reduction
+		Rate:             stock.AverageCost,
+		Amount:           -amount, // Negative to indicate value reduction
+		ReferenceType:    "damage_record",
+		ReferenceID:      uuid.New().String(),
+		ReferenceNumber:  fmt.Sprintf("DMG-%d", time.Now().Unix()),
+		BalanceBeforeQty: stock.AvailableStock + quantity,
+		BalanceAfterQty:  stock.AvailableStock,
+		CostBeforeAmount: (stock.AvailableStock + quantity) * stock.AverageCost,
+		CostAfterAmount:  stock.AvailableStock * stock.AverageCost,
+		Notes:            fmt.Sprintf("Damage reason: %s", reason),
+		CreatedAt:        now,
+		CreatedBy:        userID,
+	}
+
+	if err := s.stockLedgerRepo.Create(ledger); err != nil {
+		log.Printf("[DAMAGE_TRACKING] Warning: Failed to create ledger entry: %v", err)
+	}
+
+	log.Printf("[DAMAGE_TRACKING] Success: Damaged stock updated from %.2f to %.2f units",
+		prevDamagedStock, stock.DamagedStock)
+	return nil
+}
+
+// GetDamagedProducts retrieves all products with damaged stock
+func (s *stockManagementService) GetDamagedProducts(offset, limit int) ([]models.ProductStock, int64, error) {
+	return s.productStockRepo.GetDamagedProducts(offset, limit)
+}
+
+// GetDamagedProductsByUser retrieves damaged products for a specific user
+func (s *stockManagementService) GetDamagedProductsByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error) {
+	return s.productStockRepo.GetDamagedProductsByUser(userID, offset, limit)
 }

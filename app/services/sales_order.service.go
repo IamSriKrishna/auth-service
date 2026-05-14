@@ -41,6 +41,7 @@ type salesOrderService struct {
 	stockLedgerRepo    repo.StockLedgerRepository
 	variantStockMgmt   VariantStockManagementService
 	stockManagementSvc StockManagementService
+	pgInventoryService ProductGroupInventoryService
 }
 
 func NewSalesOrderService(
@@ -55,6 +56,7 @@ func NewSalesOrderService(
 	stockLedgerRepo repo.StockLedgerRepository,
 	variantStockMgmt VariantStockManagementService,
 	stockManagementSvc StockManagementService,
+	pgInventoryService ProductGroupInventoryService,
 ) SalesOrderService {
 	return &salesOrderService{
 		soRepo:             soRepo,
@@ -68,6 +70,7 @@ func NewSalesOrderService(
 		stockLedgerRepo:    stockLedgerRepo,
 		variantStockMgmt:   variantStockMgmt,
 		stockManagementSvc: stockManagementSvc,
+		pgInventoryService: pgInventoryService,
 	}
 }
 
@@ -77,11 +80,11 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 
 	for _, itemInput := range soInput.LineItems {
 		// Validate required fields
-		if itemInput.ProductID == "" {
-			return nil, errors.New("product_id is required for each line item")
+		if itemInput.ProductGroupID == "" {
+			return nil, errors.New("product_group_id is required for each line item")
 		}
-		if itemInput.ProductName == "" {
-			return nil, errors.New("product_name is required for each line item")
+		if itemInput.ProductGroupName == "" {
+			return nil, errors.New("product_group_name is required for each line item")
 		}
 
 		// Calculate line item totals
@@ -89,17 +92,14 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 		subTotal += lineAmount
 
 		lineItem := models.SalesOrderLineItem{
-			ProductID:      itemInput.ProductID,
-			ProductName:    itemInput.ProductName,
-			SKU:            itemInput.SKU,
-			Account:        itemInput.Account,
-			Quantity:       itemInput.Quantity,
-			Rate:           itemInput.Rate,
-			Amount:         lineAmount,
-			VariantSKU:     itemInput.VariantSKU,
-			VariantDetails: models.JSONB(itemInput.VariantDetails),
-			CreatedAt:      time.Now(),
-			UpdatedAt:      time.Now(),
+			ProductGroupID:   itemInput.ProductGroupID,
+			ProductGroupName: itemInput.ProductGroupName,
+			Account:          itemInput.Account,
+			Quantity:         itemInput.Quantity,
+			Rate:             itemInput.Rate,
+			Amount:           lineAmount,
+			CreatedAt:        time.Now(),
+			UpdatedAt:        time.Now(),
 		}
 
 		lineItems = append(lineItems, lineItem)
@@ -146,6 +146,10 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 	if err != nil {
 		return nil, errors.New("failed to create sales order: " + err.Error())
 	}
+
+	// Stock is NOT deducted at creation time
+	// Stock will be deducted when the sales order status is changed to "paid"
+	// This ensures stock is only committed when payment is confirmed
 
 	return output.ToSalesOrderOutput(createdSO)
 }
@@ -266,25 +270,22 @@ func (s *salesOrderService) UpdateSalesOrder(id string, soInput *input.UpdateSal
 		subTotal := 0.0
 
 		for _, itemInput := range soInput.LineItems {
-			if itemInput.ProductID == "" {
-				return nil, errors.New("product_id is required for each line item")
+			if itemInput.ProductGroupID == "" {
+				return nil, errors.New("product_group_id is required for each line item")
 			}
 
 			lineAmount := itemInput.Quantity * itemInput.Rate
 			subTotal += lineAmount
 
 			lineItem := models.SalesOrderLineItem{
-				ProductID:      itemInput.ProductID,
-				ProductName:    itemInput.ProductName,
-				SKU:            itemInput.SKU,
-				Account:        itemInput.Account,
-				Quantity:       itemInput.Quantity,
-				Rate:           itemInput.Rate,
-				Amount:         lineAmount,
-				VariantSKU:     itemInput.VariantSKU,
-				VariantDetails: models.JSONB(itemInput.VariantDetails),
-				CreatedAt:      time.Now(),
-				UpdatedAt:      time.Now(),
+				ProductGroupID:   itemInput.ProductGroupID,
+				ProductGroupName: itemInput.ProductGroupName,
+				Account:          itemInput.Account,
+				Quantity:         itemInput.Quantity,
+				Rate:             itemInput.Rate,
+				Amount:           lineAmount,
+				CreatedAt:        time.Now(),
+				UpdatedAt:        time.Now(),
 			}
 			lineItems = append(lineItems, lineItem)
 		}
@@ -315,80 +316,55 @@ func (s *salesOrderService) UpdateSalesOrderStatus(id string, status string, use
 		return nil, errors.New("sales order not found")
 	}
 
+	oldStatus := so.Status
 	so.Status = domain.SalesOrderStatus(status)
 	so.UpdatedAt = time.Now()
 	so.UpdatedBy = userID
 
-	// Deduct inventory when status is "paid" or "delivered" and not already deducted
-	if (status == string(domain.SalesOrderStatusPaid) || status == string(domain.SalesOrderStatusDelivered)) && !so.InventoryDeducted {
-		// Deduct stock for each line item
-		for _, lineItem := range so.LineItems {
-			deducted := false
+	// When status changes to "paid", deduct stock from inventory
+	if status == "paid" && oldStatus != domain.SalesOrderStatusPaid {
+		// Only deduct once
+		if !so.InventoryDeducted {
+			log.Printf("[SO_PAID] Processing stock deduction for sales order: %s", so.SalesOrderNumber)
 
-			// Check if this is a variant-based product (has VariantSKU)
-			if lineItem.VariantSKU != "" {
-				// For variant-based products, try to deduct from variant stock first
-				variantStock, err := s.variantStockMgmt.GetVariantStockSummary(lineItem.VariantSKU)
-				if err == nil && variantStock != nil && variantStock.AvailableStock >= lineItem.Quantity {
-					// Variant stock exists and has sufficient quantity - perform the actual deduction
-					adjustErr := s.variantStockMgmt.RecordStockAdjustment(
-						lineItem.VariantSKU,
-						lineItem.Quantity,
+			// Deduct stock for each product group in the sales order
+			for _, lineItem := range so.LineItems {
+				if s.variantStockMgmt != nil {
+					err := s.variantStockMgmt.RecordStockAdjustment(
+						lineItem.ProductGroupID, // Use product group ID as SKU
+						lineItem.Quantity,       // Positive quantity for "out"
 						"out",
-						fmt.Sprintf("Stock deducted for Sales Order: %s", so.SalesOrderNumber),
+						fmt.Sprintf("Sold via Sales Order: %s", so.SalesOrderNumber),
 						userID,
 					)
-					if adjustErr != nil {
-						log.Printf("[SO_STOCK_DEDUCTION] Error deducting variant stock for SKU=%s: %v", lineItem.VariantSKU, adjustErr)
-						return nil, fmt.Errorf("failed to deduct variant stock for SKU %s: %v", lineItem.VariantSKU, adjustErr)
-					}
-					log.Printf("[SO_STOCK_DEDUCTION] Successfully deducted %.2f units of variant %s", lineItem.Quantity, lineItem.VariantSKU)
-					deducted = true
-				} else if err != nil || variantStock == nil {
-					log.Printf("[SO_STOCK_DEDUCTION] Warning: Could not find variant stock for SKU=%s, will attempt product-level deduction", lineItem.VariantSKU)
-				} else if variantStock.AvailableStock < lineItem.Quantity {
-					log.Printf("[SO_STOCK_DEDUCTION] Insufficient variant stock: SKU=%s, Available=%.2f, Required=%.2f",
-						lineItem.VariantSKU, variantStock.AvailableStock, lineItem.Quantity)
-					return nil, fmt.Errorf("insufficient stock for variant %s: available=%.2f, required=%.2f",
-						lineItem.VariantSKU, variantStock.AvailableStock, lineItem.Quantity)
-				}
-			}
-
-			// If not deducted at variant level, try product-level stock deduction
-			if !deducted {
-				err := s.stockManagementSvc.RecordOutboundMovement(
-					lineItem.ProductID,
-					"SALES_ORDER",
-					id,
-					so.SalesOrderNumber,
-					lineItem.Quantity,
-					fmt.Sprintf("Stock deducted for Sales Order: %s", so.SalesOrderNumber),
-					userID,
-				)
-				if err != nil {
-					// If this is a variant-based product and product stock doesn't exist, that's OK
-					if lineItem.VariantSKU != "" && err.Error() == fmt.Sprintf("no stock found for product: %s", lineItem.ProductID) {
-						log.Printf("[SO_STOCK_DEDUCTION] Note: Variant-based product %s has no aggregated ProductStock, stock deduction handled at variant level", lineItem.ProductID)
+					if err != nil {
+						log.Printf("[SO_PAID] Warning: Failed to deduct stock for product group %s: %v", lineItem.ProductGroupID, err)
+						// Don't fail the status update if stock deduction fails - stock may have already been adjusted
+						// This ensures payment processing continues even if there's a stock sync issue
 					} else {
-						log.Printf("[SO_STOCK_DEDUCTION] Error deducting stock for product %s: %v", lineItem.ProductID, err)
-						return nil, fmt.Errorf("failed to deduct stock for product %s: %v", lineItem.ProductID, err)
+						log.Printf("[SO_PAID] Deducted stock: %s -%.2f units", lineItem.ProductGroupID, lineItem.Quantity)
 					}
-				} else {
-					log.Printf("[SO_STOCK_DEDUCTION] Successfully deducted %.2f units of product %s", lineItem.Quantity, lineItem.ProductID)
 				}
 			}
-		}
 
-		// Mark inventory as deducted
-		now := time.Now()
-		so.InventoryDeducted = true
-		so.DeductedDate = &now
-		log.Printf("[SO_STOCK_DEDUCTION] Inventory deducted for Sales Order: %s", so.SalesOrderNumber)
+			// Mark inventory as deducted
+			so.InventoryDeducted = true
+			now := time.Now()
+			so.DeductedDate = &now
+		}
 	}
 
 	err = s.soRepo.UpdateStatus(id, status)
 	if err != nil {
 		return nil, errors.New("failed to update status: " + err.Error())
+	}
+
+	// Update InventoryDeducted flag if it changed
+	if so.InventoryDeducted {
+		_, err = s.soRepo.Update(id, so)
+		if err != nil {
+			log.Printf("[SO_PAID] Warning: Failed to update InventoryDeducted flag: %v", err)
+		}
 	}
 
 	return s.GetSalesOrder(id)

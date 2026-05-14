@@ -34,6 +34,11 @@ type VariantStockManagementService interface {
 	GetAllVariantStocks(offset, limit int) ([]models.VariantStock, int64, error)
 	GetAllVariantStocksByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error)
 
+	// Damaged variant management
+	MarkVariantAsDamaged(variantSKU string, quantity float64, reason, userID string) error
+	GetDamagedVariants(offset, limit int) ([]models.VariantStock, int64, error)
+	GetDamagedVariantsByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error)
+
 	// Reconciliation
 	SyncAggregateStock(productID string) error
 }
@@ -613,6 +618,84 @@ func (s *variantStockManagementService) SyncAggregateStock(productID string) err
 
 	log.Printf("[VARIANT_SYNC] Synced ProductID=%s, Variants=%d, Total=%.2f", productID, count, totalCurrent)
 	return nil
+}
+
+// MarkVariantAsDamaged marks a variant stock as damaged and reduces available stock
+func (s *variantStockManagementService) MarkVariantAsDamaged(variantSKU string, quantity float64, reason, userID string) error {
+	if quantity <= 0 {
+		return errors.New("damage quantity must be positive")
+	}
+
+	if reason == "" {
+		return errors.New("damage reason is required")
+	}
+
+	log.Printf("[DAMAGE_TRACKING] Marking variant as damaged: SKU=%s, Qty=%.2f, Reason=%s",
+		variantSKU, quantity, reason)
+
+	// Get variant stock
+	stock, err := s.variantStockRepo.GetBySKU(variantSKU)
+	if err != nil {
+		return fmt.Errorf("variant stock not found: %s", variantSKU)
+	}
+
+	// Check if available stock is sufficient
+	if stock.AvailableStock < quantity {
+		return fmt.Errorf("insufficient available stock: have %.2f, trying to mark %.2f as damaged",
+			stock.AvailableStock, quantity)
+	}
+
+	// Update stock
+	prevDamagedStock := stock.DamagedStock
+	stock.DamagedStock += quantity
+	stock.AvailableStock -= quantity
+	stock.DamageReason = reason
+	now := time.Now()
+	stock.DamagedAt = &now
+	stock.DamagedBy = userID
+	stock.UpdatedAt = now
+
+	if err := s.variantStockRepo.Update(stock); err != nil {
+		return fmt.Errorf("failed to update variant stock with damage: %w", err)
+	}
+
+	// Record movement entry for damage
+	amount := quantity * stock.AverageCost
+	movement := &models.VariantStockMovement{
+		VariantID:        stock.ID,
+		ProductID:        stock.ProductID,
+		VariantSKU:       stock.VariantSKU,
+		MovementType:     "DAMAGE",
+		Quantity:         -quantity, // Negative to indicate reduction
+		Rate:             stock.AverageCost,
+		Amount:           -amount, // Negative to indicate value reduction
+		ReferenceType:    "damage_record",
+		ReferenceID:      uuid.New().String(),
+		ReferenceNumber:  fmt.Sprintf("DMG-%d", time.Now().Unix()),
+		BalanceBeforeQty: stock.AvailableStock + quantity,
+		BalanceAfterQty:  stock.AvailableStock,
+		Notes:            fmt.Sprintf("Damage reason: %s", reason),
+		CreatedAt:        now,
+		CreatedBy:        userID,
+	}
+
+	if err := s.variantMovementRepo.Create(movement); err != nil {
+		log.Printf("[DAMAGE_TRACKING] Warning: Failed to create movement entry: %v", err)
+	}
+
+	log.Printf("[DAMAGE_TRACKING] Success: Variant damaged stock updated from %.2f to %.2f units",
+		prevDamagedStock, stock.DamagedStock)
+	return nil
+}
+
+// GetDamagedVariants retrieves all variants with damaged stock
+func (s *variantStockManagementService) GetDamagedVariants(offset, limit int) ([]models.VariantStock, int64, error) {
+	return s.variantStockRepo.GetDamagedVariants(offset, limit)
+}
+
+// GetDamagedVariantsByUser retrieves damaged variants for a specific user
+func (s *variantStockManagementService) GetDamagedVariantsByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error) {
+	return s.variantStockRepo.GetDamagedVariantsByUser(userID, offset, limit)
 }
 
 func timePtr(t time.Time) *time.Time {

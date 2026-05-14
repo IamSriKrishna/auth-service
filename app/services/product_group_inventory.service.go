@@ -200,7 +200,17 @@ func (s *productGroupInventoryService) GetInventoryStatus(productGroupID string)
 func (s *productGroupInventoryService) AddStock(productGroupID string, quantity float64, reason string, referenceID *string) error {
 	pgInventory, err := s.pgInventoryRepo.FindByProductGroupID(productGroupID)
 	if err != nil {
-		return fmt.Errorf("product group inventory not found: %w", err)
+		// Auto-create inventory if it doesn't exist (for backward compatibility)
+		fmt.Printf("[PG_INVENTORY] Product group inventory not found for %s, creating it now...\n", productGroupID)
+		if initErr := s.InitializeProductGroupInventory(productGroupID); initErr != nil {
+			return fmt.Errorf("product group inventory not found and failed to auto-create: %w", initErr)
+		}
+
+		// Retry fetching the newly created inventory
+		pgInventory, err = s.pgInventoryRepo.FindByProductGroupID(productGroupID)
+		if err != nil {
+			return fmt.Errorf("product group inventory not found even after creation: %w", err)
+		}
 	}
 
 	// Update stock
@@ -240,7 +250,17 @@ func (s *productGroupInventoryService) AllocateStock(productGroupID string, quan
 	// Check if sufficient stock is available
 	hasStock, err := s.HasSufficientStock(productGroupID, quantity)
 	if err != nil {
-		return err
+		// If error is due to missing inventory, try to auto-create it
+		fmt.Printf("[PG_INVENTORY] Inventory lookup failed for %s: %v, attempting auto-create...\n", productGroupID, err)
+		if initErr := s.InitializeProductGroupInventory(productGroupID); initErr != nil {
+			// If initialization fails, return the error
+			return fmt.Errorf("could not check stock and failed to auto-create inventory: %w", initErr)
+		}
+		// After creation, re-check stock
+		hasStock, err = s.HasSufficientStock(productGroupID, quantity)
+		if err != nil {
+			return err
+		}
 	}
 	if !hasStock {
 		return fmt.Errorf("insufficient stock available for allocation")
@@ -267,7 +287,17 @@ func (s *productGroupInventoryService) AllocateStock(productGroupID string, quan
 func (s *productGroupInventoryService) DeductStock(productGroupID string, quantity float64, reason string, referenceID *string) error {
 	pgInventory, err := s.pgInventoryRepo.FindByProductGroupID(productGroupID)
 	if err != nil {
-		return fmt.Errorf("product group inventory not found: %w", err)
+		// Auto-create inventory if it doesn't exist (for backward compatibility with product groups created before inventory tracking)
+		fmt.Printf("[PG_INVENTORY] Product group inventory not found for %s, creating it now...\n", productGroupID)
+		if initErr := s.InitializeProductGroupInventory(productGroupID); initErr != nil {
+			return fmt.Errorf("product group inventory not found and failed to auto-create: %w", initErr)
+		}
+
+		// Retry fetching the newly created inventory
+		pgInventory, err = s.pgInventoryRepo.FindByProductGroupID(productGroupID)
+		if err != nil {
+			return fmt.Errorf("product group inventory not found even after creation: %w", err)
+		}
 	}
 
 	if pgInventory.CurrentStock < quantity {
@@ -309,7 +339,17 @@ func (s *productGroupInventoryService) DeductStock(productGroupID string, quanti
 func (s *productGroupInventoryService) ReleaseAllocatedStock(productGroupID string, quantity float64, salesOrderID string) error {
 	pgInventory, err := s.pgInventoryRepo.FindByProductGroupID(productGroupID)
 	if err != nil {
-		return fmt.Errorf("product group inventory not found: %w", err)
+		// Auto-create inventory if it doesn't exist (for backward compatibility)
+		fmt.Printf("[PG_INVENTORY] Product group inventory not found for %s, creating it now...\n", productGroupID)
+		if initErr := s.InitializeProductGroupInventory(productGroupID); initErr != nil {
+			return fmt.Errorf("product group inventory not found and failed to auto-create: %w", initErr)
+		}
+
+		// Retry fetching the newly created inventory
+		pgInventory, err = s.pgInventoryRepo.FindByProductGroupID(productGroupID)
+		if err != nil {
+			return fmt.Errorf("product group inventory not found even after creation: %w", err)
+		}
 	}
 
 	if pgInventory.AllocatedStock < quantity {
@@ -332,7 +372,17 @@ func (s *productGroupInventoryService) ReleaseAllocatedStock(productGroupID stri
 func (s *productGroupInventoryService) HasSufficientStock(productGroupID string, requiredQuantity float64) (bool, error) {
 	pgInventory, err := s.pgInventoryRepo.FindByProductGroupID(productGroupID)
 	if err != nil {
-		return false, fmt.Errorf("product group inventory not found: %w", err)
+		// Auto-create inventory if it doesn't exist (for backward compatibility)
+		fmt.Printf("[PG_INVENTORY] Product group inventory not found for %s, creating it now...\n", productGroupID)
+		if initErr := s.InitializeProductGroupInventory(productGroupID); initErr != nil {
+			return false, fmt.Errorf("product group inventory not found and failed to auto-create: %w", initErr)
+		}
+
+		// Retry fetching the newly created inventory
+		pgInventory, err = s.pgInventoryRepo.FindByProductGroupID(productGroupID)
+		if err != nil {
+			return false, fmt.Errorf("product group inventory not found even after creation: %w", err)
+		}
 	}
 
 	return pgInventory.AvailableStock >= requiredQuantity, nil

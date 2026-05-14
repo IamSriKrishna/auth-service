@@ -44,6 +44,11 @@ type PurchaseOrder struct {
 	Adjustment   float64         `json:"adjustment" gorm:"default:0"`
 	Total        float64         `json:"total" gorm:"not null;default:0"`
 
+	// Payment Tracking - Aggregate across all payment records
+	PaidAmount      float64              `json:"paid_amount" gorm:"not null;default:0"`                                // Total amount paid across all payments
+	RemainingAmount float64              `json:"remaining_amount" gorm:"not null;default:0"`                           // Total - PaidAmount
+	POPaymentStatus domain.PaymentStatus `json:"po_payment_status" gorm:"type:varchar(50);not null;default:'pending'"` // pending, partial, completed
+
 	Notes              string `json:"notes" gorm:"type:text"`
 	TermsAndConditions string `json:"terms_and_conditions" gorm:"type:text"`
 

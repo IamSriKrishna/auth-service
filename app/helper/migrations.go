@@ -12,6 +12,18 @@ import (
 func RunMigrations(db *gorm.DB) error {
 	log.Println("Starting database migration...")
 
+	// Temporarily disable foreign key checks during migration
+	log.Println("Disabling foreign key checks...")
+	if err := db.Exec("SET FOREIGN_KEY_CHECKS=0").Error; err != nil {
+		log.Printf("Warning: Failed to disable foreign key checks: %v", err)
+	}
+	defer func() {
+		log.Println("Re-enabling foreign key checks...")
+		if err := db.Exec("SET FOREIGN_KEY_CHECKS=1").Error; err != nil {
+			log.Printf("Warning: Failed to re-enable foreign key checks: %v", err)
+		}
+	}()
+
 	// Drop problematic foreign key constraints if they exist
 	if db.Migrator().HasConstraint("inventory_balances", "fk_inventory_balances_variant") {
 		log.Println("Removing problematic foreign key constraint fk_inventory_balances_variant...")
@@ -41,6 +53,13 @@ func RunMigrations(db *gorm.DB) error {
 		}
 	}
 
+	if os.Getenv("DROP_PURCHASE_ORDER_TABLES") == "true" {
+		log.Println("DROP_PURCHASE_ORDER_TABLES=true detected, dropping purchase order tables...")
+		if err := DropPurchaseOrderTables(db); err != nil {
+			log.Printf("Warning: Failed to drop purchase order tables: %v", err)
+		}
+	}
+
 	if os.Getenv("DROP_ORDER_FULFILLMENT_TABLES") == "true" {
 		log.Println("DROP_ORDER_FULFILLMENT_TABLES=true detected, dropping order and fulfillment tables...")
 		if err := DropOrderFulfillmentTables(db); err != nil {
@@ -62,6 +81,13 @@ func RunMigrations(db *gorm.DB) error {
 		}
 	}
 
+	if os.Getenv("DROP_PRODUCT_DATA") == "true" {
+		log.Println("DROP_PRODUCT_DATA=true detected, dropping all product data...")
+		if err := DropProductData(db); err != nil {
+			log.Printf("Warning: Failed to drop product data: %v", err)
+		}
+	}
+
 	if os.Getenv("DROP_ITEM_MODEL_ONLY") == "true" {
 		log.Println("DROP_ITEM_MODEL_ONLY=true detected, dropping only Item model...")
 		if err := DropItemModelOnly(db); err != nil {
@@ -74,6 +100,12 @@ func RunMigrations(db *gorm.DB) error {
 		if err := DropAllTables(db); err != nil {
 			log.Printf("Warning: Failed to drop all tables: %v", err)
 		}
+	}
+
+	// Clean up orphaned sales order line items before adding foreign key constraints
+	log.Println("Cleaning up orphaned sales order line items...")
+	if err := cleanupOrphanedSalesOrderLineItems(db); err != nil {
+		log.Printf("Warning: Failed to cleanup orphaned sales order line items: %v", err)
 	}
 
 	err := db.AutoMigrate(
@@ -123,6 +155,8 @@ func RunMigrations(db *gorm.DB) error {
 
 		&models.Product{},
 		&models.ProductGroup{},
+		&models.ProductGroupInventory{},
+		&models.ComponentInventory{},
 		&models.ProductGroupComponent{},
 		&models.ProductDetails{},
 		&models.ProductVariant{},
@@ -155,6 +189,7 @@ func RunMigrations(db *gorm.DB) error {
 
 		&models.PurchaseOrder{},
 		&models.PurchaseOrderLineItem{},
+		&models.VendorPayment{},
 
 		&models.SalesOrder{},
 		&models.SalesOrderLineItem{},
@@ -186,6 +221,43 @@ func RunMigrations(db *gorm.DB) error {
 	return nil
 }
 
+// cleanupOrphanedSalesOrderLineItems removes sales order line items with invalid product_group_id references
+func cleanupOrphanedSalesOrderLineItems(db *gorm.DB) error {
+	// Check if the table exists before trying to clean it
+	if !db.Migrator().HasTable("sales_order_line_items") {
+		log.Println("Table 'sales_order_line_items' does not exist yet, skipping cleanup")
+		return nil
+	}
+
+	if !db.Migrator().HasTable("product_groups") {
+		log.Println("Table 'product_groups' does not exist yet, skipping cleanup")
+		return nil
+	}
+
+	// Delete sales order line items where product_group_id is empty or null
+	result := db.Where("product_group_id IS NULL OR product_group_id = ''").Delete(&models.SalesOrderLineItem{})
+	if result.Error != nil {
+		log.Printf("Warning: Failed to delete NULL/empty product_group_id rows: %v", result.Error)
+		return nil
+	}
+	if result.RowsAffected > 0 {
+		log.Printf("Deleted %d sales order line items with NULL/empty product_group_id", result.RowsAffected)
+	}
+
+	// Delete sales order line items with orphaned product_group_id (not in product_groups table)
+	result = db.Where("product_group_id NOT IN (SELECT id FROM product_groups)").Delete(&models.SalesOrderLineItem{})
+	if result.Error != nil {
+		log.Printf("Warning: Failed to delete orphaned product_group_id rows: %v", result.Error)
+		return nil
+	}
+	if result.RowsAffected > 0 {
+		log.Printf("Deleted %d sales order line items with orphaned product_group_id", result.RowsAffected)
+	}
+
+	log.Println("Orphaned sales order line items cleanup completed")
+	return nil
+}
+
 func DropSalesOrderTables(db *gorm.DB) error {
 	log.Println("Dropping sales order tables...")
 
@@ -204,6 +276,25 @@ func DropSalesOrderTables(db *gorm.DB) error {
 	}
 
 	log.Println("Sales order tables dropped successfully!")
+	return nil
+}
+
+func DropPurchaseOrderTables(db *gorm.DB) error {
+	log.Println("Dropping purchase order related tables...")
+
+	tables := []interface{}{
+		&models.VendorPayment{},
+		&models.PurchaseOrderLineItem{},
+		&models.PurchaseOrder{},
+	}
+
+	for _, table := range tables {
+		if err := db.Migrator().DropTable(table); err != nil {
+			log.Printf("Warning: Failed to drop table %T: %v", table, err)
+		}
+	}
+
+	log.Println("Purchase order tables dropped successfully!")
 	return nil
 }
 
@@ -303,6 +394,7 @@ func DropAllTablesExceptUser(db *gorm.DB) error {
 		&models.SalesOrderLineItem{},
 		&models.SalesOrder{},
 
+		&models.VendorPayment{},
 		&models.PurchaseOrderLineItem{},
 		&models.PurchaseOrder{},
 		&models.ProductionOrderItem{},
@@ -400,6 +492,7 @@ func DropAllTables(db *gorm.DB) error {
 		&models.SalesOrderLineItem{},
 		&models.SalesOrder{},
 
+		&models.VendorPayment{},
 		&models.PurchaseOrderLineItem{},
 		&models.PurchaseOrder{},
 		&models.ProductionOrderItem{},
@@ -413,12 +506,18 @@ func DropAllTables(db *gorm.DB) error {
 		&models.StockReservation{},
 		&models.VariantStockMovement{},
 		&models.VariantStock{},
+		&models.StockLedger{},
+		&models.ProductStock{},
 
 		&models.VariantOpeningStock{},
 		&models.OpeningStock{},
 		&models.StockMovement{},
 		&models.ItemGroupComponent{},
 		&models.ItemGroup{},
+		&models.ProductGroupComponent{},
+		&models.ComponentInventory{},
+		&models.ProductGroupInventory{},
+		&models.ProductGroup{},
 		&models.ProductVariantAttribute{},
 		&models.ProductVariant{},
 		&models.ProductDetails{},
@@ -519,6 +618,7 @@ func DropOrderFulfillmentTables(db *gorm.DB) error {
 		&models.SalesOrder{},
 
 		// Purchase Orders
+		&models.VendorPayment{},
 		&models.PurchaseOrderLineItem{},
 		&models.PurchaseOrder{},
 
@@ -582,4 +682,61 @@ func ResetDatabase(db *gorm.DB) error {
 	}
 
 	return RunMigrations(db)
+}
+
+// DropProductData drops all product-related data: products, product groups, purchase orders, sales orders, packages, shipments, and stock
+func DropProductData(db *gorm.DB) error {
+	log.Println("WARNING: Dropping all product data (products, product groups, POs, SOs, packages, shipments, stock)...")
+
+	// Disable foreign key checks temporarily
+	if err := db.Exec("SET FOREIGN_KEY_CHECKS=0").Error; err != nil {
+		log.Printf("Warning: Failed to disable foreign key checks: %v", err)
+	}
+	defer func() {
+		if err := db.Exec("SET FOREIGN_KEY_CHECKS=1").Error; err != nil {
+			log.Printf("Warning: Failed to re-enable foreign key checks: %v", err)
+		}
+	}()
+
+	// Clear tables in order of dependencies (reverse order of creation)
+	tablesToClear := []struct {
+		name  string
+		model interface{}
+	}{
+		{"shipments", &models.Shipment{}},
+		{"packages", &models.Package{}},
+		{"sales_orders", &models.SalesOrder{}},
+		{"sales_order_line_items", &models.SalesOrderLineItem{}},
+		{"purchase_orders", &models.PurchaseOrder{}},
+		{"purchase_order_line_items", &models.PurchaseOrderLineItem{}},
+		{"product_stock", &models.ProductStock{}},
+		{"variant_stock", &models.VariantStock{}},
+		{"variant_stock_movements", &models.VariantStockMovement{}},
+		{"stock_ledgers", &models.StockLedger{}},
+		{"stock_movements", &models.StockMovement{}},
+		{"stock_reservations", &models.StockReservation{}},
+		{"product_group_transactions", &models.ProductGroupTransaction{}},
+		{"component_inventory", &models.ComponentInventory{}},
+		{"product_group_inventory", &models.ProductGroupInventory{}},
+		{"product_groups", &models.ProductGroup{}},
+		{"product_groups_components", &models.ProductGroupComponent{}},
+		{"product_details", &models.ProductDetails{}},
+		{"products", &models.Product{}},
+	}
+
+	for _, table := range tablesToClear {
+		if db.Migrator().HasTable(table.name) {
+			result := db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(table.model)
+			if result.Error != nil {
+				log.Printf("Warning: Failed to clear table %s: %v", table.name, result.Error)
+			} else {
+				log.Printf("✓ Cleared table %s (%d rows deleted)", table.name, result.RowsAffected)
+			}
+		} else {
+			log.Printf("⊘ Table %s does not exist, skipping", table.name)
+		}
+	}
+
+	log.Println("✓ Product data dropped successfully!")
+	return nil
 }

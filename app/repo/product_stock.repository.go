@@ -137,6 +137,51 @@ func (r *productStockRepository) GetLowStockProductsByUser(userID uint, threshol
 	return stocks, total, nil
 }
 
+// GetDamagedProducts retrieves all products with damaged stock
+func (r *productStockRepository) GetDamagedProducts(offset, limit int) ([]models.ProductStock, int64, error) {
+	var stocks []models.ProductStock
+	var total int64
+
+	query := r.db.Model(&models.ProductStock{}).
+		Where("damaged_stock > ?", 0)
+
+	err := query.Count(&total).
+		Preload("Product").
+		Offset(offset).
+		Limit(limit).
+		Order("damaged_at DESC").
+		Find(&stocks).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return stocks, total, nil
+}
+
+// GetDamagedProductsByUser retrieves damaged products for a specific user
+func (r *productStockRepository) GetDamagedProductsByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error) {
+	var stocks []models.ProductStock
+	var total int64
+
+	query := r.db.Model(&models.ProductStock{}).
+		Joins("JOIN products ON product_stocks.product_id = products.id").
+		Where("products.created_by = ? AND product_stocks.damaged_stock > ?", userID, 0)
+
+	err := query.Count(&total).
+		Preload("Product").
+		Offset(offset).
+		Limit(limit).
+		Order("product_stocks.damaged_at DESC").
+		Find(&stocks).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return stocks, total, nil
+}
+
 type stockLedgerRepository struct {
 	db *gorm.DB
 }

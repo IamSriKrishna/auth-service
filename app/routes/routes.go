@@ -54,6 +54,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	taxRepo := repo.NewTaxRepository(db)
 	paymentRepo := repo.NewPaymentRepository(db)
 	purchaseOrderRepo := repo.NewPurchaseOrderRepository(db)
+	vendorPaymentRepo := repo.NewVendorPaymentRepository(db)
 	salesOrderRepo := repo.NewSalesOrderRepository(db)
 	packageRepo := repo.NewPackageRepository(db)
 	shipmentRepo := repo.NewShipmentRepository(db)
@@ -106,8 +107,9 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	// Product Group Inventory Service for tracking product group stock
 	productGroupInventoryService := services.NewProductGroupInventoryService(pgInventoryRepo, compInventoryRepo, pgTransactionRepo, productGroupRepo, productRepo)
 
-	purchaseOrderService := services.NewPurchaseOrderService(purchaseOrderRepo, vendorRepo, customerRepo, productRepo, taxRepo, userRepo, companyRepo, stockManagementService, stockLedgerRepo, variantStockManagementService)
-	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo, inventoryBalanceRepo, stockMovementService, productStockRepo, stockLedgerRepo, variantStockManagementService, stockManagementService)
+	purchaseOrderService := services.NewPurchaseOrderService(purchaseOrderRepo, vendorRepo, customerRepo, productRepo, productGroupRepo, taxRepo, userRepo, companyRepo, stockManagementService, stockLedgerRepo, variantStockManagementService)
+	vendorPaymentService := services.NewVendorPaymentService(vendorPaymentRepo, purchaseOrderRepo, vendorRepo, stockManagementService, variantStockManagementService)
+	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo, inventoryBalanceRepo, stockMovementService, productStockRepo, stockLedgerRepo, variantStockManagementService, stockManagementService, productGroupInventoryService)
 	packageService := services.NewPackageService(packageRepo, salesOrderRepo, customerRepo, itemRepo, stockMovementService)
 	shipmentService := services.NewShipmentService(shipmentRepo, packageRepo, salesOrderRepo, customerRepo, inventoryBalanceRepo, stockMovementService)
 	billService := services.NewBillService(billRepo, vendorRepo, productRepo, taxRepo)
@@ -137,6 +139,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	salespersonHandler := handlers.NewSalespersonHandler(salespersonService)
 	taxHandler := handlers.NewTaxHandler(taxService)
 	purchaseOrderHandler := handlers.NewPurchaseOrderHandler(purchaseOrderService)
+	vendorPaymentHandler := handlers.NewVendorPaymentHandler(vendorPaymentService)
 	paymentHandler := handlers.NewPaymentHandler(paymentService)
 	salesOrderHandler := handlers.NewSalesOrderHandler(salesOrderService)
 	packageHandler := handlers.NewPackageHandler(packageService)
@@ -329,6 +332,16 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		adminGroup.Patch("/purchase-orders/:id/status", purchaseOrderHandler.UpdatePurchaseOrderStatus)
 		adminGroup.Get("/purchase-orders/vendor/:vendorId", purchaseOrderHandler.GetPurchaseOrdersByVendor)
 
+		// Vendor Payment Routes
+		adminGroup.Post("/vendor-payments", vendorPaymentHandler.CreateVendorPayment)
+		adminGroup.Get("/vendor-payments", vendorPaymentHandler.GetAllVendorPayments)
+		adminGroup.Get("/vendor-payments/:id", vendorPaymentHandler.GetVendorPayment)
+		adminGroup.Put("/vendor-payments/:id", vendorPaymentHandler.UpdateVendorPayment)
+		adminGroup.Delete("/vendor-payments/:id", vendorPaymentHandler.DeleteVendorPayment)
+		adminGroup.Post("/vendor-payments/:id/record-payment", vendorPaymentHandler.RecordPayment)
+		adminGroup.Get("/vendor-payments/purchase-order/:purchaseOrderId", vendorPaymentHandler.GetVendorPaymentsByPurchaseOrder)
+		adminGroup.Get("/vendor-payments/vendor/:vendorId", vendorPaymentHandler.GetVendorPaymentsByVendor)
+
 		// Sales Order Routes
 		adminGroup.Post("/sales-orders", salesOrderHandler.CreateSalesOrder)
 		adminGroup.Get("/sales-orders", salesOrderHandler.GetAllSalesOrders)
@@ -453,14 +466,17 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 
 	productGroupRoutes := app.Group("/product-groups")
 	{
+		// More specific routes first
+		productGroupRoutes.Get("/search/by-name", productGroupHandler.GetProductGroupByName)
+		productGroupRoutes.Post("/:id/reorder", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productGroupHandler.ReorderProductGroup)
+
+		// Then generic routes
 		productGroupRoutes.Get("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productGroupHandler.GetAllProductGroups)
 		productGroupRoutes.Get("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productGroupHandler.GetProductGroupByID)
 
 		productGroupRoutes.Post("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productGroupHandler.CreateProductGroup)
 		productGroupRoutes.Put("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productGroupHandler.UpdateProductGroup)
 		productGroupRoutes.Delete("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productGroupHandler.DeleteProductGroup)
-
-		productGroupRoutes.Get("/search/by-name", productGroupHandler.GetProductGroupByName)
 	}
 
 	invoiceRoutes := app.Group("/invoices")
@@ -522,6 +538,22 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		purchaseOrderRoutes.Get("/vendor/:vendorId", purchaseOrderHandler.GetPurchaseOrdersByVendor)
 		purchaseOrderRoutes.Get("/customer/:customerId", purchaseOrderHandler.GetPurchaseOrdersByCustomer)
 		purchaseOrderRoutes.Get("/status/:status", purchaseOrderHandler.GetPurchaseOrdersByStatus)
+	}
+
+	vendorPaymentRoutes := app.Group("/vendor-payments")
+	vendorPaymentRoutes.Use(middleware.AuthMiddleware())
+	{
+		vendorPaymentRoutes.Post("/", middleware.AdminMiddleware(), vendorPaymentHandler.CreateVendorPayment)
+		vendorPaymentRoutes.Get("/", middleware.AdminMiddleware(), vendorPaymentHandler.GetAllVendorPayments)
+		vendorPaymentRoutes.Get("/:id", middleware.AdminMiddleware(), vendorPaymentHandler.GetVendorPayment)
+		vendorPaymentRoutes.Put("/:id", middleware.AdminMiddleware(), vendorPaymentHandler.UpdateVendorPayment)
+		vendorPaymentRoutes.Delete("/:id", middleware.AdminMiddleware(), vendorPaymentHandler.DeleteVendorPayment)
+
+		vendorPaymentRoutes.Post("/:id/record-payment", middleware.AdminMiddleware(), vendorPaymentHandler.RecordPayment)
+
+		vendorPaymentRoutes.Get("/purchase-order/:purchaseOrderId", vendorPaymentHandler.GetVendorPaymentsByPurchaseOrder)
+		vendorPaymentRoutes.Get("/vendor/:vendorId", vendorPaymentHandler.GetVendorPaymentsByVendor)
+		vendorPaymentRoutes.Get("/status/:status", vendorPaymentHandler.GetVendorPaymentsByStatus)
 	}
 
 	salesOrderRoutes := app.Group("/sales-orders")
@@ -603,6 +635,8 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	stockRoutes.Use(middleware.AuthMiddleware())
 	{
 		stockRoutes.Get("/summary", middleware.AdminMiddleware(), stockManagementHandler.GetAllStocksSummary)
+		stockRoutes.Get("/damaged", middleware.AdminMiddleware(), stockManagementHandler.GetDamagedProducts)
+		stockRoutes.Patch("/mark-damaged", middleware.AdminMiddleware(), stockManagementHandler.MarkProductAsDamaged)
 		stockRoutes.Get("/product/:product_id/movements", middleware.AdminMiddleware(), stockManagementHandler.GetProductMovements)
 		stockRoutes.Get("/debug/product/:product_id", middleware.AdminMiddleware(), stockManagementHandler.GetProductStockDebug)
 	}

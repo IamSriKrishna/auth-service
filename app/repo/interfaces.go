@@ -376,6 +376,8 @@ type ProductStockRepository interface {
 	GetByProductIDs(productIDs []string) ([]models.ProductStock, error)
 	GetLowStockProducts(threshold float64, offset, limit int) ([]models.ProductStock, int64, error)
 	GetLowStockProductsByUser(userID uint, threshold float64, offset, limit int) ([]models.ProductStock, int64, error)
+	GetDamagedProducts(offset, limit int) ([]models.ProductStock, int64, error)
+	GetDamagedProductsByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error)
 }
 
 // StockLedger repository for tracking all stock movements
@@ -401,6 +403,8 @@ type VariantStockRepository interface {
 	GetAllByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error)
 	GetBySKUs(skus []string) ([]models.VariantStock, error)
 	GetLowStockVariants(threshold float64, offset, limit int) ([]models.VariantStock, int64, error)
+	GetDamagedVariants(offset, limit int) ([]models.VariantStock, int64, error)
+	GetDamagedVariantsByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error)
 }
 
 // VariantStockMovement repository for tracking variant stock movements
@@ -454,4 +458,19 @@ type ProductGroupTransactionRepository interface {
 	FindByReferenceID(referenceID string) ([]models.ProductGroupTransaction, error)
 	GetByDateRange(fromDate, toDate time.Time, offset, limit int) ([]models.ProductGroupTransaction, int64, error)
 	Delete(id uint) error
+}
+
+// VendorPaymentRepository interface for vendor payment operations
+type VendorPaymentRepository interface {
+	Create(vp *models.VendorPayment) (*models.VendorPayment, error)
+	FindByID(id uint) (*models.VendorPayment, error)
+	FindByPaymentNumber(paymentNumber string) (*models.VendorPayment, error)
+	FindByPurchaseOrderID(poID string, limit, offset int) ([]models.VendorPayment, int64, error)
+	FindByVendorID(vendorID uint, limit, offset int) ([]models.VendorPayment, int64, error)
+	FindAll(limit, offset int) ([]models.VendorPayment, int64, error)
+	FindByPaymentStatus(status string, limit, offset int) ([]models.VendorPayment, int64, error)
+	Update(id uint, vp *models.VendorPayment) (*models.VendorPayment, error)
+	UpdatePaymentStatus(id uint, status string, paidAmount, remainingAmount float64) error
+	Delete(id uint) error
+	GetDB() *gorm.DB
 }

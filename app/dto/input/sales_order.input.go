@@ -23,19 +23,11 @@ type CreateSalesOrderInput struct {
 }
 
 type SalesOrderLineItemInput struct {
-	ProductID      string                 `json:"product_id" validate:"required"`
-	ProductName    string                 `json:"product_name" validate:"required"`
-	SKU            string                 `json:"sku" validate:"required"`
-	Account        string                 `json:"account" validate:"required"`
-	Quantity       float64                `json:"quantity" validate:"required,gt=0"`
-	Rate           float64                `json:"rate" validate:"required,gt=0"`
-	VariantSKU     string                 `json:"variant_sku"`
-	VariantDetails map[string]interface{} `json:"variant_details"`
-}
-
-type VariantDetails struct {
-	Color string `json:"color"`
-	Size  string `json:"size"`
+	ProductGroupID   string  `json:"product_group_id" validate:"required"`
+	ProductGroupName string  `json:"product_group_name" validate:"required"`
+	Quantity         float64 `json:"quantity" validate:"required,gt=0"`
+	Rate             float64 `json:"rate" validate:"required,gt=0"`
+	Account          string  `json:"account" validate:"required"`
 }
 
 type UpdateSalesOrderInput struct {

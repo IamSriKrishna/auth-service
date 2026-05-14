@@ -7,7 +7,7 @@ import "time"
 // of ALL components (bottle + cap + label) to make 100 complete kits
 type ProductGroupInventory struct {
 	ID             uint          `gorm:"primaryKey;autoIncrement"`
-	ProductGroupID string        `json:"product_group_id" gorm:"type:varchar(255);index;not null;uniqueIndex"`
+	ProductGroupID string        `json:"product_group_id" gorm:"type:varchar(255);not null;uniqueIndex:idx_product_group_inventory_pg_id"`
 	ProductGroup   *ProductGroup `json:"product_group,omitempty" gorm:"foreignKey:ProductGroupID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 
 	// Current inventory level (quantity of complete product groups available)

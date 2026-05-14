@@ -37,11 +37,30 @@ type ProductGroupListOutput struct {
 }
 
 func ToProductGroupOutput(pg *models.ProductGroup) (*ProductGroupOutput, error) {
-	components := make([]ProductGroupComponentOutput, len(pg.Components))
+	// First, consolidate duplicate components (keep only the latest one per product_id:variant_sku)
+	consolidatedMap := make(map[string]*models.ProductGroupComponent)
+
+	for i := range pg.Components {
+		variantSku := ""
+		if pg.Components[i].VariantSku != nil {
+			variantSku = *pg.Components[i].VariantSku
+		}
+		key := pg.Components[i].ProductID + ":" + variantSku
+
+		// Keep the component with the latest UpdatedAt timestamp
+		if existing, exists := consolidatedMap[key]; !exists {
+			consolidatedMap[key] = &pg.Components[i]
+		} else if pg.Components[i].UpdatedAt.After(existing.UpdatedAt) {
+			consolidatedMap[key] = &pg.Components[i]
+		}
+	}
+
+	components := make([]ProductGroupComponentOutput, len(consolidatedMap))
 	totalCost := 0.0
 	totalSelling := 0.0
+	idx := 0
 
-	for i, comp := range pg.Components {
+	for _, comp := range consolidatedMap {
 		componentOutput := ProductGroupComponentOutput{
 			ID:         comp.ID,
 			ProductID:  comp.ProductID,
@@ -76,7 +95,8 @@ func ToProductGroupOutput(pg *models.ProductGroup) (*ProductGroupOutput, error) 
 			}
 		}
 
-		components[i] = componentOutput
+		components[idx] = componentOutput
+		idx++
 	}
 
 	profit := totalSelling - totalCost
@@ -109,4 +129,22 @@ func ToProductGroupListOutput(pgs []models.ProductGroup, total int64) (*ProductG
 		ProductGroups: outputs,
 		Total:         total,
 	}, nil
+}
+
+type ReorderProductGroupOutput struct {
+	ID             string                `json:"id"`
+	ReorderSummary *ReorderSummaryOutput `json:"reorder_summary"`
+	UpdatedAt      time.Time             `json:"updated_at"`
+}
+
+type ReorderSummaryOutput struct {
+	TotalProducts int                   `json:"total_products"`
+	Updates       []ReorderUpdateOutput `json:"updates"`
+}
+
+type ReorderUpdateOutput struct {
+	VariantSku    string  `json:"variant_sku"`
+	OldQuantity   float64 `json:"old_quantity"`
+	NewQuantity   float64 `json:"new_quantity"`
+	StockAdjusted float64 `json:"stock_adjusted"`
 }

@@ -28,6 +28,10 @@ type PurchaseOrderService interface {
 	// Step 3: Purchasing Stock (Inbound Operations)
 	// Update PO status and trigger inventory sync when stock is received
 	UpdatePurchaseOrderStatus(id string, status domain.PurchaseOrderStatus, userID string) (*output.PurchaseOrderOutput, error)
+
+	// Reorder Operations
+	// ReorderProductGroup allows reordering a product group with custom component quantities
+	ReorderProductGroup(reorderInput *input.ReorderProductGroupInput, userID string) (*output.PurchaseOrderOutput, error)
 }
 
 type purchaseOrderService struct {
@@ -35,6 +39,7 @@ type purchaseOrderService struct {
 	vendorRepo         repo.VendorRepository
 	customerRepo       repo.CustomerRepository
 	productRepo        repo.ProductRepository
+	productGroupRepo   repo.ProductGroupRepository
 	taxRepo            repo.TaxRepository
 	userRepo           repo.UserRepository
 	companyRepo        repo.CompanyRepository
@@ -48,6 +53,7 @@ func NewPurchaseOrderService(
 	vendorRepo repo.VendorRepository,
 	customerRepo repo.CustomerRepository,
 	productRepo repo.ProductRepository,
+	productGroupRepo repo.ProductGroupRepository,
 	taxRepo repo.TaxRepository,
 	userRepo repo.UserRepository,
 	companyRepo repo.CompanyRepository,
@@ -60,6 +66,7 @@ func NewPurchaseOrderService(
 		vendorRepo:         vendorRepo,
 		customerRepo:       customerRepo,
 		productRepo:        productRepo,
+		productGroupRepo:   productGroupRepo,
 		taxRepo:            taxRepo,
 		userRepo:           userRepo,
 		companyRepo:        companyRepo,
@@ -595,6 +602,172 @@ func (s *purchaseOrderService) UpdatePurchaseOrderStatus(id string, status domai
 	}
 
 	return s.GetPurchaseOrder(id)
+}
+
+// ReorderProductGroup creates a new purchase order by reordering a product group with custom quantities
+func (s *purchaseOrderService) ReorderProductGroup(reorderInput *input.ReorderProductGroupInput, userID string) (*output.PurchaseOrderOutput, error) {
+	// Validate vendor
+	vendor, err := s.vendorRepo.FindByID(reorderInput.VendorID)
+	if err != nil {
+		return nil, errors.New("vendor not found")
+	}
+
+	// Validate delivery address type
+	if reorderInput.DeliveryAddressType != "organization" && reorderInput.DeliveryAddressType != "customer" {
+		return nil, errors.New("invalid delivery address type")
+	}
+
+	var customer *models.Customer
+	if reorderInput.DeliveryAddressType == "customer" {
+		if reorderInput.CustomerID == nil {
+			return nil, errors.New("customer_id is required for customer delivery")
+		}
+		customer, err = s.customerRepo.FindByID(*reorderInput.CustomerID)
+		if err != nil {
+			return nil, errors.New("customer not found")
+		}
+	}
+
+	// Validate product group exists
+	productGroup, err := s.productGroupRepo.FindByID(reorderInput.ProductGroupID)
+	if err != nil {
+		return nil, errors.New("product group not found")
+	}
+
+	// Validate tax if provided
+	var tax *models.Tax
+	if reorderInput.TaxID != nil {
+		tax, err = s.taxRepo.FindByID(*reorderInput.TaxID)
+		if err != nil {
+			return nil, errors.New("tax not found")
+		}
+	}
+
+	// Get user for tracking
+	var createdByUserName string
+	var createdByCompanyID uint
+	var createdByCompanyName string
+
+	if userID != "" {
+		var userIDUint uint
+		_, err := fmt.Sscanf(userID, "%d", &userIDUint)
+		if err == nil {
+			user, err := s.userRepo.GetByID(userIDUint)
+			if err == nil && user != nil {
+				// Set user name from email or username
+				if user.Email != nil {
+					createdByUserName = *user.Email
+				} else if user.Username != nil {
+					createdByUserName = *user.Username
+				}
+
+				// Set company details if user has a company
+				if user.CompanyID != nil {
+					createdByCompanyID = *user.CompanyID
+					company, err := s.companyRepo.FindByID(*user.CompanyID)
+					if err == nil && company != nil {
+						createdByCompanyName = company.CompanyName
+					}
+				}
+			}
+		}
+	}
+
+	// Convert reorder components to line items
+	lineItems := make([]models.PurchaseOrderLineItem, len(reorderInput.Components))
+	subTotal := float64(0)
+
+	for i, component := range reorderInput.Components {
+		amount := component.Quantity * component.Rate
+		lineItems[i] = models.PurchaseOrderLineItem{
+			ProductID:      &component.ProductID,
+			ProductName:    component.ProductName,
+			SKU:            component.VariantSku,
+			ProductGroupID: &reorderInput.ProductGroupID,
+			IsProductGroup: false, // Individual component line items
+			Account:        "PURCHASE_EXPENSE",
+			Quantity:       component.Quantity,
+			Rate:           component.Rate,
+			Amount:         amount,
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		}
+		subTotal += amount
+	}
+
+	// Calculate discount
+	discountAmount := float64(0)
+	if reorderInput.Discount > 0 {
+		if reorderInput.DiscountType == "percentage" {
+			discountAmount = subTotal * (reorderInput.Discount / 100)
+		} else {
+			discountAmount = reorderInput.Discount
+		}
+	}
+
+	// Calculate tax amount
+	taxAmount := float64(0)
+	if tax != nil {
+		taxAmount = (subTotal - discountAmount) * (tax.Rate / 100)
+	}
+
+	// Calculate totals
+	total := subTotal - discountAmount + taxAmount + reorderInput.Adjustment
+
+	// Generate unique PO number
+	poNumber := fmt.Sprintf("PO-%s-%04d", time.Now().Format("20060102"), s.generatePOSequence())
+
+	// Create new purchase order
+	po := &models.PurchaseOrder{
+		ID:                   uuid.New().String(),
+		PurchaseOrderNumber:  poNumber,
+		VendorID:             reorderInput.VendorID,
+		Vendor:               vendor,
+		DeliveryAddressType:  reorderInput.DeliveryAddressType,
+		DeliveryAddressID:    reorderInput.DeliveryAddressID,
+		OrganizationName:     reorderInput.OrganizationName,
+		OrganizationAddress:  reorderInput.OrganizationAddress,
+		CustomerID:           reorderInput.CustomerID,
+		Customer:             customer,
+		PODate:               reorderInput.Date,
+		DeliveryDate:         reorderInput.DeliveryDate,
+		PaymentTerms:         domain.PaymentTerms(reorderInput.PaymentTerms),
+		ShipmentPreference:   reorderInput.ShipmentPreference,
+		LineItems:            lineItems,
+		SubTotal:             subTotal,
+		Discount:             reorderInput.Discount,
+		DiscountType:         reorderInput.DiscountType,
+		TaxID:                reorderInput.TaxID,
+		Tax:                  tax,
+		TaxAmount:            taxAmount,
+		Adjustment:           reorderInput.Adjustment,
+		Total:                total,
+		Notes:                reorderInput.Notes,
+		TermsAndConditions:   reorderInput.TermsAndConditions,
+		Status:               domain.PurchaseOrderStatusDraft,
+		Attachments:          reorderInput.Attachments,
+		CreatedAt:            time.Now(),
+		UpdatedAt:            time.Now(),
+		CreatedBy:            userID,
+		CreatedByUserName:    createdByUserName,
+		CreatedByCompanyID:   createdByCompanyID,
+		CreatedByCompanyName: createdByCompanyName,
+		POPaymentStatus:      domain.PaymentStatusPending,
+		PaidAmount:           0,
+		RemainingAmount:      total,
+	}
+
+	// Save to database
+	createdPO, err := s.poRepo.Create(po)
+	if err != nil {
+		log.Printf("[REORDER] Error creating purchase order for product group %s: %v", reorderInput.ProductGroupID, err)
+		return nil, fmt.Errorf("failed to create purchase order: %w", err)
+	}
+
+	log.Printf("[REORDER] Successfully created purchase order %s for product group %s with %d components", createdPO.PurchaseOrderNumber, productGroup.Name, len(lineItems))
+
+	// Convert to output DTO
+	return output.ToPurchaseOrderOutput(createdPO)
 }
 
 func (s *purchaseOrderService) generatePOSequence() int {

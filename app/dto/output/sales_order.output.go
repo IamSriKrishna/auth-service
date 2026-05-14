@@ -31,40 +31,29 @@ type SalesOrderOutput struct {
 }
 
 type SalesOrderLineItemOutput struct {
-	ID                uint                   `json:"id"`
-	ProductID         string                 `json:"product_id"`
-	ProductName       string                 `json:"product_name"`
-	SKU               string                 `json:"sku"`
-	Account           string                 `json:"account"`
-	Quantity          float64                `json:"quantity"`
-	DeliveredQuantity float64                `json:"delivered_quantity"`
-	Rate              float64                `json:"rate"`
-	Amount            float64                `json:"amount"`
-	VariantSKU        string                 `json:"variant_sku,omitempty"`
-	VariantDetails    map[string]interface{} `json:"variant_details,omitempty"`
+	ID                uint    `json:"id"`
+	ProductGroupID    string  `json:"product_group_id"`
+	ProductGroupName  string  `json:"product_group_name"`
+	Account           string  `json:"account"`
+	Quantity          float64 `json:"quantity"`
+	DeliveredQuantity float64 `json:"delivered_quantity"`
+	Rate              float64 `json:"rate"`
+	Amount            float64 `json:"amount"`
 }
 
 func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 	lineItems := make([]SalesOrderLineItemOutput, 0)
 
 	for _, item := range so.LineItems {
-		variantDetails := make(map[string]interface{})
-		if item.VariantDetails != nil {
-			variantDetails = item.VariantDetails
-		}
-
 		lineItemOutput := SalesOrderLineItemOutput{
 			ID:                item.ID,
-			ProductID:         item.ProductID,
-			ProductName:       item.ProductName,
-			SKU:               item.SKU,
+			ProductGroupID:    item.ProductGroupID,
+			ProductGroupName:  item.ProductGroupName,
 			Account:           item.Account,
 			Quantity:          item.Quantity,
 			DeliveredQuantity: item.DeliveredQuantity,
 			Rate:              item.Rate,
 			Amount:            item.Amount,
-			VariantSKU:        item.VariantSKU,
-			VariantDetails:    variantDetails,
 		}
 		lineItems = append(lineItems, lineItemOutput)
 	}

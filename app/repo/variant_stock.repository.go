@@ -134,6 +134,49 @@ func (r *variantStockRepository) GetLowStockVariants(threshold float64, offset, 
 	return stocks, total, nil
 }
 
+// GetDamagedVariants retrieves all variants with damaged stock
+func (r *variantStockRepository) GetDamagedVariants(offset, limit int) ([]models.VariantStock, int64, error) {
+	var stocks []models.VariantStock
+	var total int64
+
+	query := r.db.Model(&models.VariantStock{}).
+		Where("damaged_stock > ?", 0)
+
+	err := query.Count(&total).
+		Offset(offset).
+		Limit(limit).
+		Order("damaged_at DESC").
+		Find(&stocks).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return stocks, total, nil
+}
+
+// GetDamagedVariantsByUser retrieves damaged variants for a specific user
+func (r *variantStockRepository) GetDamagedVariantsByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error) {
+	var stocks []models.VariantStock
+	var total int64
+
+	// Use LEFT JOIN to include both products AND product groups (pg_xxx)
+	err := r.db.Model(&models.VariantStock{}).
+		Joins("LEFT JOIN products ON variant_stocks.product_id = products.id").
+		Where("(products.created_by = ? OR variant_stocks.product_id LIKE 'pg_%') AND variant_stocks.damaged_stock > ?", userID, 0).
+		Count(&total).
+		Offset(offset).
+		Limit(limit).
+		Order("variant_stocks.damaged_at DESC").
+		Find(&stocks).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return stocks, total, nil
+}
+
 // VariantStockMovement Repository
 
 type variantStockMovementRepository struct {

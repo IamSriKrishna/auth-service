@@ -282,8 +282,8 @@ func (s *shipmentService) UpdateShipmentStatus(id string, status string, userID 
 		// Record shipment movement - simplified for new model
 		for _, lineItem := range so.LineItems {
 			// Log shipment for each line item
-			log.Printf("[SHIPMENT] Shipment outbound recorded - SKU: %s, Quantity: %.2f, Carrier: %s, Tracking: %s",
-				lineItem.SKU, lineItem.Quantity, shipment.Carrier, shipment.TrackingNo)
+			log.Printf("[SHIPMENT] Shipment outbound recorded - ProductGroup: %s, Quantity: %.2f, Carrier: %s, Tracking: %s",
+				lineItem.ProductGroupName, lineItem.Quantity, shipment.Carrier, shipment.TrackingNo)
 		}
 	}
 
@@ -318,10 +318,8 @@ func (s *shipmentService) DeleteShipment(id string) error {
 func (s *shipmentService) deductInventoryForShipment(so *models.SalesOrder, userID string) error {
 	for _, lineItem := range so.LineItems {
 		// Log inventory deduction for shipment
-		log.Printf("[SHIPMENT] Inventory deduction recorded - SKU: %s, Quantity: %.2f, SalesOrder: %s",
-			lineItem.SKU, lineItem.Quantity, so.SalesOrderNumber)
+		log.Printf("[SHIPMENT] Inventory deduction recorded - ProductGroup: %s, Quantity: %.2f, SalesOrder: %s",
+			lineItem.ProductGroupName, lineItem.Quantity, so.SalesOrderNumber)
 	}
 	return nil
 }
-
-

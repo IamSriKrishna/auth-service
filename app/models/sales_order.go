@@ -46,20 +46,18 @@ type SalesOrder struct {
 }
 
 type SalesOrderLineItem struct {
-	ID                uint      `json:"id" gorm:"primaryKey"`
-	SalesOrderID      string    `json:"sales_order_id" gorm:"type:varchar(255);not null;index"`
-	ProductID         string    `json:"product_id" gorm:"type:varchar(255);not null;index"`
-	ProductName       string    `json:"product_name" gorm:"type:varchar(255)"`
-	SKU               string    `json:"sku" gorm:"type:varchar(100)"`
-	Account           string    `json:"account" gorm:"type:varchar(100)"`
-	Quantity          float64   `json:"quantity" gorm:"not null"`
-	DeliveredQuantity float64   `json:"delivered_quantity" gorm:"default:0"`
-	Rate              float64   `json:"rate" gorm:"not null"`
-	Amount            float64   `json:"amount" gorm:"not null"`
-	VariantSKU        string    `json:"variant_sku" gorm:"type:varchar(100)"`
-	VariantDetails    JSONB     `json:"variant_details" gorm:"type:json"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	ID                uint          `json:"id" gorm:"primaryKey"`
+	SalesOrderID      string        `json:"sales_order_id" gorm:"type:varchar(255);not null;index"`
+	ProductGroupID    string        `json:"product_group_id" gorm:"type:varchar(255);not null;index"`
+	ProductGroup      *ProductGroup `json:"product_group,omitempty" gorm:"foreignKey:ProductGroupID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	ProductGroupName  string        `json:"product_group_name" gorm:"type:varchar(255)"`
+	Quantity          float64       `json:"quantity" gorm:"not null"`
+	DeliveredQuantity float64       `json:"delivered_quantity" gorm:"default:0"`
+	Rate              float64       `json:"rate" gorm:"not null"`
+	Amount            float64       `json:"amount" gorm:"not null"`
+	Account           string        `json:"account" gorm:"type:varchar(100)"`
+	CreatedAt         time.Time     `json:"created_at"`
+	UpdatedAt         time.Time     `json:"updated_at"`
 }
 
 // JSONB type for storing JSON data

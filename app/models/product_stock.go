@@ -17,10 +17,16 @@ type ProductStock struct {
 	SoldStock      float64 `gorm:"default:0;not null" json:"sold_stock"`      // Total units sold (all time)
 	ReservedStock  float64 `gorm:"default:0;not null" json:"reserved_stock"`  // Units reserved for sales orders
 	AvailableStock float64 `gorm:"default:0;not null" json:"available_stock"` // Available = Current - Reserved
+	DamagedStock   float64 `gorm:"default:0;not null" json:"damaged_stock"`   // Units marked as damaged/defective
 
 	// Accounting
 	AverageCost       float64 `gorm:"default:0" json:"average_cost"`       // Weighted average purchase cost
 	RevaluationAmount float64 `gorm:"default:0" json:"revaluation_amount"` // Stock revaluation adjustments
+
+	// Damage tracking
+	DamageReason string     `gorm:"type:text" json:"damage_reason,omitempty"`      // Reason for damage/defect
+	DamagedAt    *time.Time `json:"damaged_at,omitempty"`                          // When item was marked as damaged
+	DamagedBy    string     `gorm:"type:varchar(255)" json:"damaged_by,omitempty"` // User who marked as damaged
 
 	// Tracking
 	LastPurchasedDate *time.Time `json:"last_purchased_date,omitempty"`

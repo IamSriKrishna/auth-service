@@ -97,10 +97,17 @@ func (h *SalesOrderHandler) GetAllSalesOrders(c *fiber.Ctx) error {
 		})
 	}
 
+	// Calculate total amount from all sales orders
+	totalAmount := 0.0
+	for _, so := range sos {
+		totalAmount += so.Total
+	}
+
 	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    sos,
-		"total":   total,
+		"success":      true,
+		"data":         sos,
+		"total":        total,
+		"total_amount": totalAmount,
 	})
 }
 
@@ -137,10 +144,17 @@ func (h *SalesOrderHandler) GetSalesOrdersByCustomer(c *fiber.Ctx) error {
 		})
 	}
 
+	// Calculate total amount from all sales orders
+	totalAmount := 0.0
+	for _, so := range sos {
+		totalAmount += so.Total
+	}
+
 	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    sos,
-		"total":   total,
+		"success":      true,
+		"data":         sos,
+		"total":        total,
+		"total_amount": totalAmount,
 	})
 }
 
@@ -170,10 +184,17 @@ func (h *SalesOrderHandler) GetSalesOrdersByStatus(c *fiber.Ctx) error {
 		})
 	}
 
+	// Calculate total amount from all sales orders
+	totalAmount := 0.0
+	for _, so := range sos {
+		totalAmount += so.Total
+	}
+
 	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    sos,
-		"total":   total,
+		"success":      true,
+		"data":         sos,
+		"total":        total,
+		"total_amount": totalAmount,
 	})
 }
 
