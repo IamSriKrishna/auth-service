@@ -15,6 +15,7 @@ type ProductGroupOutput struct {
 	SellingPrice float64                       `json:"selling_price"`
 	Profit       float64                       `json:"profit"`
 	Components   []ProductGroupComponentOutput `json:"components"`
+	Resources    []ProductGroupResourceOutput  `json:"resources,omitempty"`
 	CreatedAt    time.Time                     `json:"created_at"`
 	UpdatedAt    time.Time                     `json:"updated_at"`
 }
@@ -29,6 +30,17 @@ type ProductGroupComponentOutput struct {
 	VariantDetails map[string]string `json:"variant_details,omitempty"`
 	CreatedAt      time.Time         `json:"created_at"`
 	UpdatedAt      time.Time         `json:"updated_at"`
+}
+
+type ProductGroupResourceOutput struct {
+	ID           uint      `json:"id"`
+	ResourceType string    `json:"resource_type"`
+	Unit         string    `json:"unit"`
+	Quantity     float64   `json:"quantity"`
+	Cost         float64   `json:"cost"`
+	Position     int       `json:"position,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type ProductGroupListOutput struct {
@@ -101,6 +113,26 @@ func ToProductGroupOutput(pg *models.ProductGroup) (*ProductGroupOutput, error) 
 
 	profit := totalSelling - totalCost
 
+	// Convert resources
+	resources := make([]ProductGroupResourceOutput, len(pg.Resources))
+	resourcesCost := 0.0
+	for i, res := range pg.Resources {
+		resources[i] = ProductGroupResourceOutput{
+			ID:           res.ID,
+			ResourceType: res.ResourceType,
+			Unit:         res.Unit,
+			Quantity:     res.Quantity,
+			Cost:         res.Cost,
+			Position:     res.Position,
+			CreatedAt:    res.CreatedAt,
+			UpdatedAt:    res.UpdatedAt,
+		}
+		resourcesCost += res.Cost
+	}
+
+	// Total cost includes products and resources
+	totalCost += resourcesCost
+
 	return &ProductGroupOutput{
 		ID:           pg.ID,
 		Name:         pg.Name,
@@ -110,6 +142,7 @@ func ToProductGroupOutput(pg *models.ProductGroup) (*ProductGroupOutput, error) 
 		SellingPrice: totalSelling,
 		Profit:       profit,
 		Components:   components,
+		Resources:    resources,
 		CreatedAt:    pg.CreatedAt,
 		UpdatedAt:    pg.UpdatedAt,
 	}, nil

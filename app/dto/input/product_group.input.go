@@ -16,6 +16,8 @@ type CreateProductGroupInput struct {
 	IsActive bool `json:"is_active" example:"true"`
 	// Products/components of the product group - the products that make up this bundle
 	Products []ProductGroupComponentInput `json:"products" validate:"required,min=1,dive,required"`
+	// Resources used in this product group (e.g., electricity, water)
+	Resources []ProductGroupResourceInput `json:"resources,omitempty"`
 }
 
 // ProductGroupComponentInput represents a single product or product variant
@@ -53,4 +55,20 @@ type UpdateProductGroupInput struct {
 	IsActive *bool `json:"is_active"`
 	// Products/components of the product group
 	Products []ProductGroupComponentInput `json:"products"`
+	// Resources used in this product group
+	Resources []ProductGroupResourceInput `json:"resources,omitempty"`
+}
+
+// ProductGroupResourceInput represents a resource used in the product group
+type ProductGroupResourceInput struct {
+	// Type of resource (e.g., "electricity", "water", "gas")
+	ResourceType string `json:"resource_type" validate:"required" example:"electricity"`
+	// Unit of measurement (e.g., "watt", "liter", "kwh", "cubic_meter")
+	Unit string `json:"unit" validate:"required" example:"watt"`
+	// Quantity of resource used
+	Quantity float64 `json:"quantity" validate:"required,gt=0" example:"100"`
+	// Cost of the resource
+	Cost float64 `json:"cost" validate:"required,gt=0" example:"50.00"`
+	// Optional: Position/order of this resource in the list
+	Position int `json:"position,omitempty" example:"1"`
 }

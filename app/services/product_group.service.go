@@ -161,6 +161,27 @@ func (s *productGroupService) Create(input *input.CreateProductGroupInput) (*out
 		Components:  components,
 	}
 
+	// Create resources
+	resources := make([]models.ProductGroupResource, 0)
+	if len(input.Resources) > 0 {
+		for i, res := range input.Resources {
+			position := res.Position
+			if position == 0 {
+				position = i + 1
+			}
+			resource := models.ProductGroupResource{
+				ProductGroupID: productGroupID,
+				ResourceType:   res.ResourceType,
+				Unit:           res.Unit,
+				Quantity:       res.Quantity,
+				Cost:           res.Cost,
+				Position:       position,
+			}
+			resources = append(resources, resource)
+		}
+		productGroup.Resources = resources
+	}
+
 	err := s.productGroupRepo.Create(productGroup)
 	if err != nil {
 		return nil, err
@@ -279,6 +300,26 @@ func (s *productGroupService) Update(id string, input *input.UpdateProductGroupI
 				VariantDetails: variantDetails,
 			}
 			productGroup.Components = append(productGroup.Components, component)
+		}
+	}
+
+	// Update resources if provided
+	if len(input.Resources) > 0 {
+		productGroup.Resources = make([]models.ProductGroupResource, 0)
+		for i, res := range input.Resources {
+			position := res.Position
+			if position == 0 {
+				position = i + 1
+			}
+			resource := models.ProductGroupResource{
+				ProductGroupID: id,
+				ResourceType:   res.ResourceType,
+				Unit:           res.Unit,
+				Quantity:       res.Quantity,
+				Cost:           res.Cost,
+				Position:       position,
+			}
+			productGroup.Resources = append(productGroup.Resources, resource)
 		}
 	}
 

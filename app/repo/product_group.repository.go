@@ -22,6 +22,7 @@ func (r *productGroupRepository) FindByID(id string) (*models.ProductGroup, erro
 	err := r.db.Preload("Components.Product.ProductDetails").
 		Preload("Components.Product.SalesInfo").
 		Preload("Components.Product.PurchaseInfo").
+		Preload("Resources").
 		First(&productGroup, "id = ?", id).Error
 	if err != nil {
 		return nil, err
@@ -46,7 +47,7 @@ func (r *productGroupRepository) FindAll(limit, offset int, search string) ([]mo
 
 	err = query.Preload("Components.Product.ProductDetails").
 		Preload("Components.Product.SalesInfo").
-		Preload("Components.Product.PurchaseInfo").
+		Preload("Components.Product.PurchaseInfo").Preload("Resources").Preload("Resources").
 		Limit(limit).Offset(offset).Order("created_at DESC").Find(&productGroups).Error
 	if err != nil {
 		return nil, 0, err
@@ -68,6 +69,7 @@ func (r *productGroupRepository) FindByName(name string) (*models.ProductGroup, 
 	err := r.db.Preload("Components.Product.ProductDetails").
 		Preload("Components.Product.SalesInfo").
 		Preload("Components.Product.PurchaseInfo").
+		Preload("Resources").
 		First(&productGroup, "name = ?", name).Error
 	if err != nil {
 		return nil, err
@@ -89,6 +91,7 @@ func (r *productGroupRepository) FindActiveGroups(limit, offset int) ([]models.P
 	err = query.Preload("Components.Product.ProductDetails").
 		Preload("Components.Product.SalesInfo").
 		Preload("Components.Product.PurchaseInfo").
+		Preload("Resources").
 		Limit(limit).Offset(offset).Order("created_at DESC").Find(&productGroups).Error
 	if err != nil {
 		return nil, 0, err

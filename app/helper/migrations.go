@@ -155,9 +155,10 @@ func RunMigrations(db *gorm.DB) error {
 
 		&models.Product{},
 		&models.ProductGroup{},
+		&models.ProductGroupComponent{},
+		&models.ProductGroupResource{},
 		&models.ProductGroupInventory{},
 		&models.ComponentInventory{},
-		&models.ProductGroupComponent{},
 		&models.ProductDetails{},
 		&models.ProductVariant{},
 		&models.ProductVariantAttribute{},
