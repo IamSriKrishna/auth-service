@@ -1,14 +1,14 @@
-FROM golang:1.25.4-alphine
+FROM golang:1.24-alpine
 
 WORKDIR /app
 
 COPY go.mod go.sum ./
 
-RUN go mod tidy
+RUN go mod download
 
 COPY . .
 
-RUN go build -o main ./main.go
+RUN go build -o main .
 
 RUN chmod +x main
 
