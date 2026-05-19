@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"strings"
 
 	"github.com/bbapp-org/auth-service/app/config"
 	"github.com/bbapp-org/auth-service/app/config/database"
@@ -52,26 +51,15 @@ func main() {
 	}))
 	app.Use(recover.New())
 
-	// Parse CORS allowed origins
-	allowedOrigins := strings.TrimSpace(cfg.App.AllowedOrigins)
-	var corsAllowOrigins string
-	if allowedOrigins == "*" {
-		corsAllowOrigins = "*"
-	} else {
-		corsAllowOrigins = allowedOrigins
-	}
-
-	log.Printf("CORS configuration: AllowOrigins=%s", corsAllowOrigins)
-
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "*",
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",
-		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
-		AllowCredentials: false,
-		ExposeHeaders:    "Content-Length, Content-Type",
-		MaxAge:           3600,
+		AllowOrigins:     "https://main.d1s27o2bgfjm4l.amplifyapp.com",
+		AllowMethods:     "GET,POST,PUT,DELETE,PATCH,OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		ExposeHeaders:    "Content-Length",
+		AllowCredentials: true,
+		MaxAge:           86400,
 	}))
-	
+
 	// Handle preflight requests
 	app.Options("*", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
