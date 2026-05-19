@@ -8,8 +8,6 @@ import (
 	"github.com/bbapp-org/auth-service/app/config/database"
 	"github.com/bbapp-org/auth-service/app/helper"
 	"github.com/bbapp-org/auth-service/app/routes"
-
-	_ "github.com/bbapp-org/auth-service/docs"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
