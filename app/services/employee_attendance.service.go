@@ -53,6 +53,9 @@ func (s *employeeAttendanceService) CreateAttendance(ctx context.Context, compan
 	if err != nil {
 		return nil, errors.New("invalid date format, use YYYY-MM-DD")
 	}
+	// Store date as-is without timezone conversion (just the date part)
+	// This avoids timezone offset issues
+	parsedDate = time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 0, 0, 0, 0, time.Local)
 
 	// Verify employee exists
 	employee, err := s.employeeRepo.GetByID(req.EmployeeID)
@@ -64,26 +67,43 @@ func (s *employeeAttendanceService) CreateAttendance(ctx context.Context, compan
 		return nil, errors.New("employee does not belong to this company")
 	}
 
-	// Check if attendance already exists for this date
+	// Check if attendance already exists for this date (non-deleted records only)
 	existingAttendance, _ := s.attendanceRepo.GetByEmployeeAndDate(req.EmployeeID, parsedDate)
-	if existingAttendance != nil {
-		return nil, errors.New("attendance already recorded for this date")
-	}
 
-	attendance := &models.EmployeeAttendance{
-		EmployeeID:   req.EmployeeID,
-		CompanyID:    companyID,
-		Date:         parsedDate,
-		Status:       models.AttendanceStatus(req.Status),
-		Reason:       req.Reason,
-		CheckInTime:  req.CheckInTime,
-		CheckOutTime: req.CheckOutTime,
-		WorkingHours: req.WorkingHours,
-		Notes:        req.Notes,
-	}
+	var attendance *models.EmployeeAttendance
 
-	if err := s.attendanceRepo.Create(attendance); err != nil {
-		return nil, err
+	if existingAttendance != nil && existingAttendance.CompanyID == companyID {
+		// Update existing record instead of throwing error
+		existingAttendance.Status = models.AttendanceStatus(req.Status)
+		existingAttendance.Reason = req.Reason
+		existingAttendance.CheckInTime = req.CheckInTime
+		existingAttendance.CheckOutTime = req.CheckOutTime
+		existingAttendance.WorkingHours = req.WorkingHours
+		existingAttendance.Notes = req.Notes
+
+		if err := s.attendanceRepo.Update(existingAttendance); err != nil {
+			return nil, err
+		}
+		attendance = existingAttendance
+	} else {
+		// Hard delete any soft-deleted records for this date to allow re-creation
+		_ = s.attendanceRepo.DeleteByEmployeeAndDate(req.EmployeeID, parsedDate)
+
+		attendance = &models.EmployeeAttendance{
+			EmployeeID:   req.EmployeeID,
+			CompanyID:    companyID,
+			Date:         parsedDate,
+			Status:       models.AttendanceStatus(req.Status),
+			Reason:       req.Reason,
+			CheckInTime:  req.CheckInTime,
+			CheckOutTime: req.CheckOutTime,
+			WorkingHours: req.WorkingHours,
+			Notes:        req.Notes,
+		}
+
+		if err := s.attendanceRepo.Create(attendance); err != nil {
+			return nil, err
+		}
 	}
 
 	return s.mapAttendanceToOutput(attendance), nil
@@ -111,6 +131,11 @@ func (s *employeeAttendanceService) BulkCreateAttendance(ctx context.Context, co
 		FailedDates:     []string{},
 	}
 
+	if len(req.Attendance) == 0 {
+		response.Message = "No attendance records provided"
+		return response, nil
+	}
+
 	for _, day := range req.Attendance {
 		parsedDate, err := time.Parse("2006-01-02", day.Date)
 		if err != nil {
@@ -118,31 +143,45 @@ func (s *employeeAttendanceService) BulkCreateAttendance(ctx context.Context, co
 			response.FailedCount++
 			continue
 		}
+		// Store date as-is without timezone conversion (just the date part)
+		parsedDate = time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 0, 0, 0, 0, time.Local)
 
 		// Check if attendance already exists for this date
 		existingAttendance, _ := s.attendanceRepo.GetByEmployeeAndDate(req.EmployeeID, parsedDate)
-		if existingAttendance != nil {
-			response.FailedDates = append(response.FailedDates, day.Date)
-			response.FailedCount++
-			continue
-		}
 
-		attendance := &models.EmployeeAttendance{
-			EmployeeID:   req.EmployeeID,
-			CompanyID:    companyID,
-			Date:         parsedDate,
-			Status:       models.AttendanceStatus(day.Status),
-			Reason:       day.Reason,
-			CheckInTime:  day.CheckInTime,
-			CheckOutTime: day.CheckOutTime,
-			WorkingHours: day.WorkingHours,
-			Notes:        day.Notes,
-		}
+		if existingAttendance != nil && existingAttendance.CompanyID == companyID {
+			// Update existing record instead of failing
+			existingAttendance.Status = models.AttendanceStatus(day.Status)
+			existingAttendance.Reason = day.Reason
+			existingAttendance.CheckInTime = day.CheckInTime
+			existingAttendance.CheckOutTime = day.CheckOutTime
+			existingAttendance.WorkingHours = day.WorkingHours
+			existingAttendance.Notes = day.Notes
 
-		if err := s.attendanceRepo.Create(attendance); err != nil {
-			response.FailedDates = append(response.FailedDates, day.Date)
-			response.FailedCount++
-			continue
+			if err := s.attendanceRepo.Update(existingAttendance); err != nil {
+				response.FailedDates = append(response.FailedDates, day.Date)
+				response.FailedCount++
+				continue
+			}
+		} else {
+			// Create new record
+			attendance := &models.EmployeeAttendance{
+				EmployeeID:   req.EmployeeID,
+				CompanyID:    companyID,
+				Date:         parsedDate,
+				Status:       models.AttendanceStatus(day.Status),
+				Reason:       day.Reason,
+				CheckInTime:  day.CheckInTime,
+				CheckOutTime: day.CheckOutTime,
+				WorkingHours: day.WorkingHours,
+				Notes:        day.Notes,
+			}
+
+			if err := s.attendanceRepo.Create(attendance); err != nil {
+				response.FailedDates = append(response.FailedDates, day.Date)
+				response.FailedCount++
+				continue
+			}
 		}
 
 		response.SuccessfulDates = append(response.SuccessfulDates, day.Date)
@@ -367,7 +406,7 @@ func (s *employeeAttendanceService) CheckInEmployee(ctx context.Context, employe
 
 	now := time.Now().UTC()
 
-	if attendance == nil {
+	if attendance == nil || attendance.CompanyID != companyID {
 		// Create new attendance record
 		attendance = &models.EmployeeAttendance{
 			EmployeeID:  employeeID,
@@ -398,7 +437,7 @@ func (s *employeeAttendanceService) CheckOutEmployee(ctx context.Context, employ
 	startOfDay := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
 
 	attendance, err := s.attendanceRepo.GetByEmployeeAndDate(employeeID, startOfDay)
-	if err != nil || attendance == nil {
+	if err != nil || attendance == nil || attendance.CompanyID != companyID {
 		return nil, errors.New("no check-in found for today")
 	}
 

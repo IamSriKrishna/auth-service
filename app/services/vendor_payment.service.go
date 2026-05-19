@@ -86,14 +86,6 @@ func (s *vendorPaymentService) CreateVendorPayment(
 			po.Total, paymentInput.Amount)
 	}
 
-	// Check for duplicate payment (same amount, vendor, and date within 1 hour)
-	for _, payment := range existingPayments {
-		timeDiff := paymentInput.PaymentDate.Sub(payment.PaymentDate).Abs()
-		if payment.Amount == paymentInput.Amount && timeDiff.Hours() < 1 {
-			return nil, fmt.Errorf("duplicate payment detected. Payment of %.2f already exists for this PO", paymentInput.Amount)
-		}
-	}
-
 	paymentNumber := "VP-" + time.Now().Format("20060102") + "-" + uuid.New().String()[:8]
 
 	// Calculate remaining amount for the PO after this payment

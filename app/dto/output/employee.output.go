@@ -10,6 +10,8 @@ type EmployeeOutput struct {
 	Address       string    `json:"address"`
 	EmployeeType  string    `json:"employee_type"`
 	MonthlySalary float64   `json:"monthly_salary"`
+	WeeklySalary  float64   `json:"weekly_salary"`
+	SalaryType    string    `json:"salary_type"`
 	DocumentURL   string    `json:"document_url"`
 	UserID        uint      `json:"user_id"`
 	CompanyID     uint      `json:"company_id"`
@@ -25,6 +27,8 @@ type EmployeeListOutput struct {
 	Address       string    `json:"address"`
 	EmployeeType  string    `json:"employee_type"`
 	MonthlySalary float64   `json:"monthly_salary"`
+	WeeklySalary  float64   `json:"weekly_salary"`
+	SalaryType    string    `json:"salary_type"`
 	DocumentURL   string    `json:"document_url"`
 	UserID        uint      `json:"user_id"`
 	CompanyID     uint      `json:"company_id"`

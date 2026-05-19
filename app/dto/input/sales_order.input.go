@@ -23,8 +23,8 @@ type CreateSalesOrderInput struct {
 }
 
 type SalesOrderLineItemInput struct {
-	ProductGroupID   string  `json:"product_group_id" validate:"required"`
-	ProductGroupName string  `json:"product_group_name" validate:"required"`
+	ManufacturerID   string  `json:"manufacturer_id" validate:"required"`
+	ManufacturerName string  `json:"manufacturer_name" validate:"required"`
 	Quantity         float64 `json:"quantity" validate:"required,gt=0"`
 	Rate             float64 `json:"rate" validate:"required,gt=0"`
 	Account          string  `json:"account" validate:"required"`

@@ -101,11 +101,11 @@ func ToPackageOutput(pkg *models.Package) (*PackageOutput, error) {
 	var customerInfo *CustomerInfo
 	if pkg.Customer != nil {
 		customerInfo = &CustomerInfo{
-			ID:          pkg.Customer.ID,
-			DisplayName: pkg.Customer.DisplayName,
-			CompanyName: pkg.Customer.CompanyName,
-			Email:       pkg.Customer.EmailAddress,
-			Phone:       pkg.Customer.Mobile,
+			ID:           pkg.Customer.ID,
+			DisplayName:  pkg.Customer.DisplayName,
+			CompanyName:  pkg.Customer.CompanyName,
+			EmailAddress: pkg.Customer.EmailAddress,
+			WorkPhone:    pkg.Customer.Mobile,
 		}
 	}
 

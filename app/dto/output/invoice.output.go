@@ -188,11 +188,11 @@ func ToInvoiceOutput(invoice *models.Invoice) (*InvoiceOutput, error) {
 
 	if invoice.Customer != nil {
 		output.Customer = &CustomerInfo{
-			ID:          invoice.Customer.ID,
-			DisplayName: invoice.Customer.DisplayName,
-			CompanyName: invoice.Customer.CompanyName,
-			Email:       invoice.Customer.EmailAddress,
-			Phone:       invoice.Customer.WorkPhone,
+			ID:           invoice.Customer.ID,
+			DisplayName:  invoice.Customer.DisplayName,
+			CompanyName:  invoice.Customer.CompanyName,
+			EmailAddress: invoice.Customer.EmailAddress,
+			WorkPhone:    invoice.Customer.WorkPhone,
 		}
 	}
 

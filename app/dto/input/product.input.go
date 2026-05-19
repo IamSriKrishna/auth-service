@@ -13,13 +13,20 @@ import (
 //
 // Example: "500ml Water Bottle" product can have variants like "Red 500ml", "Blue 500ml", etc.
 // Each variant has its own SKU, pricing, and stock.
+//
+// For resources (water, electricity, etc.), set IsResource=true and provide ResourceName, ResourceUnit, and ResourceCostPerUnit.
+// Resources don't need variants, sales info, or purchase info.
 type CreateProductInput struct {
-	Name           string              `json:"name" validate:"required" example:"500ml Water Bottle"`
-	ProductDetails ProductDetailsInput `json:"product_details" validate:"required"`
-	SalesInfo      SalesInfoInput      `json:"sales_info" validate:"required"`
-	PurchaseInfo   *PurchaseInfoInput  `json:"purchase_info"`
-	Inventory      *InventoryInput     `json:"inventory"`
-	ReturnPolicy   *ReturnPolicyInput  `json:"return_policy"`
+	Name                string              `json:"name" validate:"required" example:"500ml Water Bottle"`
+	IsResource          bool                `json:"is_resource" example:"false"`
+	ResourceName        string              `json:"resource_name" example:"Water"`
+	ResourceUnit        string              `json:"resource_unit" example:"liter"`
+	ResourceCostPerUnit float64             `json:"resource_cost_per_unit" example:"25.50"`
+	ProductDetails      ProductDetailsInput `json:"product_details" validate:"required"`
+	SalesInfo           *SalesInfoInput     `json:"sales_info"`
+	PurchaseInfo        *PurchaseInfoInput  `json:"purchase_info"`
+	Inventory           *InventoryInput     `json:"inventory"`
+	ReturnPolicy        *ReturnPolicyInput  `json:"return_policy"`
 }
 
 // ProductDetailsInput contains variant and attribute details for the product.
@@ -42,8 +49,6 @@ type ProductDetailsInput struct {
 	ISBN string `json:"isbn" example:"978-0-123456-78-9"`
 	// Product description
 	Description string `json:"description" example:"Premium 500ml drinking water bottle"`
-	// Manufacturer ID reference
-	ManufacturerID *uint `json:"manufacturer_id"`
 	// Attribute definitions that define possible variant combinations
 	// Example: Color: [Red, Blue, Green], Size: [500ml, 1L]
 	// Optional: can be omitted for products without variants
@@ -93,12 +98,16 @@ type ProductVariantInput struct {
 
 // UpdateProductInput represents updates to an existing product
 type UpdateProductInput struct {
-	Name           *string              `json:"name"`
-	ProductDetails *ProductDetailsInput `json:"product_details"`
-	SalesInfo      *SalesInfoInput      `json:"sales_info"`
-	PurchaseInfo   *PurchaseInfoInput   `json:"purchase_info"`
-	Inventory      *InventoryInput      `json:"inventory"`
-	ReturnPolicy   *ReturnPolicyInput   `json:"return_policy"`
+	Name                *string              `json:"name"`
+	IsResource          *bool                `json:"is_resource"`
+	ResourceName        *string              `json:"resource_name"`
+	ResourceUnit        *string              `json:"resource_unit"`
+	ResourceCostPerUnit *float64             `json:"resource_cost_per_unit"`
+	ProductDetails      *ProductDetailsInput `json:"product_details"`
+	SalesInfo           *SalesInfoInput      `json:"sales_info"`
+	PurchaseInfo        *PurchaseInfoInput   `json:"purchase_info"`
+	Inventory           *InventoryInput      `json:"inventory"`
+	ReturnPolicy        *ReturnPolicyInput   `json:"return_policy"`
 }
 
 // ProductVariantOpeningStockInput for setting opening stock for a variant
@@ -124,14 +133,13 @@ type ProductOpeningStockInput struct {
 // ToProductDetails converts ProductDetailsInput to models.ProductDetails
 func (p *CreateProductInput) ToProductDetails() models.ProductDetails {
 	productDetails := models.ProductDetails{
-		Unit:           p.ProductDetails.Unit,
-		BaseSKU:        p.ProductDetails.BaseSKU,
-		UPC:            p.ProductDetails.UPC,
-		EAN:            p.ProductDetails.EAN,
-		MPN:            p.ProductDetails.MPN,
-		ISBN:           p.ProductDetails.ISBN,
-		Description:    p.ProductDetails.Description,
-		ManufacturerID: p.ProductDetails.ManufacturerID,
+		Unit:        p.ProductDetails.Unit,
+		BaseSKU:     p.ProductDetails.BaseSKU,
+		UPC:         p.ProductDetails.UPC,
+		EAN:         p.ProductDetails.EAN,
+		MPN:         p.ProductDetails.MPN,
+		ISBN:        p.ProductDetails.ISBN,
+		Description: p.ProductDetails.Description,
 	}
 
 	if len(p.ProductDetails.AttributeDefinitions) > 0 {
@@ -172,6 +180,9 @@ func (p *CreateProductInput) ToProductDetails() models.ProductDetails {
 
 // ToSalesInfo converts to SalesInfo model
 func (p *CreateProductInput) ToSalesInfo() models.SalesInfo {
+	if p.SalesInfo == nil {
+		return models.SalesInfo{}
+	}
 	return models.SalesInfo{
 		Account:      p.SalesInfo.Account,
 		SellingPrice: p.SalesInfo.SellingPrice,
@@ -186,11 +197,10 @@ func (p *CreateProductInput) ToPurchaseInfo() models.PurchaseInfo {
 		return models.PurchaseInfo{}
 	}
 	return models.PurchaseInfo{
-		Account:           p.PurchaseInfo.Account,
-		CostPrice:         p.PurchaseInfo.CostPrice,
-		Currency:          p.PurchaseInfo.Currency,
-		PreferredVendorID: p.PurchaseInfo.PreferredVendorID,
-		Description:       p.PurchaseInfo.Description,
+		Account:     p.PurchaseInfo.Account,
+		CostPrice:   p.PurchaseInfo.CostPrice,
+		Currency:    p.PurchaseInfo.Currency,
+		Description: p.PurchaseInfo.Description,
 	}
 }
 

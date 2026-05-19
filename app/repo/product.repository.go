@@ -89,7 +89,6 @@ func (r *productRepository) FindByID(id string) (*models.Product, error) {
 	var product models.Product
 	err := r.db.
 		Preload("ProductDetails.ProductVariants.Attributes").
-		Preload("ProductDetails.Manufacturer").
 		Preload("SalesInfo").
 		Preload("PurchaseInfo.PreferredVendor").
 		Preload("Inventory").
@@ -112,7 +111,6 @@ func (r *productRepository) FindAll(limit, offset int) ([]models.Product, int64,
 
 	err := r.db.
 		Preload("ProductDetails.ProductVariants.Attributes").
-		Preload("ProductDetails.Manufacturer").
 		Preload("SalesInfo").
 		Preload("PurchaseInfo.PreferredVendor").
 		Preload("Inventory").
@@ -259,7 +257,39 @@ func (r *productRepository) FindByCreatedBy(createdBy string, limit, offset int)
 	result := r.db.
 		Where("created_by = ?", createdBy).
 		Preload("ProductDetails.ProductVariants.Attributes").
-		Preload("ProductDetails.Manufacturer").
+		Preload("SalesInfo").
+		Preload("PurchaseInfo.PreferredVendor").
+		Preload("Inventory").
+		Preload("ReturnPolicy").
+		Limit(limit).
+		Offset(offset).
+		Order("created_at DESC").
+		Find(&products)
+
+	if result.Error != nil {
+		return nil, 0, result.Error
+	}
+
+	return products, total, nil
+}
+
+// FindByCreatedByAndCompany fetches products created by a user within their company
+func (r *productRepository) FindByCreatedByAndCompany(createdBy string, companyID uint, limit, offset int) ([]models.Product, int64, error) {
+	var products []models.Product
+	var total int64
+
+	// Count total products for this user in their company
+	countResult := r.db.Model(&models.Product{}).
+		Where("created_by = ? AND created_by_company_id = ?", createdBy, companyID).
+		Count(&total)
+	if countResult.Error != nil {
+		return nil, 0, countResult.Error
+	}
+
+	// Fetch products with all relationships
+	result := r.db.
+		Where("created_by = ? AND created_by_company_id = ?", createdBy, companyID).
+		Preload("ProductDetails.ProductVariants.Attributes").
 		Preload("SalesInfo").
 		Preload("PurchaseInfo.PreferredVendor").
 		Preload("Inventory").

@@ -36,24 +36,59 @@ func (h *EmployeeHandler) CreateEmployee(c *fiber.Ctx) error {
 	req.Number = c.FormValue("number")
 	req.Address = c.FormValue("address")
 	req.EmployeeType = c.FormValue("employee_type")
+	req.SalaryType = c.FormValue("salary_type")
 
-	// Parse monthly_salary
-	monthlySalaryStr := c.FormValue("monthly_salary")
-	if monthlySalaryStr == "" {
+	// Validate salary_type
+	if req.SalaryType == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 			Error:   true,
-			Message: "Monthly salary is required",
+			Message: "Salary type is required (monthly or weekly)",
 		})
 	}
 
-	var monthlySalary float64
-	if _, err := fmt.Sscanf(monthlySalaryStr, "%f", &monthlySalary); err != nil {
+	if req.SalaryType != "monthly" && req.SalaryType != "weekly" {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 			Error:   true,
-			Message: "Invalid monthly salary format",
+			Message: "Salary type must be either 'monthly' or 'weekly'",
 		})
 	}
-	req.MonthlySalary = monthlySalary
+
+	// Parse salary based on salary_type
+	if req.SalaryType == "monthly" {
+		monthlySalaryStr := c.FormValue("monthly_salary")
+		if monthlySalaryStr == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
+				Error:   true,
+				Message: "Monthly salary is required",
+			})
+		}
+
+		var monthlySalary float64
+		if _, err := fmt.Sscanf(monthlySalaryStr, "%f", &monthlySalary); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
+				Error:   true,
+				Message: "Invalid monthly salary format",
+			})
+		}
+		req.MonthlySalary = monthlySalary
+	} else if req.SalaryType == "weekly" {
+		weeklySalaryStr := c.FormValue("weekly_salary")
+		if weeklySalaryStr == "" {
+			return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
+				Error:   true,
+				Message: "Weekly salary is required",
+			})
+		}
+
+		var weeklySalary float64
+		if _, err := fmt.Sscanf(weeklySalaryStr, "%f", &weeklySalary); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
+				Error:   true,
+				Message: "Invalid weekly salary format",
+			})
+		}
+		req.WeeklySalary = weeklySalary
+	}
 
 	// Get file from form
 	file, err := c.FormFile("document")

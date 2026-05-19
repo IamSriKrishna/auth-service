@@ -15,7 +15,7 @@ import (
 type ProductService interface {
 	// Basic CRUD Operations
 	CreateProduct(input *input.CreateProductInput, createdBy string) (*output.ProductOutput, error)
-	GetProduct(id string) (*output.ProductOutput, error)
+	GetProduct(id string, createdBy string) (*output.ProductOutput, error)
 	GetAllProducts(limit, offset int, createdBy string) (*output.ProductListOutput, error)
 	UpdateProduct(id string, input *input.UpdateProductInput, createdBy string) (*output.ProductOutput, error)
 	DeleteProduct(id string, createdBy string) error
@@ -30,113 +30,107 @@ type ProductService interface {
 }
 
 type productService struct {
-	repo             repo.ProductRepository
-	vendorRepo       repo.VendorRepository
-	manufacturerRepo repo.ManufacturerRepository
-	inventoryRepo    repo.InventoryBalanceRepository
-	userRepo         repo.UserRepository
-	companyRepo      repo.CompanyRepository
+	repo          repo.ProductRepository
+	vendorRepo    repo.VendorRepository
+	inventoryRepo repo.InventoryBalanceRepository
+	userRepo      repo.UserRepository
+	companyRepo   repo.CompanyRepository
 }
 
 func NewProductService(
 	productRepo repo.ProductRepository,
 	vendorRepo repo.VendorRepository,
-	manufacturerRepo repo.ManufacturerRepository,
 	inventoryRepo repo.InventoryBalanceRepository,
 	userRepo repo.UserRepository,
 	companyRepo repo.CompanyRepository,
 ) ProductService {
 	return &productService{
-		repo:             productRepo,
-		vendorRepo:       vendorRepo,
-		manufacturerRepo: manufacturerRepo,
-		inventoryRepo:    inventoryRepo,
-		userRepo:         userRepo,
-		companyRepo:      companyRepo,
+		repo:          productRepo,
+		vendorRepo:    vendorRepo,
+		inventoryRepo: inventoryRepo,
+		userRepo:      userRepo,
+		companyRepo:   companyRepo,
 	}
 }
 
 func (s *productService) CreateProduct(input *input.CreateProductInput, createdBy string) (*output.ProductOutput, error) {
-	// Validate variant attributes first
-	if err := input.ValidateVariantAttributes(); err != nil {
-		return nil, err
-	}
+	// For resources, skip variant and SKU validation
+	if !input.IsResource {
+		// Validate variant attributes first
+		if err := input.ValidateVariantAttributes(); err != nil {
+			return nil, err
+		}
 
-	// Validate SKU uniqueness
-	if err := input.ValidateSKUUniqueness(); err != nil {
-		return nil, err
+		// Validate SKU uniqueness
+		if err := input.ValidateSKUUniqueness(); err != nil {
+			return nil, err
+		}
 	}
 
 	id := fmt.Sprintf("prod_%s", uuid.New().String()[:8])
 
-	// Validate manufacturer if provided
-	if input.ProductDetails.ManufacturerID != nil {
-		_, err := s.manufacturerRepo.FindByID(*input.ProductDetails.ManufacturerID)
-		if err != nil {
-			return nil, fmt.Errorf("manufacturer not found")
-		}
-	}
-
-	if input.PurchaseInfo != nil && input.PurchaseInfo.PreferredVendorID != nil {
-		_, err := s.vendorRepo.FindByID(*input.PurchaseInfo.PreferredVendorID)
-		if err != nil {
-			return nil, fmt.Errorf("preferred vendor not found")
-		}
-	}
-
-	productDetails := buildProductDetails(id, input)
-
 	idPtr := id
-	salesInfo := models.SalesInfo{
-		ProductID:    &idPtr,
-		Account:      input.SalesInfo.Account,
-		SellingPrice: input.SalesInfo.SellingPrice,
-		Currency:     input.SalesInfo.Currency,
-		Description:  input.SalesInfo.Description,
-	}
-
-	purchaseInfo := models.PurchaseInfo{}
-	if input.PurchaseInfo != nil {
-		purchaseInfo = models.PurchaseInfo{
-			ProductID:         &idPtr,
-			Account:           input.PurchaseInfo.Account,
-			CostPrice:         input.PurchaseInfo.CostPrice,
-			Currency:          input.PurchaseInfo.Currency,
-			PreferredVendorID: input.PurchaseInfo.PreferredVendorID,
-			Description:       input.PurchaseInfo.Description,
-		}
-	}
-
-	inventory := models.Inventory{
-		ProductID:      &idPtr,
-		TrackInventory: false,
-	}
-	if input.Inventory != nil {
-		inventory.TrackInventory = input.Inventory.TrackInventory
-		inventory.InventoryAccount = input.Inventory.InventoryAccount
-		inventory.InventoryValuationMethod = input.Inventory.InventoryValuationMethod
-		inventory.ReorderPoint = input.Inventory.ReorderPoint
-	}
-
-	returnPolicy := models.ReturnPolicy{
-		ProductID:  &idPtr,
-		Returnable: false,
-	}
-	if input.ReturnPolicy != nil {
-		returnPolicy.Returnable = input.ReturnPolicy.Returnable
-	}
-
 	product := &models.Product{
-		ID:             id,
-		Name:           input.Name,
-		ProductDetails: productDetails,
-		SalesInfo:      salesInfo,
-		PurchaseInfo:   purchaseInfo,
-		Inventory:      inventory,
-		ReturnPolicy:   returnPolicy,
-		CreatedBy:      createdBy,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
+		ID:                  id,
+		Name:                input.Name,
+		IsResource:          input.IsResource,
+		ResourceName:        input.ResourceName,
+		ResourceUnit:        input.ResourceUnit,
+		ResourceCostPerUnit: input.ResourceCostPerUnit,
+		CreatedBy:           createdBy,
+		CreatedAt:           time.Now(),
+		UpdatedAt:           time.Now(),
+	}
+
+	// Only add product details, sales info, purchase info, inventory, and return policy for non-resource products
+	if !input.IsResource {
+		productDetails := buildProductDetails(id, input)
+		product.ProductDetails = productDetails
+
+		salesInfo := models.SalesInfo{}
+		if input.SalesInfo != nil {
+			salesInfo = models.SalesInfo{
+				ProductID:    &idPtr,
+				Account:      input.SalesInfo.Account,
+				SellingPrice: input.SalesInfo.SellingPrice,
+				Currency:     input.SalesInfo.Currency,
+				Description:  input.SalesInfo.Description,
+			}
+		}
+		product.SalesInfo = salesInfo
+
+		purchaseInfo := models.PurchaseInfo{}
+		if input.PurchaseInfo != nil {
+			purchaseInfo = models.PurchaseInfo{
+				ProductID:   &idPtr,
+				Account:     input.PurchaseInfo.Account,
+				CostPrice:   input.PurchaseInfo.CostPrice,
+				Currency:    input.PurchaseInfo.Currency,
+				Description: input.PurchaseInfo.Description,
+			}
+		}
+		product.PurchaseInfo = purchaseInfo
+
+		inventory := models.Inventory{
+			ProductID:      &idPtr,
+			TrackInventory: false,
+		}
+		if input.Inventory != nil {
+			inventory.TrackInventory = input.Inventory.TrackInventory
+			inventory.InventoryAccount = input.Inventory.InventoryAccount
+			inventory.InventoryValuationMethod = input.Inventory.InventoryValuationMethod
+			inventory.ReorderPoint = input.Inventory.ReorderPoint
+		}
+		product.Inventory = inventory
+
+		returnPolicy := models.ReturnPolicy{
+			ProductID:  &idPtr,
+			Returnable: false,
+		}
+		if input.ReturnPolicy != nil {
+			returnPolicy.Returnable = input.ReturnPolicy.Returnable
+		}
+		product.ReturnPolicy = returnPolicy
 	}
 
 	// Fetch user details if createdBy is provided
@@ -179,15 +173,14 @@ func (s *productService) CreateProduct(input *input.CreateProductInput, createdB
 
 func buildProductDetails(productID string, input *input.CreateProductInput) models.ProductDetails {
 	productDetails := models.ProductDetails{
-		ProductID:      productID,
-		Unit:           input.ProductDetails.Unit,
-		BaseSKU:        input.ProductDetails.BaseSKU,
-		UPC:            input.ProductDetails.UPC,
-		EAN:            input.ProductDetails.EAN,
-		MPN:            input.ProductDetails.MPN,
-		ISBN:           input.ProductDetails.ISBN,
-		Description:    input.ProductDetails.Description,
-		ManufacturerID: input.ProductDetails.ManufacturerID,
+		ProductID:   productID,
+		Unit:        input.ProductDetails.Unit,
+		BaseSKU:     input.ProductDetails.BaseSKU,
+		UPC:         input.ProductDetails.UPC,
+		EAN:         input.ProductDetails.EAN,
+		MPN:         input.ProductDetails.MPN,
+		ISBN:        input.ProductDetails.ISBN,
+		Description: input.ProductDetails.Description,
 	}
 
 	if len(input.ProductDetails.AttributeDefinitions) > 0 {
@@ -251,10 +244,29 @@ func buildProductDetails(productID string, input *input.CreateProductInput) mode
 	return productDetails
 }
 
-func (s *productService) GetProduct(id string) (*output.ProductOutput, error) {
+func (s *productService) GetProduct(id string, createdBy string) (*output.ProductOutput, error) {
+	// Parse user ID from createdBy
+	var userID uint
+	_, err := fmt.Sscanf(createdBy, "%d", &userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user id")
+	}
+
+	// Get user to fetch company
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil || user == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// Get product
 	product, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, err
+	}
+
+	// Check if product belongs to user's company
+	if product.CreatedByCompanyID != *user.CompanyID {
+		return nil, fmt.Errorf("unauthorized: product does not belong to your company")
 	}
 
 	return output.ToProductOutput(product)
@@ -268,7 +280,21 @@ func (s *productService) GetAllProducts(limit, offset int, createdBy string) (*o
 		offset = 0
 	}
 
-	products, total, err := s.repo.FindByCreatedBy(createdBy, limit, offset)
+	// Parse user ID from createdBy
+	var userID uint
+	_, err := fmt.Sscanf(createdBy, "%d", &userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user id")
+	}
+
+	// Get user to fetch company
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil || user == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// Get products only from user's company
+	products, total, err := s.repo.FindByCreatedByAndCompany(createdBy, *user.CompanyID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -277,17 +303,50 @@ func (s *productService) GetAllProducts(limit, offset int, createdBy string) (*o
 }
 
 func (s *productService) UpdateProduct(id string, input *input.UpdateProductInput, createdBy string) (*output.ProductOutput, error) {
+	// Parse user ID from createdBy
+	var userID uint
+	_, err := fmt.Sscanf(createdBy, "%d", &userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user id")
+	}
+
+	// Get user to fetch company
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil || user == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
 	product, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, err
 	}
 
+	// Check if user created the product
 	if product.CreatedBy != createdBy {
 		return nil, fmt.Errorf("unauthorized: you can only update products you created")
 	}
 
+	// Check if product belongs to user's company
+	if product.CreatedByCompanyID != *user.CompanyID {
+		return nil, fmt.Errorf("unauthorized: product does not belong to your company")
+	}
+
 	if input.Name != nil {
 		product.Name = *input.Name
+	}
+
+	// Handle resource fields
+	if input.IsResource != nil {
+		product.IsResource = *input.IsResource
+	}
+	if input.ResourceName != nil {
+		product.ResourceName = *input.ResourceName
+	}
+	if input.ResourceUnit != nil {
+		product.ResourceUnit = *input.ResourceUnit
+	}
+	if input.ResourceCostPerUnit != nil {
+		product.ResourceCostPerUnit = *input.ResourceCostPerUnit
 	}
 
 	if input.SalesInfo != nil {
@@ -314,13 +373,6 @@ func (s *productService) UpdateProduct(id string, input *input.UpdateProductInpu
 		}
 		if input.PurchaseInfo.Currency != "" {
 			product.PurchaseInfo.Currency = input.PurchaseInfo.Currency
-		}
-		if input.PurchaseInfo.PreferredVendorID != nil {
-			_, err := s.vendorRepo.FindByID(*input.PurchaseInfo.PreferredVendorID)
-			if err != nil {
-				return nil, fmt.Errorf("preferred vendor not found")
-			}
-			product.PurchaseInfo.PreferredVendorID = input.PurchaseInfo.PreferredVendorID
 		}
 		if input.PurchaseInfo.Description != "" {
 			product.PurchaseInfo.Description = input.PurchaseInfo.Description
@@ -353,9 +405,6 @@ func (s *productService) UpdateProduct(id string, input *input.UpdateProductInpu
 		}
 		if input.ProductDetails.Description != "" {
 			product.ProductDetails.Description = input.ProductDetails.Description
-		}
-		if input.ProductDetails.ManufacturerID != nil {
-			product.ProductDetails.ManufacturerID = input.ProductDetails.ManufacturerID
 		}
 
 		if len(input.ProductDetails.Variants) > 0 {
@@ -407,13 +456,32 @@ func (s *productService) UpdateProduct(id string, input *input.UpdateProductInpu
 }
 
 func (s *productService) DeleteProduct(id string, createdBy string) error {
+	// Parse user ID from createdBy
+	var userID uint
+	_, err := fmt.Sscanf(createdBy, "%d", &userID)
+	if err != nil {
+		return fmt.Errorf("invalid user id")
+	}
+
+	// Get user to fetch company
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil || user == nil {
+		return fmt.Errorf("user not found")
+	}
+
 	product, err := s.repo.FindByID(id)
 	if err != nil {
 		return errors.New("product not found")
 	}
 
+	// Check if user created the product
 	if product.CreatedBy != createdBy {
 		return errors.New("unauthorized: you can only delete products you created")
+	}
+
+	// Check if product belongs to user's company
+	if product.CreatedByCompanyID != *user.CompanyID {
+		return errors.New("unauthorized: product does not belong to your company")
 	}
 
 	return s.repo.DeleteByCreatedBy(id, createdBy)
@@ -468,15 +536,13 @@ func (s *productService) GetProductWithInventoryStatus(productID string) (map[st
 	}
 
 	result := map[string]interface{}{
-		"product_id":          productID,
-		"name":                product.Name,
-		"inventory_tracking":  product.Inventory.TrackInventory,
-		"reorder_point":       product.Inventory.ReorderPoint,
-		"purchase_price":      product.PurchaseInfo.CostPrice,
-		"selling_price":       product.SalesInfo.SellingPrice,
-		"preferred_vendor_id": product.PurchaseInfo.PreferredVendorID,
-		"manufacturer_id":     product.ProductDetails.ManufacturerID,
-		"variants":            variants,
+		"product_id":         productID,
+		"name":               product.Name,
+		"inventory_tracking": product.Inventory.TrackInventory,
+		"reorder_point":      product.Inventory.ReorderPoint,
+		"purchase_price":     product.PurchaseInfo.CostPrice,
+		"selling_price":      product.SalesInfo.SellingPrice,
+		"variants":           variants,
 	}
 
 	return result, nil

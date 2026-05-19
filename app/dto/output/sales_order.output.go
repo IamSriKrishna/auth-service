@@ -32,8 +32,8 @@ type SalesOrderOutput struct {
 
 type SalesOrderLineItemOutput struct {
 	ID                uint    `json:"id"`
-	ProductGroupID    string  `json:"product_group_id"`
-	ProductGroupName  string  `json:"product_group_name"`
+	ManufacturerID    string  `json:"manufacturer_id"`
+	ManufacturerName  string  `json:"manufacturer_name"`
 	Account           string  `json:"account"`
 	Quantity          float64 `json:"quantity"`
 	DeliveredQuantity float64 `json:"delivered_quantity"`
@@ -47,8 +47,8 @@ func ToSalesOrderOutput(so *models.SalesOrder) (*SalesOrderOutput, error) {
 	for _, item := range so.LineItems {
 		lineItemOutput := SalesOrderLineItemOutput{
 			ID:                item.ID,
-			ProductGroupID:    item.ProductGroupID,
-			ProductGroupName:  item.ProductGroupName,
+			ManufacturerID:    item.ManufacturerID,
+			ManufacturerName:  item.ManufacturerName,
 			Account:           item.Account,
 			Quantity:          item.Quantity,
 			DeliveredQuantity: item.DeliveredQuantity,

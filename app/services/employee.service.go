@@ -56,6 +56,8 @@ func (s *employeeService) CreateEmployeeWithFile(ctx context.Context, createdByI
 		Address:       req.Address,
 		EmployeeType:  req.EmployeeType,
 		MonthlySalary: req.MonthlySalary,
+		WeeklySalary:  req.WeeklySalary,
+		SalaryType:    req.SalaryType,
 		UserID:        createdByID,
 		CompanyID:     companyID,
 	}
@@ -120,6 +122,8 @@ func (s *employeeService) GetEmployeeByID(ctx context.Context, employeeID, creat
 		Address:       employee.Address,
 		EmployeeType:  employee.EmployeeType,
 		MonthlySalary: employee.MonthlySalary,
+		WeeklySalary:  employee.WeeklySalary,
+		SalaryType:    employee.SalaryType,
 		DocumentURL:   employee.DocumentURL,
 		UserID:        employee.UserID,
 		CompanyID:     employee.CompanyID,
@@ -152,6 +156,8 @@ func (s *employeeService) GetEmployeesByUser(ctx context.Context, createdByID, c
 			Address:       emp.Address,
 			EmployeeType:  emp.EmployeeType,
 			MonthlySalary: emp.MonthlySalary,
+			WeeklySalary:  emp.WeeklySalary,
+			SalaryType:    emp.SalaryType,
 			DocumentURL:   emp.DocumentURL,
 			UserID:        emp.UserID,
 			CompanyID:     emp.CompanyID,
@@ -207,6 +213,12 @@ func (s *employeeService) UpdateEmployee(ctx context.Context, employeeID, create
 	if req.MonthlySalary != nil {
 		employee.MonthlySalary = *req.MonthlySalary
 	}
+	if req.WeeklySalary != nil {
+		employee.WeeklySalary = *req.WeeklySalary
+	}
+	if req.SalaryType != nil {
+		employee.SalaryType = *req.SalaryType
+	}
 
 	if err := s.employeeRepo.Update(employee); err != nil {
 		return nil, err
@@ -220,6 +232,8 @@ func (s *employeeService) UpdateEmployee(ctx context.Context, employeeID, create
 		Address:       employee.Address,
 		EmployeeType:  employee.EmployeeType,
 		MonthlySalary: employee.MonthlySalary,
+		WeeklySalary:  employee.WeeklySalary,
+		SalaryType:    employee.SalaryType,
 		DocumentURL:   employee.DocumentURL,
 		UserID:        employee.UserID,
 		CompanyID:     employee.CompanyID,

@@ -29,6 +29,8 @@ type SalesOrder struct {
 	TaxRate              float64                 `json:"tax_rate" gorm:"default:0"`
 	TaxTotal             float64                 `json:"tax_total" gorm:"default:0"`
 	Total                float64                 `json:"total" gorm:"not null;default:0"`
+	PaidAmount           float64                 `json:"paid_amount" gorm:"default:0"`
+	RemainingAmount      float64                 `json:"remaining_amount" gorm:"default:0"`
 	CustomerNotes        string                  `json:"customer_notes" gorm:"type:text"`
 	TermsAndConditions   string                  `json:"terms_and_conditions" gorm:"type:text"`
 	Status               domain.SalesOrderStatus `json:"status" gorm:"type:varchar(50);not null;default:'draft'"`
@@ -48,9 +50,9 @@ type SalesOrder struct {
 type SalesOrderLineItem struct {
 	ID                uint          `json:"id" gorm:"primaryKey"`
 	SalesOrderID      string        `json:"sales_order_id" gorm:"type:varchar(255);not null;index"`
-	ProductGroupID    string        `json:"product_group_id" gorm:"type:varchar(255);not null;index"`
-	ProductGroup      *ProductGroup `json:"product_group,omitempty" gorm:"foreignKey:ProductGroupID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	ProductGroupName  string        `json:"product_group_name" gorm:"type:varchar(255)"`
+	ManufacturerID    string        `json:"manufacturer_id" gorm:"type:varchar(255);not null;index"`
+	Manufacturer      *Manufacturer `json:"manufacturer,omitempty" gorm:"foreignKey:ManufacturerID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
+	ManufacturerName  string        `json:"manufacturer_name" gorm:"type:varchar(255)"`
 	Quantity          float64       `json:"quantity" gorm:"not null"`
 	DeliveredQuantity float64       `json:"delivered_quantity" gorm:"default:0"`
 	Rate              float64       `json:"rate" gorm:"not null"`

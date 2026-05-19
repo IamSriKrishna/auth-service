@@ -12,6 +12,12 @@ type Product struct {
 	ID   string `json:"id" gorm:"type:varchar(255);primaryKey"`
 	Name string `json:"name" gorm:"not null"`
 
+	// Resource fields
+	IsResource          bool    `json:"is_resource" gorm:"default:false"`
+	ResourceName        string  `json:"resource_name" gorm:"type:varchar(255)"`
+	ResourceUnit        string  `json:"resource_unit" gorm:"type:varchar(100)"`
+	ResourceCostPerUnit float64 `json:"resource_cost_per_unit" gorm:"type:decimal(18,2);default:0"`
+
 	ProductDetails ProductDetails `json:"product_details" gorm:"foreignKey:ProductID;constraint:OnDelete:CASCADE"`
 	SalesInfo      SalesInfo      `json:"sales_info" gorm:"foreignKey:ProductID;references:ID;constraint:OnDelete:CASCADE"`
 	PurchaseInfo   PurchaseInfo   `json:"purchase_info" gorm:"foreignKey:ProductID;references:ID;constraint:OnDelete:CASCADE"`
@@ -32,17 +38,15 @@ func (Product) TableName() string {
 
 // ProductDetails contains detailed information about a product with its variants
 type ProductDetails struct {
-	ID             uint          `gorm:"primaryKey;autoIncrement"`
-	ProductID      string        `gorm:"type:varchar(255);uniqueIndex"`
-	Unit           string        `json:"unit" gorm:"type:varchar(50);not null"`
-	BaseSKU        string        `json:"base_sku,omitempty" gorm:"type:varchar(255)"`
-	UPC            string        `json:"upc,omitempty" gorm:"type:varchar(100)"`
-	EAN            string        `json:"ean,omitempty" gorm:"type:varchar(100)"`
-	MPN            string        `json:"mpn,omitempty" gorm:"type:varchar(100)"`
-	ISBN           string        `json:"isbn,omitempty" gorm:"type:varchar(20)"`
-	Description    string        `json:"description,omitempty" gorm:"type:text"`
-	ManufacturerID *uint         `json:"manufacturer_id,omitempty" gorm:"index"`
-	Manufacturer   *Manufacturer `json:"manufacturer,omitempty" gorm:"foreignKey:ManufacturerID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	ID          uint   `gorm:"primaryKey;autoIncrement"`
+	ProductID   string `gorm:"type:varchar(255);uniqueIndex"`
+	Unit        string `json:"unit" gorm:"type:varchar(50);not null"`
+	BaseSKU     string `json:"base_sku,omitempty" gorm:"type:varchar(255)"`
+	UPC         string `json:"upc,omitempty" gorm:"type:varchar(100)"`
+	EAN         string `json:"ean,omitempty" gorm:"type:varchar(100)"`
+	MPN         string `json:"mpn,omitempty" gorm:"type:varchar(100)"`
+	ISBN        string `json:"isbn,omitempty" gorm:"type:varchar(20)"`
+	Description string `json:"description,omitempty" gorm:"type:text"`
 
 	AttributeDefinitions ProductAttributeDefinitions `json:"attribute_definitions,omitempty" gorm:"type:json"`
 

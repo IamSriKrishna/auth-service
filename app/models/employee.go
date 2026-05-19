@@ -14,6 +14,8 @@ type Employee struct {
 	Address       string         `gorm:"type:text" json:"address"`
 	EmployeeType  string         `gorm:"type:varchar(50)" json:"employee_type"`
 	MonthlySalary float64        `gorm:"type:decimal(10,2)" json:"monthly_salary"`
+	WeeklySalary  float64        `gorm:"type:decimal(10,2)" json:"weekly_salary"`
+	SalaryType    string         `gorm:"type:varchar(20);default:'monthly'" json:"salary_type"`
 	DocumentURL   string         `gorm:"type:text" json:"document_url"`
 	UserID        uint           `gorm:"not null;index" json:"user_id"`
 	CompanyID     uint           `gorm:"not null;index" json:"company_id"`

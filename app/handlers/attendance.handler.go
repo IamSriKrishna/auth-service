@@ -189,6 +189,8 @@ func (h *AttendanceHandler) GetAttendanceByDateRange(c *fiber.Ctx) error {
 			Message: "Invalid from_date format (use YYYY-MM-DD)",
 		})
 	}
+	// Normalize to local timezone
+	fromDate = time.Date(fromDate.Year(), fromDate.Month(), fromDate.Day(), 0, 0, 0, 0, time.Local)
 
 	toDate, err := time.Parse("2006-01-02", toDateStr)
 	if err != nil {
@@ -197,6 +199,8 @@ func (h *AttendanceHandler) GetAttendanceByDateRange(c *fiber.Ctx) error {
 			Message: "Invalid to_date format (use YYYY-MM-DD)",
 		})
 	}
+	// Normalize to local timezone
+	toDate = time.Date(toDate.Year(), toDate.Month(), toDate.Day(), 0, 0, 0, 0, time.Local)
 
 	page := 1
 	if p := c.Query("page"); p != "" {
@@ -255,6 +259,8 @@ func (h *AttendanceHandler) GetAttendanceByEmployeeAndDateRange(c *fiber.Ctx) er
 			Message: "Invalid from_date format (use YYYY-MM-DD)",
 		})
 	}
+	// Normalize to local timezone
+	fromDate = time.Date(fromDate.Year(), fromDate.Month(), fromDate.Day(), 0, 0, 0, 0, time.Local)
 
 	toDate, err := time.Parse("2006-01-02", toDateStr)
 	if err != nil {
@@ -263,6 +269,8 @@ func (h *AttendanceHandler) GetAttendanceByEmployeeAndDateRange(c *fiber.Ctx) er
 			Message: "Invalid to_date format (use YYYY-MM-DD)",
 		})
 	}
+	// Normalize to local timezone
+	toDate = time.Date(toDate.Year(), toDate.Month(), toDate.Day(), 0, 0, 0, 0, time.Local)
 
 	page := 1
 	if p := c.Query("page"); p != "" {
@@ -373,6 +381,8 @@ func (h *AttendanceHandler) GetAttendanceStats(c *fiber.Ctx) error {
 			Message: "Invalid from_date format (use YYYY-MM-DD)",
 		})
 	}
+	// Normalize to local timezone
+	fromDate = time.Date(fromDate.Year(), fromDate.Month(), fromDate.Day(), 0, 0, 0, 0, time.Local)
 
 	toDate, err := time.Parse("2006-01-02", toDateStr)
 	if err != nil {
@@ -381,6 +391,8 @@ func (h *AttendanceHandler) GetAttendanceStats(c *fiber.Ctx) error {
 			Message: "Invalid to_date format (use YYYY-MM-DD)",
 		})
 	}
+	// Normalize to local timezone
+	toDate = time.Date(toDate.Year(), toDate.Month(), toDate.Day(), 0, 0, 0, 0, time.Local)
 
 	companyID := c.Locals("company_id").(uint)
 
@@ -425,6 +437,8 @@ func (h *AttendanceHandler) GetAttendanceCalendarView(c *fiber.Ctx) error {
 			Message: "Invalid from_date format (use YYYY-MM-DD)",
 		})
 	}
+	// Normalize to local timezone
+	fromDate = time.Date(fromDate.Year(), fromDate.Month(), fromDate.Day(), 0, 0, 0, 0, time.Local)
 
 	toDate, err := time.Parse("2006-01-02", toDateStr)
 	if err != nil {
@@ -433,6 +447,8 @@ func (h *AttendanceHandler) GetAttendanceCalendarView(c *fiber.Ctx) error {
 			Message: "Invalid to_date format (use YYYY-MM-DD)",
 		})
 	}
+	// Normalize to local timezone
+	toDate = time.Date(toDate.Year(), toDate.Month(), toDate.Day(), 0, 0, 0, 0, time.Local)
 
 	companyID := c.Locals("company_id").(uint)
 
@@ -469,14 +485,18 @@ func (h *AttendanceHandler) GetCompanyAttendanceWeekView(c *fiber.Ctx) error {
 			Message: "Invalid from_date format (use YYYY-MM-DD)",
 		})
 	}
+	// Normalize to local timezone
+	fromDate = time.Date(fromDate.Year(), fromDate.Month(), fromDate.Day(), 0, 0, 0, 0, time.Local)
 
 	toDate, err := time.Parse("2006-01-02", toDateStr)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 			Error:   true,
-			Message: "Invalid to_date format (use YYYY-MM-DD)",
+			Message: "Invalid toDate format (use YYYY-MM-DD)",
 		})
 	}
+	// Normalize to local timezone
+	toDate = time.Date(toDate.Year(), toDate.Month(), toDate.Day(), 0, 0, 0, 0, time.Local)
 
 	companyID := c.Locals("company_id").(uint)
 

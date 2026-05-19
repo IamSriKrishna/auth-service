@@ -1,8 +1,9 @@
 package database
 
 import (
-	"github.com/bbapp-org/auth-service/app/config"
 	"log"
+
+	"github.com/bbapp-org/auth-service/app/config"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -11,7 +12,7 @@ import (
 )
 
 var (
-	DB          *gorm.DB 
+	DB *gorm.DB
 )
 
 func ConnectDatabase(config *config.Config) {
@@ -34,7 +35,9 @@ func ConnectDatabase(config *config.Config) {
 		log.Println("Database logging disabled (production mode)")
 	}
 
+	log.Println("Attempting to open MySQL connection with GORM...")
 	DB, err = gorm.Open(mysql.Open(primaryDSN), gormConfig)
+	log.Println("MySQL connection attempt completed")
 
 	if err != nil {
 		log.Printf("Failed to connect to MySQL primary database: %v", err)
@@ -61,9 +64,9 @@ func ConnectDatabase(config *config.Config) {
 			config.Database.DBName)
 
 		err = DB.Use(dbresolver.Register(dbresolver.Config{
-			Sources: []gorm.Dialector{mysql.Open(primaryDSN)},
+			Sources:  []gorm.Dialector{mysql.Open(primaryDSN)},
 			Replicas: []gorm.Dialector{mysql.Open(readReplicaDSN)},
-			Policy: dbresolver.RandomPolicy{},
+			Policy:   dbresolver.RandomPolicy{},
 		}).SetConnMaxIdleTime(3600).
 			SetConnMaxLifetime(7200).
 			SetMaxIdleConns(10).
@@ -85,9 +88,6 @@ func ConnectDatabase(config *config.Config) {
 	}
 }
 
-
-
 func GetDB() *gorm.DB {
 	return DB
 }
-

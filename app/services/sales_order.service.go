@@ -80,11 +80,11 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 
 	for _, itemInput := range soInput.LineItems {
 		// Validate required fields
-		if itemInput.ProductGroupID == "" {
-			return nil, errors.New("product_group_id is required for each line item")
+		if itemInput.ManufacturerID == "" {
+			return nil, errors.New("manufacturer_id is required for each line item")
 		}
-		if itemInput.ProductGroupName == "" {
-			return nil, errors.New("product_group_name is required for each line item")
+		if itemInput.ManufacturerName == "" {
+			return nil, errors.New("manufacturer_name is required for each line item")
 		}
 
 		// Calculate line item totals
@@ -92,8 +92,8 @@ func (s *salesOrderService) CreateSalesOrder(soInput *input.CreateSalesOrderInpu
 		subTotal += lineAmount
 
 		lineItem := models.SalesOrderLineItem{
-			ProductGroupID:   itemInput.ProductGroupID,
-			ProductGroupName: itemInput.ProductGroupName,
+			ManufacturerID:   itemInput.ManufacturerID,
+			ManufacturerName: itemInput.ManufacturerName,
 			Account:          itemInput.Account,
 			Quantity:         itemInput.Quantity,
 			Rate:             itemInput.Rate,
@@ -270,16 +270,16 @@ func (s *salesOrderService) UpdateSalesOrder(id string, soInput *input.UpdateSal
 		subTotal := 0.0
 
 		for _, itemInput := range soInput.LineItems {
-			if itemInput.ProductGroupID == "" {
-				return nil, errors.New("product_group_id is required for each line item")
+			if itemInput.ManufacturerID == "" {
+				return nil, errors.New("manufacturer_id is required for each line item")
 			}
 
 			lineAmount := itemInput.Quantity * itemInput.Rate
 			subTotal += lineAmount
 
 			lineItem := models.SalesOrderLineItem{
-				ProductGroupID:   itemInput.ProductGroupID,
-				ProductGroupName: itemInput.ProductGroupName,
+				ManufacturerID:   itemInput.ManufacturerID,
+				ManufacturerName: itemInput.ManufacturerName,
 				Account:          itemInput.Account,
 				Quantity:         itemInput.Quantity,
 				Rate:             itemInput.Rate,
@@ -327,22 +327,22 @@ func (s *salesOrderService) UpdateSalesOrderStatus(id string, status string, use
 		if !so.InventoryDeducted {
 			log.Printf("[SO_PAID] Processing stock deduction for sales order: %s", so.SalesOrderNumber)
 
-			// Deduct stock for each product group in the sales order
+			// Deduct stock for each manufacturer in the sales order
 			for _, lineItem := range so.LineItems {
 				if s.variantStockMgmt != nil {
 					err := s.variantStockMgmt.RecordStockAdjustment(
-						lineItem.ProductGroupID, // Use product group ID as SKU
+						lineItem.ManufacturerID, // Use manufacturer ID as SKU
 						lineItem.Quantity,       // Positive quantity for "out"
 						"out",
 						fmt.Sprintf("Sold via Sales Order: %s", so.SalesOrderNumber),
 						userID,
 					)
 					if err != nil {
-						log.Printf("[SO_PAID] Warning: Failed to deduct stock for product group %s: %v", lineItem.ProductGroupID, err)
+						log.Printf("[SO_PAID] Warning: Failed to deduct stock for manufacturer %s: %v", lineItem.ManufacturerID, err)
 						// Don't fail the status update if stock deduction fails - stock may have already been adjusted
 						// This ensures payment processing continues even if there's a stock sync issue
 					} else {
-						log.Printf("[SO_PAID] Deducted stock: %s -%.2f units", lineItem.ProductGroupID, lineItem.Quantity)
+						log.Printf("[SO_PAID] Deducted stock: %s -%.2f units", lineItem.ManufacturerID, lineItem.Quantity)
 					}
 				}
 			}

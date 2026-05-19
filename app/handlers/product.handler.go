@@ -55,10 +55,21 @@ func (h *ProductHandler) CreateProduct(c *fiber.Ctx) error {
 func (h *ProductHandler) GetProduct(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	product, err := h.service.GetProduct(id)
+	createdBy := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		createdBy = fmt.Sprintf("%v", uid)
+	}
+
+	if createdBy == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	product, err := h.service.GetProduct(id, createdBy)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Product not found",
+			"error": err.Error(),
 		})
 	}
 

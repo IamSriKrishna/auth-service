@@ -16,11 +16,11 @@ func convertVariantDetails(details models.VariantDetails) map[string]string {
 }
 
 type CustomerInfo struct {
-	ID          uint   `json:"id"`
-	DisplayName string `json:"display_name"`
-	CompanyName string `json:"company_name,omitempty"`
-	Email       string `json:"email,omitempty"`
-	Phone       string `json:"phone,omitempty"`
+	ID           uint   `json:"id"`
+	DisplayName  string `json:"display_name"`
+	CompanyName  string `json:"company_name,omitempty"`
+	EmailAddress string `json:"email_address,omitempty"`
+	WorkPhone    string `json:"work_phone,omitempty"`
 }
 
 type VendorInfo struct {

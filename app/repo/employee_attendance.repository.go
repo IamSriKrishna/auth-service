@@ -30,10 +30,11 @@ func (r *employeeAttendanceRepository) GetByID(id uint) (*models.EmployeeAttenda
 
 func (r *employeeAttendanceRepository) GetByEmployeeAndDate(employeeID uint, date time.Time) (*models.EmployeeAttendance, error) {
 	var attendance models.EmployeeAttendance
-	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+	// Use local timezone to match how dates are stored
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
 	endOfDay := startOfDay.AddDate(0, 0, 1)
 
-	err := r.db.Where("employee_id = ? AND date >= ? AND date < ?", employeeID, startOfDay, endOfDay).
+	err := r.db.Where("employee_id = ? AND date >= ? AND date < ? AND deleted_at IS NULL", employeeID, startOfDay, endOfDay).
 		First(&attendance).Error
 	if err != nil {
 		return nil, err
@@ -87,7 +88,10 @@ func (r *employeeAttendanceRepository) GetByDateRange(companyID uint, fromDate, 
 	var attendance []models.EmployeeAttendance
 	var count int64
 
-	err := r.db.Where("company_id = ? AND date >= ? AND date <= ?", companyID, fromDate, toDate).
+	// Add one day to toDate to ensure all records for that date are included
+	toDateInclusive := toDate.AddDate(0, 0, 1)
+
+	err := r.db.Where("company_id = ? AND date >= ? AND date < ?", companyID, fromDate, toDateInclusive).
 		Order("date DESC").
 		Offset(offset).
 		Limit(limit).
@@ -98,7 +102,7 @@ func (r *employeeAttendanceRepository) GetByDateRange(companyID uint, fromDate, 
 	}
 
 	r.db.Model(&models.EmployeeAttendance{}).
-		Where("company_id = ? AND date >= ? AND date <= ?", companyID, fromDate, toDate).
+		Where("company_id = ? AND date >= ? AND date < ?", companyID, fromDate, toDateInclusive).
 		Count(&count)
 
 	return attendance, count, nil
@@ -108,7 +112,12 @@ func (r *employeeAttendanceRepository) GetByEmployeeAndDateRange(employeeID, com
 	var attendance []models.EmployeeAttendance
 	var count int64
 
-	err := r.db.Where("employee_id = ? AND company_id = ? AND date >= ? AND date <= ?", employeeID, companyID, fromDate, toDate).
+	// Add one day to toDate to ensure all records for that date are included
+	// Use local timezone to match how dates are stored
+	fromDateLocal := time.Date(fromDate.Year(), fromDate.Month(), fromDate.Day(), 0, 0, 0, 0, time.Local)
+	toDateInclusive := time.Date(toDate.Year(), toDate.Month(), toDate.Day(), 0, 0, 0, 0, time.Local).AddDate(0, 0, 1)
+
+	err := r.db.Where("employee_id = ? AND company_id = ? AND date >= ? AND date < ?", employeeID, companyID, fromDateLocal, toDateInclusive).
 		Order("date DESC").
 		Offset(offset).
 		Limit(limit).
@@ -119,10 +128,27 @@ func (r *employeeAttendanceRepository) GetByEmployeeAndDateRange(employeeID, com
 	}
 
 	r.db.Model(&models.EmployeeAttendance{}).
-		Where("employee_id = ? AND company_id = ? AND date >= ? AND date <= ?", employeeID, companyID, fromDate, toDate).
+		Where("employee_id = ? AND company_id = ? AND date >= ? AND date < ?", employeeID, companyID, fromDateLocal, toDateInclusive).
 		Count(&count)
 
 	return attendance, count, nil
+}
+
+func (r *employeeAttendanceRepository) GetByEmployeeAndDateRangeNoLimit(employeeID uint, fromDate, toDate time.Time) ([]models.EmployeeAttendance, error) {
+	var attendance []models.EmployeeAttendance
+
+	// Add one day to toDate to ensure all records for that date are included
+	toDateInclusive := toDate.AddDate(0, 0, 1)
+
+	err := r.db.Where("employee_id = ? AND date >= ? AND date < ?", employeeID, fromDate, toDateInclusive).
+		Order("date ASC").
+		Find(&attendance).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return attendance, nil
 }
 
 func (r *employeeAttendanceRepository) Update(attendance *models.EmployeeAttendance) error {
@@ -131,6 +157,15 @@ func (r *employeeAttendanceRepository) Update(attendance *models.EmployeeAttenda
 
 func (r *employeeAttendanceRepository) Delete(id uint) error {
 	return r.db.Delete(&models.EmployeeAttendance{}, id).Error
+}
+
+func (r *employeeAttendanceRepository) DeleteByEmployeeAndDate(employeeID uint, date time.Time) error {
+	// Use local timezone to match how dates are stored
+	startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
+	endOfDay := startOfDay.AddDate(0, 0, 1)
+
+	// Hard delete (unscoped) to remove even soft-deleted records
+	return r.db.Unscoped().Where("employee_id = ? AND date >= ? AND date < ?", employeeID, startOfDay, endOfDay).Delete(&models.EmployeeAttendance{}).Error
 }
 
 func (r *employeeAttendanceRepository) GetAttendanceStats(companyID uint, fromDate, toDate time.Time) (map[string]interface{}, error) {
@@ -144,8 +179,11 @@ func (r *employeeAttendanceRepository) GetAttendanceStats(companyID uint, fromDa
 		Total   int64
 	}
 
+	// Add one day to toDate to ensure all records for that date are included
+	toDateInclusive := toDate.AddDate(0, 0, 1)
+
 	r.db.Model(&models.EmployeeAttendance{}).
-		Where("company_id = ? AND date >= ? AND date <= ?", companyID, fromDate, toDate).
+		Where("company_id = ? AND date >= ? AND date < ?", companyID, fromDate, toDateInclusive).
 		Select("COUNT(*) as total," +
 			"SUM(CASE WHEN status = 'on_time' THEN 1 ELSE 0 END) as on_time," +
 			"SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent," +

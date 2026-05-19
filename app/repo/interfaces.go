@@ -158,6 +158,7 @@ type ProductRepository interface {
 	FindByID(id string) (*models.Product, error)
 	FindAll(limit, offset int) ([]models.Product, int64, error)
 	FindByCreatedBy(createdBy string, limit, offset int) ([]models.Product, int64, error)
+	FindByCreatedByAndCompany(createdBy string, companyID uint, limit, offset int) ([]models.Product, int64, error)
 	Update(product *models.Product) error
 	Delete(id string) error
 	DeleteByCreatedBy(id string, createdBy string) error
@@ -216,9 +217,13 @@ type PaymentRepository interface {
 type ManufacturerRepository interface {
 	Create(manufacturer *models.Manufacturer) error
 	FindByID(id uint) (*models.Manufacturer, error)
+	FindByStringID(id string) (*models.Manufacturer, error)
 	FindAll(limit, offset int) ([]models.Manufacturer, int64, error)
+	FindAllWithFilter(limit, offset int, companyID *uint, productGroupID *string) ([]models.Manufacturer, int64, error)
+	FindByProductGroupID(productGroupID string) ([]models.Manufacturer, error)
 	Update(manufacturer *models.Manufacturer) error
 	Delete(id uint) error
+	DeleteByStringID(id string) error
 }
 
 type BrandRepository interface {
@@ -359,8 +364,10 @@ type EmployeeAttendanceRepository interface {
 	GetByCompanyID(companyID uint, offset, limit int) ([]models.EmployeeAttendance, int64, error)
 	GetByDateRange(companyID uint, fromDate, toDate time.Time, offset, limit int) ([]models.EmployeeAttendance, int64, error)
 	GetByEmployeeAndDateRange(employeeID, companyID uint, fromDate, toDate time.Time, offset, limit int) ([]models.EmployeeAttendance, int64, error)
+	GetByEmployeeAndDateRangeNoLimit(employeeID uint, fromDate, toDate time.Time) ([]models.EmployeeAttendance, error)
 	Update(attendance *models.EmployeeAttendance) error
 	Delete(id uint) error
+	DeleteByEmployeeAndDate(employeeID uint, date time.Time) error
 	GetAttendanceStats(companyID uint, fromDate, toDate time.Time) (map[string]interface{}, error)
 }
 
@@ -473,4 +480,30 @@ type VendorPaymentRepository interface {
 	UpdatePaymentStatus(id uint, status string, paidAmount, remainingAmount float64) error
 	Delete(id uint) error
 	GetDB() *gorm.DB
+}
+
+// CustomerPaymentRepository interface for customer payment operations
+type CustomerPaymentRepository interface {
+	Create(cp *models.CustomerPayment) (*models.CustomerPayment, error)
+	FindByID(id uint) (*models.CustomerPayment, error)
+	FindByPaymentNumber(paymentNumber string) (*models.CustomerPayment, error)
+	FindBySalesOrderID(soID string, limit, offset int) ([]models.CustomerPayment, int64, error)
+	FindByCustomerID(customerID uint, limit, offset int) ([]models.CustomerPayment, int64, error)
+	FindAll(limit, offset int) ([]models.CustomerPayment, int64, error)
+	FindByPaymentStatus(status string, limit, offset int) ([]models.CustomerPayment, int64, error)
+	Update(id uint, cp *models.CustomerPayment) (*models.CustomerPayment, error)
+	UpdatePaymentStatus(id uint, status string, receivedAmount, remainingAmount float64) error
+	Delete(id uint) error
+	GetDB() *gorm.DB
+}
+
+// SalaryRepository interface for salary calculation operations
+type SalaryRepository interface {
+	Create(salary *models.SalaryCalculation) error
+	GetByID(id uint) (*models.SalaryCalculation, error)
+	GetByEmployee(employeeID uint) ([]models.SalaryCalculation, error)
+	GetByEmployeeAndMonth(employeeID uint, month, year int) (*models.SalaryCalculation, error)
+	GetByCompany(companyID uint, limit, offset int) ([]models.SalaryCalculation, int64, error)
+	Update(salary *models.SalaryCalculation) error
+	Delete(id uint) error
 }

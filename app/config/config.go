@@ -61,7 +61,7 @@ func LoadConfig() *Config {
 }
 
 func (c *Config) GetDatabaseDSN() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=preferred",
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=preferred&timeout=10s&readTimeout=15s&writeTimeout=15s",
 		c.Database.User,
 		c.Database.Password,
 		c.Database.Host,
@@ -82,7 +82,7 @@ func (c *Config) GetReadReplicaDSN() string {
 	if password == "" {
 		password = c.Database.Password
 	}
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=preferred",
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=preferred&timeout=10s&readTimeout=15s&writeTimeout=15s",
 		user,
 		password,
 		c.Database.ReadReplicaHost,

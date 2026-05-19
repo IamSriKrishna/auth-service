@@ -72,11 +72,11 @@ func ToShipmentOutput(shipment *models.Shipment) (*ShipmentOutput, error) {
 	var customerInfo *CustomerInfo
 	if shipment.Customer != nil {
 		customerInfo = &CustomerInfo{
-			ID:          shipment.Customer.ID,
-			DisplayName: shipment.Customer.DisplayName,
-			CompanyName: shipment.Customer.CompanyName,
-			Email:       shipment.Customer.EmailAddress,
-			Phone:       shipment.Customer.Mobile,
+			ID:           shipment.Customer.ID,
+			DisplayName:  shipment.Customer.DisplayName,
+			CompanyName:  shipment.Customer.CompanyName,
+			EmailAddress: shipment.Customer.EmailAddress,
+			WorkPhone:    shipment.Customer.Mobile,
 		}
 	}
 

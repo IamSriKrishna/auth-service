@@ -129,11 +129,11 @@ func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, erro
 
 	if po.Customer != nil {
 		output.Customer = &CustomerInfo{
-			ID:          po.Customer.ID,
-			DisplayName: po.Customer.DisplayName,
-			CompanyName: po.Customer.CompanyName,
-			Email:       po.Customer.EmailAddress,
-			Phone:       po.Customer.WorkPhone,
+			ID:           po.Customer.ID,
+			DisplayName:  po.Customer.DisplayName,
+			CompanyName:  po.Customer.CompanyName,
+			EmailAddress: po.Customer.EmailAddress,
+			WorkPhone:    po.Customer.WorkPhone,
 		}
 	}
 
