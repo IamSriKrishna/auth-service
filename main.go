@@ -65,10 +65,13 @@ func main() {
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     "*",
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization, X-Requested-With",
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
 		AllowCredentials: false,
+		ExposeHeaders:    "Content-Length, Content-Type",
+		MaxAge:           3600,
 	}))
+	
 	// Handle preflight requests
 	app.Options("*", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
