@@ -52,7 +52,7 @@ func main() {
 	app.Use(recover.New())
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "https://main.d1s27o2bgfjm4l.amplifyapp.com",
+		AllowOrigins: "https://guruaqua.com,https://www.guruaqua.com,http://localhost:3000",
 		AllowMethods:     "GET,POST,PUT,DELETE,PATCH,OPTIONS",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		ExposeHeaders:    "Content-Length",
