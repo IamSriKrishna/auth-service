@@ -271,6 +271,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		adminGroup.Get("/employees", employeeHandler.GetEmployees)
 		adminGroup.Get("/employees/:id", employeeHandler.GetEmployee)
 		adminGroup.Put("/employees/:id", employeeHandler.UpdateEmployee)
+		adminGroup.Patch("/employees/:id", employeeHandler.UpdateEmployee)
 		adminGroup.Delete("/employees/:id", employeeHandler.DeleteEmployee)
 
 		// Attendance Routes

@@ -52,59 +52,77 @@ func (s *salaryService) CalculateSalary(ctx context.Context, createdByID, compan
 		return nil, errors.New("unauthorized access")
 	}
 
-	// Get attendance records for the month
-	startDate := time.Date(req.Year, time.Month(req.Month), 1, 0, 0, 0, 0, time.UTC)
-	endDate := startDate.AddDate(0, 1, -1)
+	// Parse date range from request
+	startDate, err := time.Parse("2006-01-02", req.FromDate)
+	if err != nil {
+		return nil, errors.New("invalid from_date format, use YYYY-MM-DD")
+	}
 
-	attendanceRecords, err := s.attendanceRepo.GetByEmployeeAndDateRangeNoLimit(req.EmployeeID, startDate, endDate)
+	endDate, err := time.Parse("2006-01-02", req.ToDate)
+	if err != nil {
+		return nil, errors.New("invalid to_date format, use YYYY-MM-DD")
+	}
+
+	if endDate.Before(startDate) {
+		return nil, errors.New("to_date must be after from_date")
+	}
+
+	attendanceRecords, err := s.attendanceRepo.GetByEmployeeAndDateRangeNoLimit(req.EmployeeID, startDate, endDate.AddDate(0, 0, 1))
 	if err != nil {
 		return nil, err
 	}
 
-	// Calculate working days and attendance breakdown
-	totalWorkingDays, presentDays, absentDays, halfDays, holidayDays, leaveDays := s.countAttendanceDays(startDate, endDate, attendanceRecords)
+	// Calculate working days and attendance breakdown (holidays and present treated the same)
+	totalWorkingDays, presentAndHolidayDays, absentDays, halfDays := s.countAttendanceDaysWithHolidayAsSame(startDate, endDate, attendanceRecords)
 
-	// Calculate daily/weekly rate
+	// Calculate daily/weekly rate based on salary type
 	var dailyRate float64
 	if employee.SalaryType == "weekly" && employee.WeeklySalary > 0 {
-		// Assuming 5 working days per week
-		dailyRate = employee.WeeklySalary / 5
+		// Weekly salary: divided by 7 days per week
+		dailyRate = employee.WeeklySalary / 7
 	} else {
-		// Monthly salary: divided by working days in month
-		if totalWorkingDays > 0 {
-			dailyRate = employee.MonthlySalary / float64(totalWorkingDays)
+		// Monthly salary: divided by total days in month
+		daysInMonth := startDate.AddDate(0, 1, -1).Day()
+		if daysInMonth > 0 {
+			dailyRate = employee.MonthlySalary / float64(daysInMonth)
 		}
 	}
 
-	// Calculate earnings
-	earningAmount := (float64(presentDays) * dailyRate) + (float64(halfDays) * (dailyRate / 2))
+	// Calculate earnings (both present and holiday days count as full working days)
+	earningAmount := (float64(presentAndHolidayDays) * dailyRate) + (float64(halfDays) * (dailyRate / 2))
 
-	// Calculate deductions
+	// Calculate deductions (only absent days are deducted)
 	deductionAmount := float64(absentDays) * dailyRate
 
 	// Calculate net salary
 	netSalary := earningAmount - deductionAmount
 
+	// Determine base salary based on salary type
+	var baseSalary float64
+	if employee.SalaryType == "weekly" {
+		baseSalary = employee.WeeklySalary
+	} else {
+		baseSalary = employee.MonthlySalary
+	}
+
 	// Create salary calculation record
 	salaryCalc := &models.SalaryCalculation{
 		EmployeeID:       req.EmployeeID,
 		CompanyID:        companyID,
-		Month:            req.Month,
-		Year:             req.Year,
-		BaseSalary:       employee.MonthlySalary,
+		Month:            int(startDate.Month()),
+		Year:             startDate.Year(),
+		BaseSalary:       baseSalary,
 		SalaryType:       employee.SalaryType,
 		TotalWorkingDays: totalWorkingDays,
-		PresentDays:      presentDays,
+		PresentDays:      presentAndHolidayDays,
 		AbsentDays:       absentDays,
 		HalfDays:         halfDays,
-		HolidayDays:      holidayDays,
-		LeaveDays:        leaveDays,
 		DailyRate:        dailyRate,
 		EarningAmount:    earningAmount,
 		DeductionAmount:  deductionAmount,
 		NetSalary:        netSalary,
 		Status:           "pending",
-		Notes:            fmt.Sprintf("Calculated on %s", time.Now().Format("2006-01-02")),
+		Notes:            fmt.Sprintf("Calculated based on %s salary on %s", employee.SalaryType, time.Now().Format("2006-01-02")),
 	}
 
 	if err := s.salaryRepo.Create(salaryCalc); err != nil {
@@ -124,8 +142,6 @@ func (s *salaryService) CalculateSalary(ctx context.Context, createdByID, compan
 		PresentDays:      salaryCalc.PresentDays,
 		AbsentDays:       salaryCalc.AbsentDays,
 		HalfDays:         salaryCalc.HalfDays,
-		HolidayDays:      salaryCalc.HolidayDays,
-		LeaveDays:        salaryCalc.LeaveDays,
 		DailyRate:        salaryCalc.DailyRate,
 		EarningAmount:    salaryCalc.EarningAmount,
 		DeductionAmount:  salaryCalc.DeductionAmount,
@@ -146,19 +162,19 @@ func (s *salaryService) countAttendanceDays(startDate, endDate time.Time, record
 	current := startDate
 	for current.Before(endDate) || current.Equal(endDate) {
 		dayOfWeek := current.Weekday()
+		status, exists := attendanceMap[current.Format("2006-01-02")]
 
-		// Skip Sundays
-		if dayOfWeek == time.Sunday {
+		// Skip Sundays only if no explicit attendance record exists
+		if dayOfWeek == time.Sunday && !exists {
 			current = current.AddDate(0, 0, 1)
 			continue
 		}
 
 		total++
 
-		status, exists := attendanceMap[current.Format("2006-01-02")]
 		if !exists {
-			// No record means absent
-			absent++
+			// No record means not marked - treat as present (don't count as absent)
+			present++
 		} else {
 			switch status {
 			case models.AttendanceOnTime, models.AttendanceLate:
@@ -172,7 +188,52 @@ func (s *salaryService) countAttendanceDays(startDate, endDate time.Time, record
 			case models.AttendanceLeave:
 				leave++
 			default:
+				// Only explicitly marked absent should count as absent
+				present++
+			}
+		}
+
+		current = current.AddDate(0, 0, 1)
+	}
+
+	return
+}
+
+// countAttendanceDaysWithHolidayAsSame treats holiday and present days the same for salary calculation
+func (s *salaryService) countAttendanceDaysWithHolidayAsSame(startDate, endDate time.Time, records []models.EmployeeAttendance) (total, presentAndHoliday, absent, halfDay int) {
+	attendanceMap := make(map[string]models.AttendanceStatus)
+	for _, record := range records {
+		attendanceMap[record.Date.Format("2006-01-02")] = record.Status
+	}
+
+	current := startDate
+	for current.Before(endDate) || current.Equal(endDate) {
+		dayOfWeek := current.Weekday()
+		status, exists := attendanceMap[current.Format("2006-01-02")]
+
+		// Skip Sundays only if no explicit attendance record exists
+		if dayOfWeek == time.Sunday && !exists {
+			current = current.AddDate(0, 0, 1)
+			continue
+		}
+
+		total++
+
+		if !exists {
+			// No record means not marked - treat as present (don't count as absent)
+			presentAndHoliday++
+		} else {
+			switch status {
+			case models.AttendanceOnTime, models.AttendanceLate, models.AttendanceHoliday, models.AttendanceLeave:
+				// Present, Late, Holiday, and Leave all count as full working days
+				presentAndHoliday++
+			case models.AttendanceAbsent:
 				absent++
+			case models.AttendanceHalfDay:
+				halfDay++
+			default:
+				// Only explicitly marked absent should count as absent
+				presentAndHoliday++
 			}
 		}
 

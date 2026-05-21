@@ -32,6 +32,7 @@ func main() {
 	}
 
 	app := fiber.New(fiber.Config{
+		BodyLimit: 50 * 1024 * 1024, // 50MB limit for file uploads
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
@@ -52,7 +53,7 @@ func main() {
 	app.Use(recover.New())
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "https://guruaqua.com,https://www.guruaqua.com,http://localhost:3000",
+		AllowOrigins:     "https://guruaqua.com,https://www.guruaqua.com,http://localhost:3000",
 		AllowMethods:     "GET,POST,PUT,DELETE,PATCH,OPTIONS",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		ExposeHeaders:    "Content-Length",
