@@ -16,6 +16,14 @@ type ProductOutput struct {
 	ResourceUnit        string  `json:"resource_unit,omitempty"`
 	ResourceCostPerUnit float64 `json:"resource_cost_per_unit,omitempty"`
 
+	// Raw/Preform fields
+	IsRaw               bool    `json:"is_raw"`
+	RawName             string  `json:"raw_name,omitempty"`
+	RawSpecification    string  `json:"raw_specification,omitempty"`
+	RawUnit             string  `json:"raw_unit,omitempty"`
+	RawCostPerUnit      float64 `json:"raw_cost_per_unit,omitempty"`
+	RequiredGramPerUnit float64 `json:"required_gram_per_unit"`
+
 	ProductDetails ProductDetailsOutput `json:"product_details,omitempty"`
 	SalesInfo      SalesInfoOutput      `json:"sales_info,omitempty"`
 	PurchaseInfo   PurchaseInfoOutput   `json:"purchase_info,omitempty"`
@@ -86,6 +94,12 @@ func ToProductOutput(product *models.Product) (*ProductOutput, error) {
 		ResourceName:        product.ResourceName,
 		ResourceUnit:        product.ResourceUnit,
 		ResourceCostPerUnit: product.ResourceCostPerUnit,
+		IsRaw:               product.IsRaw,
+		RawName:             product.RawName,
+		RawSpecification:    product.RawSpecification,
+		RawUnit:             product.RawUnit,
+		RawCostPerUnit:      product.RawCostPerUnit,
+		RequiredGramPerUnit: product.RequiredGramPerUnit,
 		CreatedAt:           product.CreatedAt,
 		UpdatedAt:           product.UpdatedAt,
 		UserID:              product.CreatedBy,
@@ -94,8 +108,8 @@ func ToProductOutput(product *models.Product) (*ProductOutput, error) {
 		CompanyName:         product.CreatedByCompanyName,
 	}
 
-	// Only populate product details, sales info, purchase info, inventory, and return policy for non-resource products
-	if !product.IsResource {
+	// Only populate product details, sales info, purchase info, inventory, and return policy for non-resource and non-raw products
+	if !product.IsResource && !product.IsRaw {
 		attributeDefs := make([]ProductAttributeDefinitionOutput, len(product.ProductDetails.AttributeDefinitions))
 		for i, def := range product.ProductDetails.AttributeDefinitions {
 			attributeDefs[i] = ProductAttributeDefinitionOutput{

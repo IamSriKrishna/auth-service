@@ -174,8 +174,7 @@ func RunMigrations(db *gorm.DB) error {
 
 		&models.ItemGroup{},
 		&models.ItemGroupComponent{},
-		&models.ProductionOrder{},
-		&models.ProductionOrderItem{},
+
 
 		&models.ProductStock{},
 		&models.StockLedger{},
@@ -326,8 +325,7 @@ func DropItemTables(db *gorm.DB) error {
 		&models.VariantOpeningStock{},
 		&models.OpeningStock{},
 		&models.StockMovement{},
-		&models.ProductionOrderItem{},
-		&models.ProductionOrder{},
+
 		&models.ItemGroupComponent{},
 		&models.ItemGroup{},
 		&models.ProductVariantAttribute{},
@@ -413,8 +411,7 @@ func DropAllTablesExceptUser(db *gorm.DB) error {
 		&models.VendorPayment{},
 		&models.PurchaseOrderLineItem{},
 		&models.PurchaseOrder{},
-		&models.ProductionOrderItem{},
-		&models.ProductionOrder{},
+
 
 		&models.InventoryAggregation{},
 		&models.InventoryBalance{},
@@ -511,8 +508,7 @@ func DropAllTables(db *gorm.DB) error {
 		&models.VendorPayment{},
 		&models.PurchaseOrderLineItem{},
 		&models.PurchaseOrder{},
-		&models.ProductionOrderItem{},
-		&models.ProductionOrder{},
+
 
 		&models.InventoryAggregation{},
 		&models.InventoryBalance{},
@@ -653,8 +649,7 @@ func DropOrderFulfillmentTables(db *gorm.DB) error {
 		&models.StockMovement{},
 
 		// Production
-		&models.ProductionOrderItem{},
-		&models.ProductionOrder{},
+
 
 		// Products and Variants
 		&models.ItemGroupComponent{},

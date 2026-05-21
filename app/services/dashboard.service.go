@@ -575,9 +575,40 @@ func (s *dashboardService) GetStockSummaryWithUserContext(userID uint, userType 
 			lastPurchasedDate, _ := product["last_purchased_date"].(*time.Time)
 			lastSoldDate, _ := product["last_sold_date"].(*time.Time)
 
+			rawMaterialUnit := ""
+			if unit, ok := product["raw_material_unit"]; ok && unit != nil {
+				if unitStr, ok := unit.(string); ok {
+					rawMaterialUnit = unitStr
+				}
+			}
+
+			// Format product name for raw materials as "raw_name_raw_specification"
+			productName := product["product_name"].(string)
+			if isRaw, ok := product["is_raw"]; ok && isRaw != nil {
+				if isRawBool, ok := isRaw.(bool); ok && isRawBool {
+					rawName := ""
+					rawSpec := ""
+					if rn, ok := product["raw_name"]; ok && rn != nil {
+						if rnStr, ok := rn.(string); ok {
+							rawName = rnStr
+						}
+					}
+					if rs, ok := product["raw_specification"]; ok && rs != nil {
+						if rsStr, ok := rs.(string); ok {
+							rawSpec = rsStr
+						}
+					}
+					if rawName != "" && rawSpec != "" {
+						productName = rawName + "_" + rawSpec
+					} else if rawName != "" {
+						productName = rawName
+					}
+				}
+			}
+
 			stockDetails = append(stockDetails, output.ProductStockDetailOutput{
 				ProductID:         product["product_id"].(string),
-				ProductName:       product["product_name"].(string),
+				ProductName:       productName,
 				SKU:               product["sku"].(string),
 				CurrentStock:      product["current_stock"].(float64),
 				AvailableStock:    product["available_stock"].(float64),
@@ -589,6 +620,7 @@ func (s *dashboardService) GetStockSummaryWithUserContext(userID uint, userType 
 				LastPurchasedDate: lastPurchasedDate,
 				LastSoldDate:      lastSoldDate,
 				Status:            product["status"].(string),
+				RawMaterialUnit:   rawMaterialUnit,
 			})
 		}
 	}

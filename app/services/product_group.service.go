@@ -517,7 +517,6 @@ func (s *productGroupService) updateProductGroupStock(productGroupID string, pro
 	log.Printf("[PG_STOCK_UPDATE] ===== END: Successfully updated stock for product group %s =====", productGroupID)
 	return nil
 
-	// Calculate total cost and selling price from components with new quantities
 	totalCost := 0.0
 	totalSellingPrice := 0.0
 

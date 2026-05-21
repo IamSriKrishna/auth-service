@@ -19,6 +19,9 @@ type ProductStock struct {
 	AvailableStock float64 `gorm:"default:0;not null" json:"available_stock"` // Available = Current - Reserved
 	DamagedStock   float64 `gorm:"default:0;not null" json:"damaged_stock"`   // Units marked as damaged/defective
 
+	// Raw Material Unit Tracking - For raw materials (kg, liters, pieces, etc.)
+	RawMaterialUnit string `gorm:"type:varchar(50)" json:"raw_material_unit,omitempty"` // e.g., kg, liter, pieces
+
 	// Accounting
 	AverageCost       float64 `gorm:"default:0" json:"average_cost"`       // Weighted average purchase cost
 	RevaluationAmount float64 `gorm:"default:0" json:"revaluation_amount"` // Stock revaluation adjustments

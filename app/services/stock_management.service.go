@@ -40,6 +40,7 @@ type StockManagementService interface {
 
 	// Movement recording
 	RecordInboundMovement(productID, referenceType, referenceID, referenceNo string, quantity, rate float64, notes, userID string) error
+	RecordInboundMovementWithRawMaterial(productID, referenceType, referenceID, referenceNo string, quantity, rate float64, rawMaterialUnit, notes, userID string) error
 	RecordOutboundMovement(productID, referenceType, referenceID, referenceNo string, quantity float64, notes, userID string) error
 	RecordOutboundMovementWithVariant(productID, variantSku, referenceType, referenceID, referenceNo string, quantity float64, notes, userID string) error
 	RecordStockAdjustment(productID string, quantity float64, adjustmentType string, reason, userID string) error
@@ -207,6 +208,102 @@ func (s *stockManagementService) RecordInboundMovement(
 	}
 
 	log.Printf("[STOCK_IN] Success: New balance=%.2f units, Avg Cost=%.2f", stock.CurrentStock, stock.AverageCost)
+	return nil
+}
+
+// RecordInboundMovementWithRawMaterial records stock increase with raw material unit tracking
+func (s *stockManagementService) RecordInboundMovementWithRawMaterial(
+	productID, referenceType, referenceID, referenceNo string,
+	quantity, rate float64,
+	rawMaterialUnit, notes, userID string,
+) error {
+	if quantity <= 0 {
+		return errors.New("quantity must be positive for inbound movement")
+	}
+
+	log.Printf("[STOCK_IN_RAW] Recording raw material inbound: Product=%s, Type=%s, Qty=%.2f %s, Rate=%.2f, Ref=%s",
+		productID, referenceType, quantity, rawMaterialUnit, rate, referenceNo)
+
+	// Verify product exists
+	product, err := s.productRepo.FindByID(productID)
+	if err != nil {
+		return fmt.Errorf("product not found: %s", productID)
+	}
+
+	// Get or create stock
+	stock, err := s.productStockRepo.GetByProductID(productID)
+	if err != nil {
+		// Create new stock
+		sku := ""
+		if product.ProductDetails.BaseSKU != "" {
+			sku = product.ProductDetails.BaseSKU
+		}
+		stock = &models.ProductStock{
+			ID:              uuid.New().String(),
+			ProductID:       productID,
+			ProductName:     product.Name,
+			SKU:             sku,
+			CurrentStock:    quantity,
+			PurchasedStock:  quantity,
+			AverageCost:     rate,
+			AvailableStock:  quantity,
+			RawMaterialUnit: rawMaterialUnit,
+		}
+	} else {
+		// Update existing stock
+		prevQty := stock.CurrentStock
+		stock.PurchasedStock += quantity
+
+		// Update weighted average cost
+		if prevQty > 0 {
+			stock.AverageCost = ((stock.AverageCost * prevQty) + (rate * quantity)) / (stock.PurchasedStock)
+		} else {
+			stock.AverageCost = rate
+		}
+
+		// CurrentStock = PurchasedStock - SoldStock
+		stock.CurrentStock = stock.PurchasedStock - stock.SoldStock
+		stock.AvailableStock = stock.CurrentStock - stock.ReservedStock
+
+		// Update raw material unit if provided and not already set
+		if rawMaterialUnit != "" && stock.RawMaterialUnit == "" {
+			stock.RawMaterialUnit = rawMaterialUnit
+		}
+	}
+
+	stock.LastPurchasedDate = timePtr(time.Now())
+	stock.LastStockSyncAt = time.Now()
+	stock.UpdatedAt = time.Now()
+
+	if err := s.productStockRepo.Update(stock); err != nil {
+		return fmt.Errorf("failed to update product stock: %w", err)
+	}
+
+	// Record ledger entry
+	amount := quantity * rate
+	ledger := &models.StockLedger{
+		ProductID:        productID,
+		MovementType:     string(StockMovementTypePurchaseOrder),
+		Quantity:         quantity,
+		Rate:             rate,
+		Amount:           amount,
+		ReferenceType:    referenceType,
+		ReferenceID:      referenceID,
+		ReferenceNumber:  referenceNo,
+		BalanceBeforeQty: stock.CurrentStock - quantity,
+		BalanceAfterQty:  stock.CurrentStock,
+		CostBeforeAmount: (stock.CurrentStock - quantity) * (stock.AverageCost),
+		CostAfterAmount:  stock.CurrentStock * stock.AverageCost,
+		Notes:            fmt.Sprintf("%s [%s %s]", notes, rawMaterialUnit, fmt.Sprintf("%.2f", quantity)),
+		CreatedAt:        time.Now(),
+		CreatedBy:        userID,
+	}
+
+	if err := s.stockLedgerRepo.Create(ledger); err != nil {
+		log.Printf("[STOCK_IN_RAW] Warning: Failed to create ledger entry: %v", err)
+	}
+
+	log.Printf("[STOCK_IN_RAW] Success: New balance=%.2f %s, Avg Cost=%.2f", stock.CurrentStock, rawMaterialUnit, stock.AverageCost)
 	return nil
 }
 

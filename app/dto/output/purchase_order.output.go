@@ -54,6 +54,13 @@ type PurchaseOrderLineItemOutput struct {
 	ReceivedQuantity float64 `json:"received_quantity"`
 	Rate             float64 `json:"rate"`
 	Amount           float64 `json:"amount"`
+
+	// Raw Material Specific Fields
+	IsRawMaterial   bool    `json:"is_raw_material"`
+	RawMaterialUnit string  `json:"raw_material_unit,omitempty"`
+	NumberOfPacks   float64 `json:"number_of_packs,omitempty"`
+	QuantityPerPack float64 `json:"quantity_per_pack,omitempty"`
+	ReceivedPacks   float64 `json:"received_packs,omitempty"`
 }
 
 type PurchaseOrderListOutput struct {
@@ -74,6 +81,11 @@ func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, erro
 			ReceivedQuantity: item.ReceivedQuantity,
 			Rate:             item.Rate,
 			Amount:           item.Amount,
+			IsRawMaterial:    item.IsRawMaterial,
+			RawMaterialUnit:  item.RawMaterialUnit,
+			NumberOfPacks:    item.NumberOfPacks,
+			QuantityPerPack:  item.QuantityPerPack,
+			ReceivedPacks:    item.ReceivedPacks,
 		}
 
 		lineItems[i] = lineItemOutput

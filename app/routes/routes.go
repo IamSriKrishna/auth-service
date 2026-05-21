@@ -63,7 +63,6 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	bankRepo := repo.NewBankRepository(db)
 	inventoryBalanceRepo := repo.NewInventoryBalanceRepository(db)
 	itemGroupRepo := repo.NewItemGroupRepository(db)
-	productionOrderRepo := repo.NewProductionOrderRepository(db)
 	productGroupRepo := repo.NewProductGroupRepository(db)
 	dashboardRepo := repo.NewDashboardRepository(db)
 	employeeRepo := repo.NewEmployeeRepository(db)
@@ -121,8 +120,6 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	billService := services.NewBillService(billRepo, vendorRepo, productRepo, taxRepo)
 	bankService := services.NewBankService(bankRepo)
 	itemGroupService := services.NewItemGroupService(itemGroupRepo, itemRepo)
-	inventoryService := services.NewInventoryService(itemRepo, itemGroupRepo, inventoryBalanceRepo, openStockRepo)
-	productionOrderService := services.NewProductionOrderService(productionOrderRepo, itemGroupRepo, itemRepo, inventoryService)
 	productGroupService := services.NewProductGroupServiceWithStockMgmt(productGroupRepo, productRepo, variantStockManagementService, productGroupInventoryService, stockManagementService, productStockRepo)
 	dashboardService := services.NewDashboardService(dashboardRepo, userRepo, companyRepo)
 	employeeService := services.NewEmployeeService(employeeRepo, userRepo, cloudinaryClient)
@@ -157,7 +154,6 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	bankHandler := handlers.NewBankHandler(bankService)
 	itemGroupHandler := handlers.NewItemGroupHandler(itemGroupService)
 	productGroupHandler := handlers.NewProductGroupHandler(productGroupService)
-	productionOrderHandler := handlers.NewProductionOrderHandler(productionOrderService)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardService, userRepo)
 	employeeHandler := handlers.NewEmployeeHandler(employeeService)
 	attendanceHandler := handlers.NewAttendanceHandler(attendanceService)
@@ -682,17 +678,6 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		billRoutes.Get("/:id", middleware.AdminMiddleware(), billHandler.GetBill)
 		billRoutes.Put("/:id", middleware.AdminMiddleware(), billHandler.UpdateBill)
 		billRoutes.Delete("/:id", middleware.AdminMiddleware(), billHandler.DeleteBill)
-	}
-
-	productionOrderRoutes := app.Group("/production-orders")
-	productionOrderRoutes.Use(middleware.AuthMiddleware())
-	{
-		productionOrderRoutes.Post("/", middleware.AdminMiddleware(), productionOrderHandler.CreateProductionOrder)
-		productionOrderRoutes.Get("/", productionOrderHandler.GetAllProductionOrders)
-		productionOrderRoutes.Get("/:id", productionOrderHandler.GetProductionOrderByID)
-		productionOrderRoutes.Put("/:id", middleware.AdminMiddleware(), productionOrderHandler.UpdateProductionOrder)
-		productionOrderRoutes.Delete("/:id", middleware.AdminMiddleware(), productionOrderHandler.DeleteProductionOrder)
-		productionOrderRoutes.Post("/:id/consume-item", middleware.AdminMiddleware(), productionOrderHandler.ConsumeProductionOrderItem)
 	}
 
 	// Stock Management Routes

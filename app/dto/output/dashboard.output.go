@@ -146,7 +146,8 @@ type ProductStockDetailOutput struct {
 	RevaluationAmount float64    `json:"revaluation_amount"` // Stock revaluation adjustments (aggregated)
 	LastPurchasedDate *time.Time `json:"last_purchased_date,omitempty"`
 	LastSoldDate      *time.Time `json:"last_sold_date,omitempty"`
-	Status            string     `json:"status"` // in_stock, low_stock, out_of_stock
+	Status            string     `json:"status"`                      // in_stock, low_stock, out_of_stock
+	RawMaterialUnit   string     `json:"raw_material_unit,omitempty"` // e.g., kg, liter, pieces (for raw materials)
 }
 
 // StockListOutput represents list of product stock

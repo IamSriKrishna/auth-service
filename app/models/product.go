@@ -18,6 +18,14 @@ type Product struct {
 	ResourceUnit        string  `json:"resource_unit" gorm:"type:varchar(100)"`
 	ResourceCostPerUnit float64 `json:"resource_cost_per_unit" gorm:"type:decimal(18,2);default:0"`
 
+	// Raw/Preform fields (for preforms like water bottles - no unit of measurement or cost per unit needed)
+	IsRaw               bool    `json:"is_raw" gorm:"default:false"`
+	RawName             string  `json:"raw_name" gorm:"type:varchar(255)"`
+	RawSpecification    string  `json:"raw_specification" gorm:"type:varchar(255)"`                 // e.g., "500 ml", "1L", "5L"
+	RawUnit             string  `json:"raw_unit" gorm:"type:varchar(100)"`                          // e.g., "kg", "liter", "pieces"
+	RawCostPerUnit      float64 `json:"raw_cost_per_unit" gorm:"type:decimal(18,2);default:0"`      // Cost per unit (kg, liter, etc.)
+	RequiredGramPerUnit float64 `json:"required_gram_per_unit" gorm:"type:decimal(10,2);default:0"` // e.g., 25.5 grams
+
 	ProductDetails ProductDetails `json:"product_details" gorm:"foreignKey:ProductID;constraint:OnDelete:CASCADE"`
 	SalesInfo      SalesInfo      `json:"sales_info" gorm:"foreignKey:ProductID;references:ID;constraint:OnDelete:CASCADE"`
 	PurchaseInfo   PurchaseInfo   `json:"purchase_info" gorm:"foreignKey:ProductID;references:ID;constraint:OnDelete:CASCADE"`

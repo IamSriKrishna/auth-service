@@ -54,8 +54,13 @@ func NewProductService(
 }
 
 func (s *productService) CreateProduct(input *input.CreateProductInput, createdBy string) (*output.ProductOutput, error) {
-	// For resources, skip variant and SKU validation
-	if !input.IsResource {
+	// For resources and preforms, skip variant and SKU validation
+	if !input.IsResource && !input.IsRaw {
+		// ProductDetails is required for regular products
+		if input.ProductDetails == nil {
+			return nil, fmt.Errorf("product_details is required for regular products")
+		}
+
 		// Validate variant attributes first
 		if err := input.ValidateVariantAttributes(); err != nil {
 			return nil, err
@@ -77,13 +82,19 @@ func (s *productService) CreateProduct(input *input.CreateProductInput, createdB
 		ResourceName:        input.ResourceName,
 		ResourceUnit:        input.ResourceUnit,
 		ResourceCostPerUnit: input.ResourceCostPerUnit,
+		IsRaw:               input.IsRaw,
+		RawName:             input.RawName,
+		RawSpecification:    input.RawSpecification,
+		RawUnit:             input.RawUnit,
+		RawCostPerUnit:      input.RawCostPerUnit,
+		RequiredGramPerUnit: input.RequiredGramPerUnit,
 		CreatedBy:           createdBy,
 		CreatedAt:           time.Now(),
 		UpdatedAt:           time.Now(),
 	}
 
-	// Only add product details, sales info, purchase info, inventory, and return policy for non-resource products
-	if !input.IsResource {
+	// Only add product details, sales info, purchase info, inventory, and return policy for non-resource and non-raw products
+	if !input.IsResource && !input.IsRaw && input.ProductDetails != nil {
 		productDetails := buildProductDetails(id, input)
 		product.ProductDetails = productDetails
 
@@ -172,6 +183,12 @@ func (s *productService) CreateProduct(input *input.CreateProductInput, createdB
 }
 
 func buildProductDetails(productID string, input *input.CreateProductInput) models.ProductDetails {
+	if input.ProductDetails == nil {
+		return models.ProductDetails{
+			ProductID: productID,
+		}
+	}
+
 	productDetails := models.ProductDetails{
 		ProductID:   productID,
 		Unit:        input.ProductDetails.Unit,
@@ -347,6 +364,26 @@ func (s *productService) UpdateProduct(id string, input *input.UpdateProductInpu
 	}
 	if input.ResourceCostPerUnit != nil {
 		product.ResourceCostPerUnit = *input.ResourceCostPerUnit
+	}
+
+	// Handle raw/preform fields
+	if input.IsRaw != nil {
+		product.IsRaw = *input.IsRaw
+	}
+	if input.RawName != nil {
+		product.RawName = *input.RawName
+	}
+	if input.RawSpecification != nil {
+		product.RawSpecification = *input.RawSpecification
+	}
+	if input.RawUnit != nil {
+		product.RawUnit = *input.RawUnit
+	}
+	if input.RawCostPerUnit != nil {
+		product.RawCostPerUnit = *input.RawCostPerUnit
+	}
+	if input.RequiredGramPerUnit != nil {
+		product.RequiredGramPerUnit = *input.RequiredGramPerUnit
 	}
 
 	if input.SalesInfo != nil {

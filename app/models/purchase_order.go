@@ -83,13 +83,21 @@ type PurchaseOrderLineItem struct {
 	ProductGroup   *ProductGroup `json:"product_group,omitempty" gorm:"foreignKey:ProductGroupID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	IsProductGroup bool          `json:"is_product_group" gorm:"default:false"` // true if this line item is for a product group
 
-	Account          string    `json:"account" gorm:"type:varchar(100)"`
-	Quantity         float64   `json:"quantity" gorm:"not null"`
-	ReceivedQuantity float64   `json:"received_quantity" gorm:"default:0"`
-	Rate             float64   `json:"rate" gorm:"not null"`
-	Amount           float64   `json:"amount" gorm:"not null"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	Account          string  `json:"account" gorm:"type:varchar(100)"`
+	Quantity         float64 `json:"quantity" gorm:"not null"`
+	ReceivedQuantity float64 `json:"received_quantity" gorm:"default:0"`
+	Rate             float64 `json:"rate" gorm:"not null"`
+	Amount           float64 `json:"amount" gorm:"not null"`
+
+	// Raw Material Specific Fields - Used when purchasing raw materials
+	IsRawMaterial   bool    `json:"is_raw_material" gorm:"default:false"`                // true if line item is for raw material
+	RawMaterialUnit string  `json:"raw_material_unit,omitempty" gorm:"type:varchar(50)"` // e.g., kg, liter, pieces
+	NumberOfPacks   float64 `json:"number_of_packs,omitempty" gorm:"default:0"`          // e.g., 10 packs
+	QuantityPerPack float64 `json:"quantity_per_pack,omitempty" gorm:"default:0"`        // e.g., 20 kg per pack
+	ReceivedPacks   float64 `json:"received_packs,omitempty" gorm:"default:0"`           // Number of packs received
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (PurchaseOrderLineItem) TableName() string {

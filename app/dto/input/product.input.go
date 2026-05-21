@@ -16,17 +16,26 @@ import (
 //
 // For resources (water, electricity, etc.), set IsResource=true and provide ResourceName, ResourceUnit, and ResourceCostPerUnit.
 // Resources don't need variants, sales info, or purchase info.
+//
+// For preforms (raw materials like water bottles), set IsRaw=true and provide RawName and RawSpecification.
+// Preforms don't need product_details, just title and size specification.
 type CreateProductInput struct {
-	Name                string              `json:"name" validate:"required" example:"500ml Water Bottle"`
-	IsResource          bool                `json:"is_resource" example:"false"`
-	ResourceName        string              `json:"resource_name" example:"Water"`
-	ResourceUnit        string              `json:"resource_unit" example:"liter"`
-	ResourceCostPerUnit float64             `json:"resource_cost_per_unit" example:"25.50"`
-	ProductDetails      ProductDetailsInput `json:"product_details" validate:"required"`
-	SalesInfo           *SalesInfoInput     `json:"sales_info"`
-	PurchaseInfo        *PurchaseInfoInput  `json:"purchase_info"`
-	Inventory           *InventoryInput     `json:"inventory"`
-	ReturnPolicy        *ReturnPolicyInput  `json:"return_policy"`
+	Name                string               `json:"name" validate:"required" example:"500ml Water Bottle"`
+	IsResource          bool                 `json:"is_resource" example:"false"`
+	ResourceName        string               `json:"resource_name" example:"Water"`
+	ResourceUnit        string               `json:"resource_unit" example:"liter"`
+	ResourceCostPerUnit float64              `json:"resource_cost_per_unit" example:"25.50"`
+	IsRaw               bool                 `json:"is_raw" example:"false"`
+	RawName             string               `json:"raw_name" example:"Water Bottle Preform"`
+	RawSpecification    string               `json:"raw_specification" example:"500 ml"`    // e.g., "300 ml", "500 ml", "1L", "5L"
+	RawUnit             string               `json:"raw_unit" example:"kg"`                 // e.g., "kg", "liter", "pieces"
+	RawCostPerUnit      float64              `json:"raw_cost_per_unit" example:"25.50"`     // Cost per unit (kg, liter, etc.)
+	RequiredGramPerUnit float64              `json:"required_gram_per_unit" example:"25.5"` // e.g., 25.5 grams - only for preforms
+	ProductDetails      *ProductDetailsInput `json:"product_details" validate:"omitempty"`
+	SalesInfo           *SalesInfoInput      `json:"sales_info"`
+	PurchaseInfo        *PurchaseInfoInput   `json:"purchase_info"`
+	Inventory           *InventoryInput      `json:"inventory"`
+	ReturnPolicy        *ReturnPolicyInput   `json:"return_policy"`
 }
 
 // ProductDetailsInput contains variant and attribute details for the product.
@@ -103,6 +112,12 @@ type UpdateProductInput struct {
 	ResourceName        *string              `json:"resource_name"`
 	ResourceUnit        *string              `json:"resource_unit"`
 	ResourceCostPerUnit *float64             `json:"resource_cost_per_unit"`
+	IsRaw               *bool                `json:"is_raw"`
+	RawName             *string              `json:"raw_name"`
+	RawSpecification    *string              `json:"raw_specification"`
+	RawUnit             *string              `json:"raw_unit"`
+	RawCostPerUnit      *float64             `json:"raw_cost_per_unit"`
+	RequiredGramPerUnit *float64             `json:"required_gram_per_unit"`
 	ProductDetails      *ProductDetailsInput `json:"product_details"`
 	SalesInfo           *SalesInfoInput      `json:"sales_info"`
 	PurchaseInfo        *PurchaseInfoInput   `json:"purchase_info"`
@@ -132,6 +147,10 @@ type ProductOpeningStockInput struct {
 
 // ToProductDetails converts ProductDetailsInput to models.ProductDetails
 func (p *CreateProductInput) ToProductDetails() models.ProductDetails {
+	if p.ProductDetails == nil {
+		return models.ProductDetails{}
+	}
+
 	productDetails := models.ProductDetails{
 		Unit:        p.ProductDetails.Unit,
 		BaseSKU:     p.ProductDetails.BaseSKU,
@@ -234,6 +253,10 @@ func (p *CreateProductInput) ToReturnPolicy() models.ReturnPolicy {
 // For products without attributes (single variant), attribute_map can be empty {}
 // For products without any variants, this is a no-op (default variant will be auto-created)
 func (p *CreateProductInput) ValidateVariantAttributes() error {
+	if p.ProductDetails == nil {
+		return nil
+	}
+
 	// Case 0: No variants provided - a default variant will be auto-created
 	if len(p.ProductDetails.Variants) == 0 {
 		// If no variants, there should be no attribute definitions either
@@ -314,7 +337,7 @@ func NewSingleVariantProduct(
 ) *CreateProductInput {
 	return &CreateProductInput{
 		Name: name,
-		ProductDetails: ProductDetailsInput{
+		ProductDetails: &ProductDetailsInput{
 			Unit:                 unit,
 			BaseSKU:              defaultVariantSKU,
 			AttributeDefinitions: []ProductAttributeDefinitionInput{}, // No attributes
@@ -336,12 +359,18 @@ func NewSingleVariantProduct(
 // AddVariant adds a new variant to the product.
 // The variant must match the attribute definitions already defined.
 func (p *CreateProductInput) AddVariant(variant ProductVariantInput) {
+	if p.ProductDetails == nil {
+		p.ProductDetails = &ProductDetailsInput{}
+	}
 	p.ProductDetails.Variants = append(p.ProductDetails.Variants, variant)
 }
 
 // AddAttribute defines a new attribute for this product's variants.
 // All variants must have values for all defined attributes.
 func (p *CreateProductInput) AddAttribute(key string, options []string) {
+	if p.ProductDetails == nil {
+		p.ProductDetails = &ProductDetailsInput{}
+	}
 	p.ProductDetails.AttributeDefinitions = append(
 		p.ProductDetails.AttributeDefinitions,
 		ProductAttributeDefinitionInput{
@@ -353,16 +382,26 @@ func (p *CreateProductInput) AddAttribute(key string, options []string) {
 
 // GetVariantCount returns the number of variants for this product
 func (p *CreateProductInput) GetVariantCount() int {
+	if p.ProductDetails == nil {
+		return 0
+	}
 	return len(p.ProductDetails.Variants)
 }
 
 // HasVariantAttributes returns true if the product has variant attributes defined
 func (p *CreateProductInput) HasVariantAttributes() bool {
+	if p.ProductDetails == nil {
+		return false
+	}
 	return len(p.ProductDetails.AttributeDefinitions) > 0
 }
 
 // ValidateSKUUniqueness checks that all variant SKUs are unique
 func (p *CreateProductInput) ValidateSKUUniqueness() error {
+	if p.ProductDetails == nil {
+		return nil
+	}
+
 	skus := make(map[string]bool)
 	for i, variant := range p.ProductDetails.Variants {
 		if _, exists := skus[variant.SKU]; exists {

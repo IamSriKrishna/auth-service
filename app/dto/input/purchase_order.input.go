@@ -34,8 +34,14 @@ type PurchaseOrderLineItemInput struct {
 	ProductName string  `json:"product_name" validate:"required"`
 	SKU         string  `json:"sku"`
 	Account     string  `json:"account" validate:"required"`
-	Quantity    float64 `json:"quantity" validate:"required,gt=0"`
+	Quantity    float64 `json:"quantity" validate:"omitempty,gt=0"` // Optional for raw materials (auto-calculated from packs)
 	Rate        float64 `json:"rate" validate:"required,gt=0"`
+
+	// Raw Material Specific Fields - Used when purchasing raw materials
+	IsRawMaterial   bool    `json:"is_raw_material,omitempty"`                              // true if purchasing raw material
+	RawMaterialUnit string  `json:"raw_material_unit,omitempty" validate:"omitempty"`       // e.g., kg, liter, pieces
+	NumberOfPacks   float64 `json:"number_of_packs,omitempty" validate:"omitempty,gte=0"`   // e.g., 10 packs
+	QuantityPerPack float64 `json:"quantity_per_pack,omitempty" validate:"omitempty,gte=0"` // e.g., 20 kg per pack
 }
 
 type UpdatePurchaseOrderInput struct {

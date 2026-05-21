@@ -120,18 +120,47 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 			return nil, fmt.Errorf("product %s not found", *itemInput.ProductID)
 		}
 
-		amount := itemInput.Quantity * itemInput.Rate
+		// Auto-populate raw material fields if product is raw
+		isRawMaterial := itemInput.IsRawMaterial || product.IsRaw
+		rawMaterialUnit := itemInput.RawMaterialUnit
+		if product.IsRaw && rawMaterialUnit == "" {
+			rawMaterialUnit = product.RawUnit
+		}
+
+		// Validate quantity based on product type
+		if isRawMaterial {
+			// For raw materials, either quantity or (number_of_packs AND quantity_per_pack) must be provided
+			if itemInput.Quantity <= 0 && (itemInput.NumberOfPacks <= 0 || itemInput.QuantityPerPack <= 0) {
+				return nil, errors.New("for raw materials, either quantity OR (number_of_packs AND quantity_per_pack) must be provided")
+			}
+		} else {
+			if itemInput.Quantity <= 0 {
+				return nil, errors.New("quantity is required for regular products")
+			}
+		}
+
+		// Calculate quantity for raw materials from packs only if quantity not explicitly provided
+		quantity := itemInput.Quantity
+		if isRawMaterial && itemInput.Quantity <= 0 {
+			quantity = itemInput.NumberOfPacks * itemInput.QuantityPerPack
+		}
+
+		amount := quantity * itemInput.Rate
 		subTotal += amount
 
 		lineItem := models.PurchaseOrderLineItem{
-			ProductID:   itemInput.ProductID,
-			Product:     product,
-			ProductName: itemInput.ProductName,
-			SKU:         itemInput.SKU,
-			Account:     itemInput.Account,
-			Quantity:    itemInput.Quantity,
-			Rate:        itemInput.Rate,
-			Amount:      amount,
+			ProductID:       itemInput.ProductID,
+			Product:         product,
+			ProductName:     itemInput.ProductName,
+			SKU:             itemInput.SKU,
+			Account:         itemInput.Account,
+			Quantity:        quantity,
+			Rate:            itemInput.Rate,
+			Amount:          amount,
+			IsRawMaterial:   isRawMaterial,
+			RawMaterialUnit: rawMaterialUnit,
+			NumberOfPacks:   itemInput.NumberOfPacks,
+			QuantityPerPack: itemInput.QuantityPerPack,
 		}
 
 		lineItems = append(lineItems, lineItem)
@@ -330,18 +359,47 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 				return nil, fmt.Errorf("product %s not found", *itemInput.ProductID)
 			}
 
-			amount := itemInput.Quantity * itemInput.Rate
+			// Auto-populate raw material fields if product is raw
+			isRawMaterial := itemInput.IsRawMaterial || product.IsRaw
+			rawMaterialUnit := itemInput.RawMaterialUnit
+			if product.IsRaw && rawMaterialUnit == "" {
+				rawMaterialUnit = product.RawUnit
+			}
+
+			// Validate quantity based on product type
+			if isRawMaterial {
+				// For raw materials, either quantity or (number_of_packs AND quantity_per_pack) must be provided
+				if itemInput.Quantity <= 0 && (itemInput.NumberOfPacks <= 0 || itemInput.QuantityPerPack <= 0) {
+					return nil, errors.New("for raw materials, either quantity OR (number_of_packs AND quantity_per_pack) must be provided")
+				}
+			} else {
+				if itemInput.Quantity <= 0 {
+					return nil, errors.New("quantity is required for regular products")
+				}
+			}
+
+			// Calculate quantity for raw materials from packs only if quantity not explicitly provided
+			quantity := itemInput.Quantity
+			if isRawMaterial && itemInput.Quantity <= 0 {
+				quantity = itemInput.NumberOfPacks * itemInput.QuantityPerPack
+			}
+
+			amount := quantity * itemInput.Rate
 			subTotal += amount
 
 			lineItem := models.PurchaseOrderLineItem{
-				ProductID:   itemInput.ProductID,
-				Product:     product,
-				ProductName: itemInput.ProductName,
-				SKU:         itemInput.SKU,
-				Account:     itemInput.Account,
-				Quantity:    itemInput.Quantity,
-				Rate:        itemInput.Rate,
-				Amount:      amount,
+				ProductID:       itemInput.ProductID,
+				Product:         product,
+				ProductName:     itemInput.ProductName,
+				SKU:             itemInput.SKU,
+				Account:         itemInput.Account,
+				Quantity:        quantity,
+				Rate:            itemInput.Rate,
+				Amount:          amount,
+				IsRawMaterial:   isRawMaterial,
+				RawMaterialUnit: rawMaterialUnit,
+				NumberOfPacks:   itemInput.NumberOfPacks,
+				QuantityPerPack: itemInput.QuantityPerPack,
 			}
 
 			lineItems = append(lineItems, lineItem)
@@ -567,21 +625,47 @@ func (s *purchaseOrderService) UpdatePurchaseOrderStatus(id string, status domai
 				}
 			} else {
 				// This is a base product (no SKU) - record at product level only
-				err := s.stockManagementSvc.RecordInboundMovement(
-					*lineItem.ProductID,    // productID
-					"purchase_order",       // referenceType
-					po.ID,                  // referenceID
-					po.PurchaseOrderNumber, // referenceNo
-					lineItem.Quantity,      // quantity
-					lineItem.Rate,          // rate
-					fmt.Sprintf("Received from vendor %s", po.Vendor.DisplayName), // notes
-					userID, // userID
-				)
+				// Check if it's a raw material and has pack/unit information
+				if lineItem.IsRawMaterial && lineItem.RawMaterialUnit != "" {
+					// Record with raw material unit
+					err := s.stockManagementSvc.RecordInboundMovementWithRawMaterial(
+						*lineItem.ProductID,      // productID
+						"purchase_order",         // referenceType
+						po.ID,                    // referenceID
+						po.PurchaseOrderNumber,   // referenceNo
+						lineItem.Quantity,        // quantity (already calculated as NumberOfPacks * QuantityPerPack)
+						lineItem.Rate,            // rate
+						lineItem.RawMaterialUnit, // rawMaterialUnit
+						fmt.Sprintf("Received from vendor %s (Packs: %.0f, Per Pack: %.2f %s)",
+							po.Vendor.DisplayName, lineItem.NumberOfPacks, lineItem.QuantityPerPack, lineItem.RawMaterialUnit), // notes
+						userID, // userID
+					)
 
-				if err != nil {
-					log.Printf("[PO_STATUS] Error recording stock for product %s (Qty: %.2f): %v", *lineItem.ProductID, lineItem.Quantity, err)
+					if err != nil {
+						log.Printf("[PO_STATUS] Error recording raw material stock for product %s (Qty: %.2f %s): %v",
+							*lineItem.ProductID, lineItem.Quantity, lineItem.RawMaterialUnit, err)
+					} else {
+						log.Printf("[PO_STATUS] Successfully recorded raw material stock: %s +%.2f %s",
+							*lineItem.ProductID, lineItem.Quantity, lineItem.RawMaterialUnit)
+					}
 				} else {
-					log.Printf("[PO_STATUS] Successfully recorded stock: %s +%.2f units", *lineItem.ProductID, lineItem.Quantity)
+					// Record as regular product
+					err := s.stockManagementSvc.RecordInboundMovement(
+						*lineItem.ProductID,    // productID
+						"purchase_order",       // referenceType
+						po.ID,                  // referenceID
+						po.PurchaseOrderNumber, // referenceNo
+						lineItem.Quantity,      // quantity
+						lineItem.Rate,          // rate
+						fmt.Sprintf("Received from vendor %s", po.Vendor.DisplayName), // notes
+						userID, // userID
+					)
+
+					if err != nil {
+						log.Printf("[PO_STATUS] Error recording stock for product %s (Qty: %.2f): %v", *lineItem.ProductID, lineItem.Quantity, err)
+					} else {
+						log.Printf("[PO_STATUS] Successfully recorded stock: %s +%.2f units", *lineItem.ProductID, lineItem.Quantity)
+					}
 				}
 			}
 		}

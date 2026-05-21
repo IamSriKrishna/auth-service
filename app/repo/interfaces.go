@@ -252,14 +252,6 @@ type InventoryBalanceRepository interface {
 	ReserveInventory(itemID string, variantSKU *string, quantity float64, referenceID, referenceNo string) error
 	ReleaseReservation(itemID string, variantSKU *string, quantity float64, referenceID string) error
 }
-type ProductionOrderRepository interface {
-	Create(order *models.ProductionOrder) error
-	FindByID(id string) (*models.ProductionOrder, error)
-	FindAll(limit, offset int) ([]models.ProductionOrder, int64, error)
-	Update(order *models.ProductionOrder) error
-	Delete(id string) error
-	FindByProductionOrderNumber(orderNo string) (*models.ProductionOrder, error)
-}
 
 type ItemGroupRepository interface {
 	Create(itemGroup *models.ItemGroup) error

@@ -153,52 +153,6 @@ func (s *salaryService) CalculateSalary(ctx context.Context, createdByID, compan
 	}, nil
 }
 
-func (s *salaryService) countAttendanceDays(startDate, endDate time.Time, records []models.EmployeeAttendance) (total, present, absent, halfDay, holiday, leave int) {
-	attendanceMap := make(map[string]models.AttendanceStatus)
-	for _, record := range records {
-		attendanceMap[record.Date.Format("2006-01-02")] = record.Status
-	}
-
-	current := startDate
-	for current.Before(endDate) || current.Equal(endDate) {
-		dayOfWeek := current.Weekday()
-		status, exists := attendanceMap[current.Format("2006-01-02")]
-
-		// Skip Sundays only if no explicit attendance record exists
-		if dayOfWeek == time.Sunday && !exists {
-			current = current.AddDate(0, 0, 1)
-			continue
-		}
-
-		total++
-
-		if !exists {
-			// No record means not marked - treat as present (don't count as absent)
-			present++
-		} else {
-			switch status {
-			case models.AttendanceOnTime, models.AttendanceLate:
-				present++
-			case models.AttendanceAbsent:
-				absent++
-			case models.AttendanceHalfDay:
-				halfDay++
-			case models.AttendanceHoliday:
-				holiday++
-			case models.AttendanceLeave:
-				leave++
-			default:
-				// Only explicitly marked absent should count as absent
-				present++
-			}
-		}
-
-		current = current.AddDate(0, 0, 1)
-	}
-
-	return
-}
-
 // countAttendanceDaysWithHolidayAsSame treats holiday and present days the same for salary calculation
 func (s *salaryService) countAttendanceDaysWithHolidayAsSame(startDate, endDate time.Time, records []models.EmployeeAttendance) (total, presentAndHoliday, absent, halfDay int) {
 	attendanceMap := make(map[string]models.AttendanceStatus)
