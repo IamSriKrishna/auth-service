@@ -499,3 +499,30 @@ type SalaryRepository interface {
 	Update(salary *models.SalaryCalculation) error
 	Delete(id uint) error
 }
+
+// ProductConversionRepository interface for managing product conversions
+type ProductConversionRepository interface {
+	Create(conversion *models.ProductConversion) error
+	GetByID(id string) (*models.ProductConversion, error)
+	GetAll(offset, limit int) ([]models.ProductConversion, int64, error)
+	GetActiveConversions(offset, limit int) ([]models.ProductConversion, int64, error)
+	GetByRawProductID(rawProductID string, offset, limit int) ([]models.ProductConversion, int64, error)
+	GetByFinishedProductID(finishedProductID string, offset, limit int) ([]models.ProductConversion, int64, error)
+	GetByProductPair(rawProductID, finishedProductID string) (*models.ProductConversion, error)
+	Update(conversion *models.ProductConversion) error
+	Delete(id string) error
+	GetDB() *gorm.DB
+}
+
+// ProductConversionRecordRepository interface for managing conversion records
+type ProductConversionRecordRepository interface {
+	Create(record *models.ProductConversionRecord) error
+	GetByID(id string) (*models.ProductConversionRecord, error)
+	GetByConversionID(conversionID string, offset, limit int) ([]models.ProductConversionRecord, int64, error)
+	GetAll(offset, limit int) ([]models.ProductConversionRecord, int64, error)
+	GetByDateRange(fromDate, toDate time.Time, offset, limit int) ([]models.ProductConversionRecord, int64, error)
+	GetByStatus(status string, offset, limit int) ([]models.ProductConversionRecord, int64, error)
+	Update(record *models.ProductConversionRecord) error
+	Delete(id string) error
+	GetDB() *gorm.DB
+}

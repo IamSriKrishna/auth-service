@@ -77,6 +77,8 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	compInventoryRepo := repo.NewComponentInventoryRepository(db)
 	pgTransactionRepo := repo.NewProductGroupTransactionRepository(db)
 	customerPricingRepo := repo.NewCustomerPricingRepository(db)
+	productConversionRepo := repo.NewProductConversionRepository(db)
+	productConversionRecordRepo := repo.NewProductConversionRecordRepository(db)
 
 	authService := services.NewAuthService(userRepo, roleRepo, refreshTokenRepo, sessionRepo, companyRepo)
 	adminService := services.NewAdminService(userRepo, roleRepo, companyRepo)
@@ -126,6 +128,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	attendanceService := services.NewEmployeeAttendanceService(attendanceRepo, employeeRepo)
 	salaryService := services.NewSalaryService(salaryRepo, employeeRepo, attendanceRepo)
 	customerPricingService := services.NewCustomerPricingService(customerPricingRepo)
+	productConversionService := services.NewProductConversionService(productConversionRepo, productConversionRecordRepo, productRepo, stockManagementService, variantStockManagementService)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	adminHandler := handlers.NewAdminHandler(adminService)
@@ -160,6 +163,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	salaryHandler := handlers.NewSalaryHandler(salaryService)
 	stockManagementHandler := handlers.NewStockManagementHandlerWithUserRepo(stockManagementService, variantStockManagementService, userRepo)
 	customerPricingHandler := handlers.NewCustomerPricingHandler(customerPricingService)
+	productConversionHandler := handlers.NewProductConversionHandler(productConversionService)
 
 	// Swagger documentation endpoint
 	app.Get("/docs/*", swagger.HandlerDefault)
@@ -708,6 +712,30 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		customerPricingRoutes.Put("/:id", middleware.AdminMiddleware(), customerPricingHandler.UpdateCustomerPricing)
 		customerPricingRoutes.Delete("/:id", middleware.AdminMiddleware(), customerPricingHandler.DeleteCustomerPricing)
 		customerPricingRoutes.Put("/:id/date-range", middleware.AdminMiddleware(), customerPricingHandler.SetEffectiveDateRange)
+	}
+
+	// Product Conversion Routes
+	conversionRoutes := app.Group("/product-conversions")
+	conversionRoutes.Use(middleware.AuthMiddleware())
+	{
+		// Conversion Rule Management - Define specific routes BEFORE wildcard /:id
+		conversionRoutes.Post("/", middleware.AdminMiddleware(), productConversionHandler.CreateConversion)
+		conversionRoutes.Get("/", middleware.AdminMiddleware(), productConversionHandler.ListConversions)
+		conversionRoutes.Get("/active", middleware.AdminMiddleware(), productConversionHandler.ListActiveConversions)
+		conversionRoutes.Get("/by-raw", middleware.AdminMiddleware(), productConversionHandler.GetConversionsByRawProduct)
+		conversionRoutes.Get("/by-finished", middleware.AdminMiddleware(), productConversionHandler.GetConversionsByFinishedProduct)
+		conversionRoutes.Get("/:id", middleware.AdminMiddleware(), productConversionHandler.GetConversion)
+		conversionRoutes.Put("/:id", middleware.AdminMiddleware(), productConversionHandler.UpdateConversion)
+		conversionRoutes.Delete("/:id", middleware.AdminMiddleware(), productConversionHandler.DeleteConversion)
+
+		// Conversion Execution
+		conversionRoutes.Post("/execute", middleware.AdminMiddleware(), productConversionHandler.ExecuteConversion)
+
+		// Conversion Records
+		conversionRoutes.Get("/records", middleware.AdminMiddleware(), productConversionHandler.ListConversionRecords)
+		conversionRoutes.Get("/records/by-rule", middleware.AdminMiddleware(), productConversionHandler.ListConversionRecordsByRule)
+		conversionRoutes.Get("/records/by-date-range", middleware.AdminMiddleware(), productConversionHandler.ListConversionRecordsByDateRange)
+		conversionRoutes.Get("/records/:record_id", middleware.AdminMiddleware(), productConversionHandler.GetConversionRecord)
 	}
 
 	// Dashboard Routes

@@ -175,7 +175,6 @@ func RunMigrations(db *gorm.DB) error {
 		&models.ItemGroup{},
 		&models.ItemGroupComponent{},
 
-
 		&models.ProductStock{},
 		&models.StockLedger{},
 
@@ -214,6 +213,8 @@ func RunMigrations(db *gorm.DB) error {
 
 		&models.CustomerPricing{},
 		&models.SalaryCalculation{},
+		&models.ProductConversion{},
+		&models.ProductConversionRecord{},
 	)
 
 	if err != nil {
@@ -412,7 +413,6 @@ func DropAllTablesExceptUser(db *gorm.DB) error {
 		&models.PurchaseOrderLineItem{},
 		&models.PurchaseOrder{},
 
-
 		&models.InventoryAggregation{},
 		&models.InventoryBalance{},
 		&models.InventoryJournal{},
@@ -508,7 +508,6 @@ func DropAllTables(db *gorm.DB) error {
 		&models.VendorPayment{},
 		&models.PurchaseOrderLineItem{},
 		&models.PurchaseOrder{},
-
 
 		&models.InventoryAggregation{},
 		&models.InventoryBalance{},
@@ -649,7 +648,6 @@ func DropOrderFulfillmentTables(db *gorm.DB) error {
 		&models.StockMovement{},
 
 		// Production
-
 
 		// Products and Variants
 		&models.ItemGroupComponent{},
