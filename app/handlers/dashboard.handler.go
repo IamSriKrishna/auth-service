@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/bbapp-org/auth-service/app/dto/output"
 	"github.com/bbapp-org/auth-service/app/repo"
 	"github.com/bbapp-org/auth-service/app/services"
 	"github.com/gofiber/fiber/v2"
@@ -293,4 +294,48 @@ func (h *DashboardHandler) GetDiagnosticReport(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(report)
+}
+
+// GetPublicLiveStatus returns live status of all data (customers, vendors, products, stock) - PUBLIC endpoint
+// @Summary Get Public Live Status
+// @Description Retrieve live status about all customers, vendors, products, and stock (public access, no authentication required)
+// @Tags Dashboard
+// @Produce json
+// @Success 200 {object} output.PublicLiveStatusOutput
+// @Router /public/live-status [get]
+func (h *DashboardHandler) GetPublicLiveStatus(c *fiber.Ctx) error {
+	metrics, err := h.service.GetDashboardMetrics()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Return simplified public status focused on customers, vendors, products, and stock
+	publicStatus := output.PublicLiveStatusOutput{
+		Customers: output.PublicCustomerStatus{
+			Total:  metrics.CustomerMetrics.Total,
+			Active: metrics.CustomerMetrics.Active,
+		},
+		Vendors: output.PublicVendorStatus{
+			Total:  metrics.VendorMetrics.Total,
+			Active: metrics.VendorMetrics.Active,
+		},
+		Products: output.PublicProductStatus{
+			Total:           metrics.ItemMetrics.Total,
+			TotalStock:      metrics.ItemMetrics.TotalStock,
+			LowStockItems:   metrics.ItemMetrics.LowStockItems,
+			OutOfStockItems: metrics.ItemMetrics.OutOfStockItem,
+		},
+		Stock: output.PublicStockStatus{
+			TotalItems:    metrics.ItemMetrics.Total,
+			TotalQuantity: metrics.ItemMetrics.TotalStock,
+			LowStock:      metrics.ItemMetrics.LowStockItems,
+			OutOfStock:    metrics.ItemMetrics.OutOfStockItem,
+		},
+		LastUpdatedAt: metrics.LastUpdatedAt,
+		GeneratedAt:   metrics.GeneratedAt,
+	}
+
+	return c.Status(fiber.StatusOK).JSON(publicStatus)
 }

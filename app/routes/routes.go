@@ -752,6 +752,12 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		dashboardRoutes.Get("/diagnose", dashboardHandler.GetDiagnosticReport)
 	}
 
+	// Public routes for live status (no authentication required)
+	publicRoutes := app.Group("/public")
+	{
+		publicRoutes.Get("/live-status", dashboardHandler.GetPublicLiveStatus)
+	}
+
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"status":  "ok",

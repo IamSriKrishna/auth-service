@@ -184,3 +184,37 @@ type DiagnosticItem struct {
 	Status      string      `json:"status"` // "ok", "warning", "error"
 	Description string      `json:"description"`
 }
+
+// PublicLiveStatusOutput represents live status of all critical business data (public access)
+type PublicLiveStatusOutput struct {
+	Customers     PublicCustomerStatus `json:"customers"`
+	Vendors       PublicVendorStatus   `json:"vendors"`
+	Products      PublicProductStatus  `json:"products"`
+	Stock         PublicStockStatus    `json:"stock"`
+	LastUpdatedAt time.Time            `json:"last_updated_at"`
+	GeneratedAt   time.Time            `json:"generated_at"`
+}
+
+type PublicCustomerStatus struct {
+	Total  int `json:"total"`
+	Active int `json:"active"`
+}
+
+type PublicVendorStatus struct {
+	Total  int `json:"total"`
+	Active int `json:"active"`
+}
+
+type PublicProductStatus struct {
+	Total           int   `json:"total"`
+	TotalStock      int64 `json:"total_stock"`
+	LowStockItems   int   `json:"low_stock_items"`
+	OutOfStockItems int   `json:"out_of_stock_items"`
+}
+
+type PublicStockStatus struct {
+	TotalItems    int   `json:"total_items"`
+	TotalQuantity int64 `json:"total_quantity"`
+	LowStock      int   `json:"low_stock"`
+	OutOfStock    int   `json:"out_of_stock"`
+}
