@@ -300,10 +300,27 @@ func (s *productConversionService) ExecuteConversion(
 	}
 
 	// Determine which variant SKU to use (if any)
-	// Priority: input variant > conversion rule variant > empty (product-level only)
+	// Priority: input variant > conversion rule variant > product's base/first variant (if has variants) > product-level only
 	variantSKU := conversionInput.FinishedVariantSKU
 	if variantSKU == "" {
 		variantSKU = conversion.FinishedVariantSKU
+	}
+
+	// If still no variant SKU, check if finished product has variants
+	// If it does, use the base SKU or first variant's SKU
+	if variantSKU == "" {
+		finishedProduct, err := s.productRepo.FindByID(conversion.FinishedProductID)
+		if err == nil && finishedProduct != nil {
+			// Check if product has variants
+			if len(finishedProduct.ProductDetails.ProductVariants) > 0 {
+				// Use base SKU if available, otherwise use first variant's SKU
+				if finishedProduct.ProductDetails.BaseSKU != "" {
+					variantSKU = finishedProduct.ProductDetails.BaseSKU
+				} else {
+					variantSKU = finishedProduct.ProductDetails.ProductVariants[0].SKU
+				}
+			}
+		}
 	}
 
 	// Create conversion record
@@ -344,6 +361,9 @@ func (s *productConversionService) ExecuteConversion(
 			fmt.Sprintf("Conversion: %s → %s", conversion.RawProductName, conversion.FinishedProductName),
 			userID,
 		); err != nil {
+			// Mark record as failed and return error
+			record.Status = "FAILED"
+			s.recordRepo.Update(record)
 			return nil, fmt.Errorf("error deducting raw product stock: %w", err)
 		}
 
@@ -357,6 +377,9 @@ func (s *productConversionService) ExecuteConversion(
 				fmt.Sprintf("Conversion from: %s (Qty: %v, Conversion ID: %s)", conversion.RawProductName, conversionInput.RawQuantityUsed, record.ID),
 				userID,
 			); err != nil {
+				// Mark record as failed
+				record.Status = "FAILED"
+				s.recordRepo.Update(record)
 				return nil, fmt.Errorf("error adding stock to variant %s: %w", variantSKU, err)
 			}
 		} else {
@@ -371,6 +394,9 @@ func (s *productConversionService) ExecuteConversion(
 				fmt.Sprintf("Conversion from: %s (Qty: %v)", conversion.RawProductName, conversionInput.RawQuantityUsed),
 				userID,
 			); err != nil {
+				// Mark record as failed
+				record.Status = "FAILED"
+				s.recordRepo.Update(record)
 				return nil, fmt.Errorf("error adding finished product stock: %w", err)
 			}
 		}
