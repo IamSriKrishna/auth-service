@@ -369,6 +369,36 @@ func (s *productConversionService) ExecuteConversion(
 
 		// Add to finished product stock - use variant if specified, otherwise product-level
 		if variantSKU != "" {
+			// Get finished product to find variant details
+			finishedProduct, err := s.productRepo.FindByID(conversion.FinishedProductID)
+			if err == nil && finishedProduct != nil {
+				// Try to find the variant definition in the product
+				variantName := ""
+				sellingPrice := 0.0
+				costPrice := 0.0
+
+				for _, v := range finishedProduct.ProductDetails.ProductVariants {
+					if v.SKU == variantSKU {
+						variantName = v.VariantName
+						sellingPrice = v.SellingPrice
+						costPrice = v.CostPrice
+						break
+					}
+				}
+
+				// Initialize variant stock if it doesn't exist
+				if variantName != "" {
+					s.variantStockMgmt.InitializeVariantStock(
+						conversion.FinishedProductID,
+						variantSKU,
+						variantName,
+						conversion.FinishedProductName,
+						sellingPrice,
+						costPrice,
+					)
+				}
+			}
+
 			// Add stock to specific variant using stock adjustment
 			if err := s.variantStockMgmt.RecordStockAdjustment(
 				variantSKU,
