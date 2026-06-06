@@ -25,11 +25,13 @@ type UpdateProductConversionInput struct {
 // CreateProductConversionRecordInput for performing a conversion
 type CreateProductConversionRecordInput struct {
 	ConversionID       string     `json:"conversion_id" validate:"required"`
-	RawQuantityUsed    float64    `json:"raw_quantity_used" validate:"required,gt=0"`
+	RawQuantityUsed    float64    `json:"raw_quantity_used" validate:"omitempty,gt=0"`
 	ConversionDate     *time.Time `json:"conversion_date"`
 	Notes              string     `json:"notes"`
-	ExecuteConversion  bool       `json:"execute_conversion"`   // If true, update stock immediately
-	FinishedVariantSKU string     `json:"finished_variant_sku"` // Optional: Override conversion rule variant, specify which variant to add stock to
+	ExecuteConversion  bool       `json:"execute_conversion"`
+	FinishedVariantSKU string     `json:"finished_variant_sku"`
+
+	RawMaterialBags []UseRawMaterialBagInput `json:"raw_material_bags"`
 }
 
 // ListConversionsQuery for filtering conversions

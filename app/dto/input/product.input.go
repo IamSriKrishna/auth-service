@@ -7,105 +7,60 @@ import (
 	"github.com/bbapp-org/auth-service/app/models"
 )
 
-// CreateProductInput represents the input for creating a new product with variants.
-// A product is a base item that can have multiple variants.
-// Variants are specific configurations/options of the product (e.g., color, size).
-//
-// Example: "500ml Water Bottle" product can have variants like "Red 500ml", "Blue 500ml", etc.
-// Each variant has its own SKU, pricing, and stock.
-//
-// For resources (water, electricity, etc.), set IsResource=true and provide ResourceName, ResourceUnit, and ResourceCostPerUnit.
-// Resources don't need variants, sales info, or purchase info.
-//
-// For preforms (raw materials like water bottles), set IsRaw=true and provide RawName and RawSpecification.
-// Preforms don't need product_details, just title and size specification.
 type CreateProductInput struct {
-	Name                string               `json:"name" validate:"required" example:"500ml Water Bottle"`
-	IsResource          bool                 `json:"is_resource" example:"false"`
-	ResourceName        string               `json:"resource_name" example:"Water"`
-	ResourceUnit        string               `json:"resource_unit" example:"liter"`
-	ResourceCostPerUnit float64              `json:"resource_cost_per_unit" example:"25.50"`
-	IsRaw               bool                 `json:"is_raw" example:"false"`
-	RawName             string               `json:"raw_name" example:"Water Bottle Preform"`
-	RawSpecification    string               `json:"raw_specification" example:"500 ml"`    // e.g., "300 ml", "500 ml", "1L", "5L"
-	RawUnit             string               `json:"raw_unit" example:"kg"`                 // e.g., "kg", "liter", "pieces"
-	RawCostPerUnit      float64              `json:"raw_cost_per_unit" example:"25.50"`     // Cost per unit (kg, liter, etc.)
-	RequiredGramPerUnit float64              `json:"required_gram_per_unit" example:"25.5"` // e.g., 25.5 grams - only for preforms
-	ProductDetails      *ProductDetailsInput `json:"product_details" validate:"omitempty"`
-	SalesInfo           *SalesInfoInput      `json:"sales_info"`
-	PurchaseInfo        *PurchaseInfoInput   `json:"purchase_info"`
-	Inventory           *InventoryInput      `json:"inventory"`
-	ReturnPolicy        *ReturnPolicyInput   `json:"return_policy"`
-}
+	Name string `json:"name" validate:"required"`
 
-// ProductDetailsInput contains variant and attribute details for the product.
-// Attributes define the possible variant options (e.g., Color: [Red, Blue, Green])
-// Variants are specific combinations of these attributes
-// For simple products (no variants), both AttributeDefinitions and Variants can be omitted,
-// and a default variant will be auto-created from the base SKU and pricing.
+	BaseUnit         string  `json:"base_unit" example:"gram"`
+	PurchaseUnit     string  `json:"purchase_unit" example:"kg"`
+	ConversionFactor float64 `json:"conversion_factor" example:"1000"`
+
+	IsResource          bool    `json:"is_resource"`
+	ResourceName        string  `json:"resource_name"`
+	ResourceUnit        string  `json:"resource_unit"`
+	ResourceCostPerUnit float64 `json:"resource_cost_per_unit"`
+
+	IsRaw               bool    `json:"is_raw"`
+	RawName             string  `json:"raw_name"`
+	RawSpecification    string  `json:"raw_specification"`
+	RawUnit             string  `json:"raw_unit"`
+	RawCostPerUnit      float64 `json:"raw_cost_per_unit"`
+	RequiredGramPerUnit float64 `json:"required_gram_per_unit"`
+	ConsumptionPerUnit  float64 `json:"consumption_per_unit"`
+
+	ProductDetails *ProductDetailsInput `json:"product_details"`
+	SalesInfo      *SalesInfoInput      `json:"sales_info"`
+	PurchaseInfo   *PurchaseInfoInput   `json:"purchase_info"`
+	Inventory      *InventoryInput      `json:"inventory"`
+	ReturnPolicy   *ReturnPolicyInput   `json:"return_policy"`
+}
 type ProductDetailsInput struct {
-	// Unit of measurement for this product (e.g., "piece", "kg", "liter")
-	Unit string `json:"unit" validate:"required" example:"piece"`
-	// Base SKU for the product (optional, used as prefix for variants)
-	BaseSKU string `json:"base_sku" example:"WTR-BOT-500"`
-	// Universal Product Code
-	UPC string `json:"upc" example:"8904220500001"`
-	// European Article Number
-	EAN string `json:"ean" example:"8904220500001"`
-	// Manufacturer Part Number
-	MPN string `json:"mpn" example:"MPN-123"`
-	// ISBN (for books)
-	ISBN string `json:"isbn" example:"978-0-123456-78-9"`
-	// Product description
-	Description string `json:"description" example:"Premium 500ml drinking water bottle"`
-	// Attribute definitions that define possible variant combinations
-	// Example: Color: [Red, Blue, Green], Size: [500ml, 1L]
-	// Optional: can be omitted for products without variants
+	Unit                 string                            `json:"unit" validate:"required" example:"piece"`
+	BaseSKU              string                            `json:"base_sku" example:"WTR-BOT-500"`
+	UPC                  string                            `json:"upc" example:"8904220500001"`
+	EAN                  string                            `json:"ean" example:"8904220500001"`
+	MPN                  string                            `json:"mpn" example:"MPN-123"`
+	ISBN                 string                            `json:"isbn" example:"978-0-123456-78-9"`
+	Description          string                            `json:"description" example:"Premium 500ml drinking water bottle"`
+	ConsumptionPerUnit   float64                           `json:"consumption_per_unit" example:"0.5"`
 	AttributeDefinitions []ProductAttributeDefinitionInput `json:"attribute_definitions" validate:"omitempty,dive"`
-	// Array of variants for this product
-	// Each variant must satisfy the attribute definitions
-	// Optional: can be omitted for simple products without variants (a default variant will be auto-created)
-	Variants []ProductVariantInput `json:"variants" validate:"omitempty,dive"`
+	Variants             []ProductVariantInput             `json:"variants" validate:"omitempty,dive"`
 }
 
-// ProductAttributeDefinitionInput defines possible attribute values for product variants.
-// Example:
-//
-//	Key: "Color", Options: ["Red", "Blue", "Green"]
-//	Key: "Size", Options: ["Small", "Large"]
 type ProductAttributeDefinitionInput struct {
-	// Attribute name/key (e.g., "Color", "Size", "Capacity")
-	Key string `json:"key" validate:"required" example:"Color"`
-	// Possible values for this attribute
+	Key     string   `json:"key" validate:"required" example:"Color"`
 	Options []string `json:"options" validate:"required" example:"[\"Red\",\"Blue\",\"Green\"]"`
 }
 
-// ProductVariantInput represents a specific variant of the product.
-// A variant is a unique combination of attribute values with its own SKU, pricing, and stock.
-//
-// Example variants for "500ml Water Bottle":
-//   - Variant 1: Color=Red, Size=500ml, SKU=WTR-500-RED, Price=150, Stock=1000
-//   - Variant 2: Color=Blue, Size=500ml, SKU=WTR-500-BLUE, Price=150, Stock=800
 type ProductVariantInput struct {
-	// Unique SKU for this variant (must be globally unique across all products)
-	SKU string `json:"sku" validate:"required" example:"WTR-BOT-500-RED"`
-	// Optional display name for the variant
-	VariantName string `json:"variant_name" example:"500ml Red Water Bottle"`
-	// Mapping of attribute keys to values for this variant
-	// Example: {"Color": "Red", "Capacity": "500ml"}
-	// Keys must match the attribute_definitions keys and values from the options
-	AttributeMap map[string]string `json:"attribute_map" validate:"required" example:"{\"Color\":\"Red\",\"Capacity\":\"500ml\"}"`
-	// Selling price for this variant
-	SellingPrice float64 `json:"selling_price" validate:"required,gt=0" example:"150"`
-	// Cost price for this variant
-	CostPrice float64 `json:"cost_price" validate:"required,gt=0" example:"75"`
-	// Initial stock quantity for this variant
-	StockQuantity float64 `json:"stock_quantity" validate:"gte=0" example:"1000"`
-	// Whether this variant is active and available for sale
-	IsActive bool `json:"is_active" example:"true"`
+	SKU           string            `json:"sku" validate:"required" example:"WTR-BOT-500-RED"`
+	VariantName   string            `json:"variant_name" example:"500ml Red Water Bottle"`
+	AttributeMap  map[string]string `json:"attribute_map" validate:"required" example:"{\"Color\":\"Red\",\"Capacity\":\"500ml\"}"`
+	SellingPrice  float64           `json:"selling_price" validate:"required,gt=0" example:"150"`
+	CostPrice     float64           `json:"cost_price" validate:"required,gt=0" example:"75"`
+	StockQuantity float64           `json:"stock_quantity" validate:"gte=0" example:"1000"`
+	IsActive      bool              `json:"is_active" example:"true"`
 }
 
-// UpdateProductInput represents updates to an existing product
 type UpdateProductInput struct {
 	Name                *string              `json:"name"`
 	IsResource          *bool                `json:"is_resource"`
@@ -118,6 +73,7 @@ type UpdateProductInput struct {
 	RawUnit             *string              `json:"raw_unit"`
 	RawCostPerUnit      *float64             `json:"raw_cost_per_unit"`
 	RequiredGramPerUnit *float64             `json:"required_gram_per_unit"`
+	ConsumptionPerUnit  *float64             `json:"consumption_per_unit"`
 	ProductDetails      *ProductDetailsInput `json:"product_details"`
 	SalesInfo           *SalesInfoInput      `json:"sales_info"`
 	PurchaseInfo        *PurchaseInfoInput   `json:"purchase_info"`
@@ -125,27 +81,21 @@ type UpdateProductInput struct {
 	ReturnPolicy        *ReturnPolicyInput   `json:"return_policy"`
 }
 
-// ProductVariantOpeningStockInput for setting opening stock for a variant
 type ProductVariantOpeningStockInput struct {
 	VariantSKU              string  `json:"variant_sku" validate:"required"`
 	OpeningStock            float64 `json:"opening_stock" validate:"gte=0"`
 	OpeningStockRatePerUnit float64 `json:"opening_stock_rate_per_unit" validate:"gte=0"`
 }
 
-// UpdateProductVariantsOpeningStockInput for updating opening stock for multiple variants
 type UpdateProductVariantsOpeningStockInput struct {
 	Variants []ProductVariantOpeningStockInput `json:"variants" validate:"required,dive"`
 }
 
-// ProductOpeningStockInput for setting opening stock for the base product
 type ProductOpeningStockInput struct {
 	OpeningStock            float64 `json:"opening_stock" validate:"gte=0"`
 	OpeningStockRatePerUnit float64 `json:"opening_stock_rate_per_unit" validate:"gte=0"`
 }
 
-// Conversion functions
-
-// ToProductDetails converts ProductDetailsInput to models.ProductDetails
 func (p *CreateProductInput) ToProductDetails() models.ProductDetails {
 	if p.ProductDetails == nil {
 		return models.ProductDetails{}

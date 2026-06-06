@@ -7,26 +7,21 @@ import (
 )
 
 type CreatePurchaseOrderInput struct {
-	VendorID            uint                         `json:"vendor_id" validate:"required"`
-	DeliveryAddressType string                       `json:"delivery_address_type" validate:"required,oneof=organization customer"`
-	DeliveryAddressID   *uint                        `json:"delivery_address_id"`
-	OrganizationName    string                       `json:"organization_name"`
-	OrganizationAddress string                       `json:"organization_address"`
-	CustomerID          *uint                        `json:"customer_id"`
-	ReferenceNo         string                       `json:"reference_no"`
-	Date                time.Time                    `json:"date" validate:"required"`
-	DeliveryDate        time.Time                    `json:"delivery_date" validate:"required"`
-	PaymentTerms        string                       `json:"payment_terms" validate:"required"`
-	ShipmentPreference  string                       `json:"shipment_preference"`
-	LineItems           []PurchaseOrderLineItemInput `json:"line_items" validate:"required,min=1,dive"`
-	Discount            float64                      `json:"discount" validate:"gte=0"`
-	DiscountType        string                       `json:"discount_type" validate:"omitempty,oneof=percentage amount"`
-	TaxType             *string                      `json:"tax_type"`
-	TaxID               *uint                        `json:"tax_id"`
-	Adjustment          float64                      `json:"adjustment" validate:"gte=0"`
-	Notes               string                       `json:"notes"`
-	TermsAndConditions  string                       `json:"terms_and_conditions"`
-	Attachments         []string                     `json:"attachments"`
+	VendorID           uint                         `json:"vendor_id" validate:"required"`
+	ReferenceNo        string                       `json:"reference_no"`
+	Date               time.Time                    `json:"date" validate:"required"`
+	DeliveryDate       time.Time                    `json:"delivery_date" validate:"required"`
+	PaymentTerms       string                       `json:"payment_terms" validate:"required"`
+	ShipmentPreference string                       `json:"shipment_preference"`
+	LineItems          []PurchaseOrderLineItemInput `json:"line_items" validate:"required,min=1,dive"`
+	Discount           float64                      `json:"discount" validate:"gte=0"`
+	DiscountType       string                       `json:"discount_type" validate:"omitempty,oneof=percentage amount"`
+	TaxType            *string                      `json:"tax_type"`
+	TaxID              *uint                        `json:"tax_id"`
+	Adjustment         float64                      `json:"adjustment" validate:"gte=0"`
+	Notes              string                       `json:"notes"`
+	TermsAndConditions string                       `json:"terms_and_conditions"`
+	Attachments        []string                     `json:"attachments"`
 }
 
 type PurchaseOrderLineItemInput struct {
@@ -34,37 +29,33 @@ type PurchaseOrderLineItemInput struct {
 	ProductName string  `json:"product_name" validate:"required"`
 	SKU         string  `json:"sku"`
 	Account     string  `json:"account" validate:"required"`
-	Quantity    float64 `json:"quantity" validate:"omitempty,gt=0"` // Optional for raw materials (auto-calculated from packs)
-	Rate        float64 `json:"rate" validate:"required,gt=0"`
 
-	// Raw Material Specific Fields - Used when purchasing raw materials
-	IsRawMaterial   bool    `json:"is_raw_material,omitempty"`                              // true if purchasing raw material
-	RawMaterialUnit string  `json:"raw_material_unit,omitempty" validate:"omitempty"`       // e.g., kg, liter, pieces
-	NumberOfPacks   float64 `json:"number_of_packs,omitempty" validate:"omitempty,gte=0"`   // e.g., 10 packs
-	QuantityPerPack float64 `json:"quantity_per_pack,omitempty" validate:"omitempty,gte=0"` // e.g., 20 kg per pack
+	Quantity     float64 `json:"quantity" validate:"omitempty,gt=0"` // 50
+	PurchaseUnit string  `json:"purchase_unit,omitempty"` // kg
+	Rate         float64 `json:"rate" validate:"required,gt=0"`
+
+	IsRawMaterial   bool    `json:"is_raw_material,omitempty"`
+	RawMaterialUnit string  `json:"raw_material_unit,omitempty"`
+	NumberOfPacks   float64 `json:"number_of_packs,omitempty"`
+	QuantityPerPack float64 `json:"quantity_per_pack,omitempty"`
 }
 
 type UpdatePurchaseOrderInput struct {
-	VendorID            *uint                        `json:"vendor_id"`
-	DeliveryAddressType *string                      `json:"delivery_address_type" validate:"omitempty,oneof=organization customer"`
-	DeliveryAddressID   *uint                        `json:"delivery_address_id"`
-	OrganizationName    *string                      `json:"organization_name"`
-	OrganizationAddress *string                      `json:"organization_address"`
-	CustomerID          *uint                        `json:"customer_id"`
-	ReferenceNo         *string                      `json:"reference_no"`
-	Date                *time.Time                   `json:"date"`
-	DeliveryDate        *time.Time                   `json:"delivery_date"`
-	PaymentTerms        *string                      `json:"payment_terms"`
-	ShipmentPreference  *string                      `json:"shipment_preference"`
-	LineItems           []PurchaseOrderLineItemInput `json:"line_items" validate:"omitempty,dive"`
-	Discount            *float64                     `json:"discount" validate:"omitempty,gte=0"`
-	DiscountType        *string                      `json:"discount_type" validate:"omitempty,oneof=percentage amount"`
-	TaxType             *string                      `json:"tax_type"`
-	TaxID               *uint                        `json:"tax_id"`
-	Adjustment          *float64                     `json:"adjustment" validate:"omitempty,gte=0"`
-	Notes               *string                      `json:"notes"`
-	TermsAndConditions  *string                      `json:"terms_and_conditions"`
-	Attachments         []string                     `json:"attachments"`
+	VendorID           *uint                        `json:"vendor_id"`
+	ReferenceNo        *string                      `json:"reference_no"`
+	Date               *time.Time                   `json:"date"`
+	DeliveryDate       *time.Time                   `json:"delivery_date"`
+	PaymentTerms       *string                      `json:"payment_terms"`
+	ShipmentPreference *string                      `json:"shipment_preference"`
+	LineItems          []PurchaseOrderLineItemInput `json:"line_items" validate:"omitempty,dive"`
+	Discount           *float64                     `json:"discount" validate:"omitempty,gte=0"`
+	DiscountType       *string                      `json:"discount_type" validate:"omitempty,oneof=percentage amount"`
+	TaxType            *string                      `json:"tax_type"`
+	TaxID              *uint                        `json:"tax_id"`
+	Adjustment         *float64                     `json:"adjustment" validate:"omitempty,gte=0"`
+	Notes              *string                      `json:"notes"`
+	TermsAndConditions *string                      `json:"terms_and_conditions"`
+	Attachments        []string                     `json:"attachments"`
 }
 
 type UpdatePurchaseOrderStatusInput struct {
@@ -82,24 +73,19 @@ type ReorderComponentInput struct {
 
 // ReorderProductGroupInput allows reordering a product group with custom quantities
 type ReorderProductGroupInput struct {
-	ProductGroupID      string                  `json:"product_group_id" validate:"required"`
-	VendorID            uint                    `json:"vendor_id" validate:"required"`
-	DeliveryAddressType string                  `json:"delivery_address_type" validate:"required,oneof=organization customer"`
-	DeliveryAddressID   *uint                   `json:"delivery_address_id"`
-	OrganizationName    string                  `json:"organization_name"`
-	OrganizationAddress string                  `json:"organization_address"`
-	CustomerID          *uint                   `json:"customer_id"`
-	Date                time.Time               `json:"date" validate:"required"`
-	DeliveryDate        time.Time               `json:"delivery_date" validate:"required"`
-	PaymentTerms        string                  `json:"payment_terms" validate:"required"`
-	ShipmentPreference  string                  `json:"shipment_preference"`
-	Components          []ReorderComponentInput `json:"components" validate:"required,min=1,dive"`
-	Discount            float64                 `json:"discount" validate:"gte=0"`
-	DiscountType        string                  `json:"discount_type" validate:"omitempty,oneof=percentage amount"`
-	TaxType             *string                 `json:"tax_type"`
-	TaxID               *uint                   `json:"tax_id"`
-	Adjustment          float64                 `json:"adjustment" validate:"gte=0"`
-	Notes               string                  `json:"notes"`
-	TermsAndConditions  string                  `json:"terms_and_conditions"`
-	Attachments         []string                `json:"attachments"`
+	ProductGroupID     string                  `json:"product_group_id" validate:"required"`
+	VendorID           uint                    `json:"vendor_id" validate:"required"`
+	Date               time.Time               `json:"date" validate:"required"`
+	DeliveryDate       time.Time               `json:"delivery_date" validate:"required"`
+	PaymentTerms       string                  `json:"payment_terms" validate:"required"`
+	ShipmentPreference string                  `json:"shipment_preference"`
+	Components         []ReorderComponentInput `json:"components" validate:"required,min=1,dive"`
+	Discount           float64                 `json:"discount" validate:"gte=0"`
+	DiscountType       string                  `json:"discount_type" validate:"omitempty,oneof=percentage amount"`
+	TaxType            *string                 `json:"tax_type"`
+	TaxID              *uint                   `json:"tax_id"`
+	Adjustment         float64                 `json:"adjustment" validate:"gte=0"`
+	Notes              string                  `json:"notes"`
+	TermsAndConditions string                  `json:"terms_and_conditions"`
+	Attachments        []string                `json:"attachments"`
 }

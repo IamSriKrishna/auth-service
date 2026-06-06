@@ -160,6 +160,7 @@ func RunMigrations(db *gorm.DB) error {
 		&models.OpeningStock{},
 		&models.VariantOpeningStock{},
 		&models.StockMovement{},
+		&models.RawMaterialBag{},
 
 		&models.Product{},
 		&models.ProductGroup{},
@@ -177,6 +178,7 @@ func RunMigrations(db *gorm.DB) error {
 
 		&models.ProductStock{},
 		&models.StockLedger{},
+		&models.VendorShortageClaim{},
 
 		&models.VariantStock{},
 		&models.VariantStockMovement{},
@@ -232,43 +234,6 @@ func RunMigrations(db *gorm.DB) error {
 		log.Printf("Warning: Failed to seed default company: %v", err)
 	}
 
-	return nil
-}
-
-// cleanupOrphanedSalesOrderLineItems removes sales order line items with invalid product_group_id references
-func cleanupOrphanedSalesOrderLineItems(db *gorm.DB) error {
-	// Check if the table exists before trying to clean it
-	if !db.Migrator().HasTable("sales_order_line_items") {
-		log.Println("Table 'sales_order_line_items' does not exist yet, skipping cleanup")
-		return nil
-	}
-
-	if !db.Migrator().HasTable("product_groups") {
-		log.Println("Table 'product_groups' does not exist yet, skipping cleanup")
-		return nil
-	}
-
-	// Delete sales order line items where manufacturer_id is empty or null
-	result := db.Where("manufacturer_id IS NULL OR manufacturer_id = ''").Delete(&models.SalesOrderLineItem{})
-	if result.Error != nil {
-		log.Printf("Warning: Failed to delete NULL/empty manufacturer_id rows: %v", result.Error)
-		return nil
-	}
-	if result.RowsAffected > 0 {
-		log.Printf("Deleted %d sales order line items with NULL/empty manufacturer_id", result.RowsAffected)
-	}
-
-	// Delete sales order line items with orphaned manufacturer_id (not in manufacturers table)
-	result = db.Where("manufacturer_id NOT IN (SELECT id FROM manufacturers)").Delete(&models.SalesOrderLineItem{})
-	if result.Error != nil {
-		log.Printf("Warning: Failed to delete orphaned manufacturer_id rows: %v", result.Error)
-		return nil
-	}
-	if result.RowsAffected > 0 {
-		log.Printf("Deleted %d sales order line items with orphaned manufacturer_id", result.RowsAffected)
-	}
-
-	log.Println("Orphaned sales order line items cleanup completed")
 	return nil
 }
 
@@ -435,6 +400,7 @@ func DropAllTablesExceptUser(db *gorm.DB) error {
 		&models.Variant{},
 		&models.ReturnPolicy{},
 		&models.Inventory{},
+		&models.RawMaterialBag{},
 		&models.PurchaseInfo{},
 		&models.SalesInfo{},
 		&models.ItemDetails{},
@@ -450,6 +416,7 @@ func DropAllTablesExceptUser(db *gorm.DB) error {
 		&models.EntityOtherDetails{},
 		&models.Customer{},
 		&models.Vendor{},
+		&models.VendorShortageClaim{},
 
 		&models.CompanyRegionalSetting{},
 		&models.CompanyTaxSetting{},

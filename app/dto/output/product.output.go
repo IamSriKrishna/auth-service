@@ -23,6 +23,12 @@ type ProductOutput struct {
 	RawUnit             string  `json:"raw_unit,omitempty"`
 	RawCostPerUnit      float64 `json:"raw_cost_per_unit,omitempty"`
 	RequiredGramPerUnit float64 `json:"required_gram_per_unit"`
+	ConsumptionPerUnit  float64 `json:"consumption_per_unit"`
+
+	// Unit conversion
+	BaseUnit         string  `json:"base_unit,omitempty"`
+	PurchaseUnit     string  `json:"purchase_unit,omitempty"`
+	ConversionFactor float64 `json:"conversion_factor"`
 
 	ProductDetails ProductDetailsOutput `json:"product_details,omitempty"`
 	SalesInfo      SalesInfoOutput      `json:"sales_info,omitempty"`
@@ -51,6 +57,7 @@ type ProductDetailsOutput struct {
 	MPN                  string                             `json:"mpn,omitempty"`
 	ISBN                 string                             `json:"isbn,omitempty"`
 	Description          string                             `json:"description,omitempty"`
+	ConsumptionPerUnit   float64                            `json:"consumption_per_unit"`
 	AttributeDefinitions []ProductAttributeDefinitionOutput `json:"attribute_definitions,omitempty"`
 	Variants             []ProductVariantOutput             `json:"variants,omitempty"`
 }
@@ -100,6 +107,10 @@ func ToProductOutput(product *models.Product) (*ProductOutput, error) {
 		RawUnit:             product.RawUnit,
 		RawCostPerUnit:      product.RawCostPerUnit,
 		RequiredGramPerUnit: product.RequiredGramPerUnit,
+		ConsumptionPerUnit:  product.ConsumptionPerUnit,
+		BaseUnit:            product.BaseUnit,
+		PurchaseUnit:        product.PurchaseUnit,
+		ConversionFactor:    product.ConversionFactor,
 		CreatedAt:           product.CreatedAt,
 		UpdatedAt:           product.UpdatedAt,
 		UserID:              product.CreatedBy,
@@ -152,6 +163,7 @@ func ToProductOutput(product *models.Product) (*ProductOutput, error) {
 			MPN:                  product.ProductDetails.MPN,
 			ISBN:                 product.ProductDetails.ISBN,
 			Description:          product.ProductDetails.Description,
+			ConsumptionPerUnit:   product.ConsumptionPerUnit,
 			AttributeDefinitions: attributeDefs,
 			Variants:             variants,
 		}

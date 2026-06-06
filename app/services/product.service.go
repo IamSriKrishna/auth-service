@@ -76,21 +76,33 @@ func (s *productService) CreateProduct(input *input.CreateProductInput, createdB
 
 	idPtr := id
 	product := &models.Product{
-		ID:                  id,
-		Name:                input.Name,
+		ID:   id,
+		Name: input.Name,
+
+		BaseUnit:         input.BaseUnit,
+		PurchaseUnit:     input.PurchaseUnit,
+		ConversionFactor: input.ConversionFactor,
+
 		IsResource:          input.IsResource,
 		ResourceName:        input.ResourceName,
 		ResourceUnit:        input.ResourceUnit,
 		ResourceCostPerUnit: input.ResourceCostPerUnit,
+
 		IsRaw:               input.IsRaw,
 		RawName:             input.RawName,
 		RawSpecification:    input.RawSpecification,
 		RawUnit:             input.RawUnit,
 		RawCostPerUnit:      input.RawCostPerUnit,
 		RequiredGramPerUnit: input.RequiredGramPerUnit,
-		CreatedBy:           createdBy,
-		CreatedAt:           time.Now(),
-		UpdatedAt:           time.Now(),
+		ConsumptionPerUnit:  input.ConsumptionPerUnit,
+
+		CreatedBy: createdBy,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	if product.ConversionFactor <= 0 {
+		product.ConversionFactor = 1
 	}
 
 	// Only add product details, sales info, purchase info, inventory, and return policy for non-resource and non-raw products
@@ -384,6 +396,9 @@ func (s *productService) UpdateProduct(id string, input *input.UpdateProductInpu
 	}
 	if input.RequiredGramPerUnit != nil {
 		product.RequiredGramPerUnit = *input.RequiredGramPerUnit
+	}
+	if input.ConsumptionPerUnit != nil {
+		product.ConsumptionPerUnit = *input.ConsumptionPerUnit
 	}
 
 	if input.SalesInfo != nil {

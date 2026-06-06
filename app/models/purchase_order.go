@@ -72,29 +72,26 @@ type PurchaseOrderLineItem struct {
 	ID              uint   `gorm:"primaryKey;autoIncrement" json:"id"`
 	PurchaseOrderID string `gorm:"type:varchar(255);index;not null" json:"purchase_order_id"`
 
-	// Product Reference (Master Data) - can be standalone product OR product group
 	ProductID   *string  `json:"product_id" gorm:"type:varchar(255);index"`
 	Product     *Product `json:"product,omitempty" gorm:"foreignKey:ProductID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	ProductName string   `json:"product_name" gorm:"type:varchar(255)"`
 	SKU         string   `json:"sku" gorm:"type:varchar(100)"`
 
-	// Product Group Reference - for bundled products
-	ProductGroupID *string       `json:"product_group_id,omitempty" gorm:"type:varchar(255);index"`
-	ProductGroup   *ProductGroup `json:"product_group,omitempty" gorm:"foreignKey:ProductGroupID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
-	IsProductGroup bool          `json:"is_product_group" gorm:"default:false"` // true if this line item is for a product group
-
 	Account          string  `json:"account" gorm:"type:varchar(100)"`
-	Quantity         float64 `json:"quantity" gorm:"not null"`
+	Quantity         float64 `json:"quantity" gorm:"not null"` // purchase quantity
+	PurchaseUnit     string  `json:"purchase_unit" gorm:"type:varchar(50)"` // kg
+	StockQuantity    float64 `json:"stock_quantity" gorm:"default:0"` // converted quantity in base unit
+	StockUnit        string  `json:"stock_unit" gorm:"type:varchar(50)"` // gram
+
 	ReceivedQuantity float64 `json:"received_quantity" gorm:"default:0"`
 	Rate             float64 `json:"rate" gorm:"not null"`
 	Amount           float64 `json:"amount" gorm:"not null"`
 
-	// Raw Material Specific Fields - Used when purchasing raw materials
-	IsRawMaterial   bool    `json:"is_raw_material" gorm:"default:false"`                // true if line item is for raw material
-	RawMaterialUnit string  `json:"raw_material_unit,omitempty" gorm:"type:varchar(50)"` // e.g., kg, liter, pieces
-	NumberOfPacks   float64 `json:"number_of_packs,omitempty" gorm:"default:0"`          // e.g., 10 packs
-	QuantityPerPack float64 `json:"quantity_per_pack,omitempty" gorm:"default:0"`        // e.g., 20 kg per pack
-	ReceivedPacks   float64 `json:"received_packs,omitempty" gorm:"default:0"`           // Number of packs received
+	IsRawMaterial   bool    `json:"is_raw_material" gorm:"default:false"`
+	RawMaterialUnit string  `json:"raw_material_unit,omitempty" gorm:"type:varchar(50)"`
+	NumberOfPacks   float64 `json:"number_of_packs,omitempty" gorm:"default:0"`
+	QuantityPerPack float64 `json:"quantity_per_pack,omitempty" gorm:"default:0"`
+	ReceivedPacks   float64 `json:"received_packs,omitempty" gorm:"default:0"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

@@ -39,6 +39,7 @@ type productConversionService struct {
 	productRepo        repo.ProductRepository
 	stockManagementSvc StockManagementService
 	variantStockMgmt   VariantStockManagementService
+	rawMaterialBagSvc  RawMaterialBagService
 }
 
 func NewProductConversionService(
@@ -47,6 +48,7 @@ func NewProductConversionService(
 	productRepo repo.ProductRepository,
 	stockManagementSvc StockManagementService,
 	variantStockMgmt VariantStockManagementService,
+	rawMaterialBagSvc RawMaterialBagService,
 ) ProductConversionService {
 	return &productConversionService{
 		conversionRepo:     conversionRepo,
@@ -54,6 +56,7 @@ func NewProductConversionService(
 		productRepo:        productRepo,
 		stockManagementSvc: stockManagementSvc,
 		variantStockMgmt:   variantStockMgmt,
+		rawMaterialBagSvc:  rawMaterialBagSvc,
 	}
 }
 
@@ -266,8 +269,6 @@ func (s *productConversionService) GetConversionsByFinishedProduct(finishedProdu
 		Limit:       limit,
 	}, nil
 }
-
-// ExecuteConversion executes a product conversion and updates stock
 func (s *productConversionService) ExecuteConversion(
 	conversionInput *input.CreateProductConversionRecordInput,
 	userID string,
@@ -275,7 +276,6 @@ func (s *productConversionService) ExecuteConversion(
 	userName string,
 	companyName string,
 ) (*output.ConversionExecutionOutput, error) {
-	// Get conversion rule
 	conversion, err := s.conversionRepo.GetByID(conversionInput.ConversionID)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching conversion: %w", err)
@@ -288,32 +288,75 @@ func (s *productConversionService) ExecuteConversion(
 		return nil, errors.New("conversion rule is not active")
 	}
 
-	// Calculate produced quantity
-	lossRatio := conversion.LossPercentage / 100.0
-	producedQuantity := (conversionInput.RawQuantityUsed / conversion.ConversionRatio) * (1 - lossRatio)
-	lossQuantity := conversionInput.RawQuantityUsed * lossRatio
+	rawProduct, err := s.productRepo.FindByID(conversion.RawProductID)
+	if err != nil {
+		return nil, fmt.Errorf("raw product not found: %w", err)
+	}
 
-	// Set conversion date
+	if rawProduct.RequiredGramPerUnit <= 0 {
+		return nil, errors.New("required_gram_per_unit must be greater than 0")
+	}
+
+	var rawQuantityUsed float64
+	var producedQuantity float64
+
+	if len(conversionInput.RawMaterialBags) > 0 {
+		if s.rawMaterialBagSvc == nil {
+			return nil, errors.New("raw material bag service not configured")
+		}
+
+		for _, bagInput := range conversionInput.RawMaterialBags {
+			if bagInput.FinishedQuantity <= 0 {
+				return nil, errors.New("finished_quantity is required when using raw material bags")
+			}
+
+			requiredGrams := bagInput.FinishedQuantity * rawProduct.RequiredGramPerUnit
+			requiredKg := requiredGrams / 1000
+
+			_, err := s.rawMaterialBagSvc.UseBags(
+				conversion.RawProductID,
+				[]input.UseRawMaterialBagInput{
+					{
+						BagID:      bagInput.BagID,
+						QuantityKg: requiredKg,
+					},
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			rawQuantityUsed += requiredGrams
+			producedQuantity += bagInput.FinishedQuantity
+		}
+	} else {
+		rawQuantityUsed = conversionInput.RawQuantityUsed
+
+		if rawQuantityUsed <= 0 {
+			return nil, errors.New("raw quantity used is required")
+		}
+
+		producedQuantity = rawQuantityUsed / rawProduct.RequiredGramPerUnit
+	}
+
+	lossRatio := conversion.LossPercentage / 100
+	lossQuantity := rawQuantityUsed * lossRatio
+	producedQuantity = producedQuantity * (1 - lossRatio)
+
 	conversionDate := time.Now()
 	if conversionInput.ConversionDate != nil {
 		conversionDate = *conversionInput.ConversionDate
 	}
 
-	// Determine which variant SKU to use (if any)
-	// Priority: input variant > conversion rule variant > product's base/first variant (if has variants) > product-level only
 	variantSKU := conversionInput.FinishedVariantSKU
 	if variantSKU == "" {
 		variantSKU = conversion.FinishedVariantSKU
 	}
 
-	// If still no variant SKU, check if finished product has variants
-	// If it does, use the base SKU or first variant's SKU
 	if variantSKU == "" {
 		finishedProduct, err := s.productRepo.FindByID(conversion.FinishedProductID)
 		if err == nil && finishedProduct != nil {
-			// Check if product has variants
 			if len(finishedProduct.ProductDetails.ProductVariants) > 0 {
-				// Use base SKU if available, otherwise use first variant's SKU
 				if finishedProduct.ProductDetails.BaseSKU != "" {
 					variantSKU = finishedProduct.ProductDetails.BaseSKU
 				} else {
@@ -323,13 +366,12 @@ func (s *productConversionService) ExecuteConversion(
 		}
 	}
 
-	// Create conversion record
 	record := &models.ProductConversionRecord{
 		ID:                       uuid.New().String(),
 		ConversionID:             conversionInput.ConversionID,
 		RawProductID:             conversion.RawProductID,
 		RawProductName:           conversion.RawProductName,
-		RawQuantityUsed:          conversionInput.RawQuantityUsed,
+		RawQuantityUsed:          rawQuantityUsed,
 		FinishedProductID:        conversion.FinishedProductID,
 		FinishedProductName:      conversion.FinishedProductName,
 		FinishedVariantSKU:       variantSKU,
@@ -349,30 +391,24 @@ func (s *productConversionService) ExecuteConversion(
 		return nil, fmt.Errorf("error creating conversion record: %w", err)
 	}
 
-	// Update stock if ExecuteConversion is true
 	if conversionInput.ExecuteConversion {
-		// Deduct from raw product stock using outbound movement
 		if err := s.stockManagementSvc.RecordOutboundMovement(
 			conversion.RawProductID,
 			"PRODUCTION_USAGE",
 			record.ID,
 			"",
-			conversionInput.RawQuantityUsed,
+			rawQuantityUsed,
 			fmt.Sprintf("Conversion: %s → %s", conversion.RawProductName, conversion.FinishedProductName),
 			userID,
 		); err != nil {
-			// Mark record as failed and return error
 			record.Status = "FAILED"
 			s.recordRepo.Update(record)
 			return nil, fmt.Errorf("error deducting raw product stock: %w", err)
 		}
 
-		// Add to finished product stock - use variant if specified, otherwise product-level
 		if variantSKU != "" {
-			// Get finished product to find variant details
 			finishedProduct, err := s.productRepo.FindByID(conversion.FinishedProductID)
 			if err == nil && finishedProduct != nil {
-				// Try to find the variant definition in the product
 				variantName := ""
 				sellingPrice := 0.0
 				costPrice := 0.0
@@ -386,7 +422,6 @@ func (s *productConversionService) ExecuteConversion(
 					}
 				}
 
-				// Initialize variant stock if it doesn't exist
 				if variantName != "" {
 					s.variantStockMgmt.InitializeVariantStock(
 						conversion.FinishedProductID,
@@ -399,32 +434,28 @@ func (s *productConversionService) ExecuteConversion(
 				}
 			}
 
-			// Add stock to specific variant using stock adjustment
 			if err := s.variantStockMgmt.RecordStockAdjustment(
 				variantSKU,
 				producedQuantity,
 				"in",
-				fmt.Sprintf("Conversion from: %s (Qty: %v, Conversion ID: %s)", conversion.RawProductName, conversionInput.RawQuantityUsed, record.ID),
+				fmt.Sprintf("Conversion from: %s (Qty: %v grams, Conversion ID: %s)", conversion.RawProductName, rawQuantityUsed, record.ID),
 				userID,
 			); err != nil {
-				// Mark record as failed
 				record.Status = "FAILED"
 				s.recordRepo.Update(record)
 				return nil, fmt.Errorf("error adding stock to variant %s: %w", variantSKU, err)
 			}
 		} else {
-			// Add stock to product level using inbound movement
 			if err := s.stockManagementSvc.RecordInboundMovement(
 				conversion.FinishedProductID,
 				"PRODUCTION_USAGE",
 				record.ID,
 				"",
 				producedQuantity,
-				0, // rate is not applicable for conversions
-				fmt.Sprintf("Conversion from: %s (Qty: %v)", conversion.RawProductName, conversionInput.RawQuantityUsed),
+				0,
+				fmt.Sprintf("Conversion from: %s (Qty: %v grams)", conversion.RawProductName, rawQuantityUsed),
 				userID,
 			); err != nil {
-				// Mark record as failed
 				record.Status = "FAILED"
 				s.recordRepo.Update(record)
 				return nil, fmt.Errorf("error adding finished product stock: %w", err)
@@ -441,13 +472,17 @@ func (s *productConversionService) ExecuteConversion(
 		FinishedVariantSKU:       record.FinishedVariantSKU,
 		FinishedQuantityProduced: record.FinishedQuantityProduced,
 		LossQuantity:             record.LossQuantity,
-		Message: fmt.Sprintf("Conversion executed successfully. Raw: %v used, Finished: %v produced to %s", conversionInput.RawQuantityUsed, producedQuantity, func() string {
-			if record.FinishedVariantSKU != "" {
-				return "variant " + record.FinishedVariantSKU
-			} else {
+		Message: fmt.Sprintf(
+			"Conversion executed successfully. Raw: %.2f grams used, Finished: %.2f produced to %s",
+			rawQuantityUsed,
+			producedQuantity,
+			func() string {
+				if record.FinishedVariantSKU != "" {
+					return "variant " + record.FinishedVariantSKU
+				}
 				return "product level"
-			}
-		}()),
+			}(),
+		),
 	}, nil
 }
 

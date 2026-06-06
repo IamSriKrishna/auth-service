@@ -46,6 +46,8 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	taxTypeRepo := repo.NewTaxTypeRepository(db)
 	itemRepo := repo.NewItemRepository(db)
 	productRepo := repo.NewProductRepository(db)
+	rawBagRepo := repo.NewRawMaterialBagRepository(db)
+	claimRepo := repo.NewVendorShortageClaimRepository(db)
 	customerRepo := repo.NewCustomerRepository(db)
 	openStockRepo := repo.NewOpeningStockRepository(db)
 	manufacturerRepo := repo.NewManufacturerRepository(db)
@@ -82,6 +84,14 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 
 	authService := services.NewAuthService(userRepo, roleRepo, refreshTokenRepo, sessionRepo, companyRepo)
 	adminService := services.NewAdminService(userRepo, roleRepo, companyRepo)
+
+	rawBagService := services.NewRawMaterialBagService(
+		rawBagRepo,
+		claimRepo,
+		purchaseOrderRepo,
+		productRepo,
+	)
+
 	roleService := services.NewRoleService(roleRepo)
 	supportService := services.NewSupportService(supportRepo)
 	businessTypeService := services.NewBusinessTypeService(businessTypeRepo)
@@ -128,13 +138,16 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	attendanceService := services.NewEmployeeAttendanceService(attendanceRepo, employeeRepo)
 	salaryService := services.NewSalaryService(salaryRepo, employeeRepo, attendanceRepo)
 	customerPricingService := services.NewCustomerPricingService(customerPricingRepo)
-	productConversionService := services.NewProductConversionService(productConversionRepo, productConversionRecordRepo, productRepo, stockManagementService, variantStockManagementService)
+	productConversionService := services.NewProductConversionService(productConversionRepo, productConversionRecordRepo, productRepo, stockManagementService, variantStockManagementService,rawBagService)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	adminHandler := handlers.NewAdminHandler(adminService)
 	roleHandler := handlers.NewRoleHandler(roleService)
 	supportHandler := handlers.NewSupportHandler(supportService)
 	forwardAuthHandler := handlers.NewForwardAuthHandler()
+
+	rawBagHandler := handlers.NewRawMaterialBagHandler(rawBagService)
+
 	vendorHandler := handlers.NewVendorHandler(vendorService)
 	companyHandler := handlers.NewCompanyHandler(companyService, businessTypeService, locationService, taxTypeService)
 	helperHandler := handlers.NewHelperHandler(businessTypeService, locationService, taxTypeService)
@@ -235,6 +248,17 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		vendorGroup.Post("/", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), vendorHandler.CreateVendor)
 		vendorGroup.Put("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), vendorHandler.UpdateVendor)
 		vendorGroup.Delete("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), vendorHandler.DeleteVendor)
+	}
+
+	rawMaterialBagGroup := app.Group("/raw-material-bags")
+	{
+		rawMaterialBagGroup.Post("/receive", middleware.AuthMiddleware(), middleware.AdminMiddleware(), rawBagHandler.ReceiveBags)
+
+		rawMaterialBagGroup.Get("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), rawBagHandler.GetAll)
+		rawMaterialBagGroup.Get("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), rawBagHandler.GetByID)
+		rawMaterialBagGroup.Get("/product/:product_id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), rawBagHandler.GetByProduct)
+		rawMaterialBagGroup.Get("/purchase-order/:po_id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), rawBagHandler.GetByPurchaseOrder)
+
 	}
 
 	customerGroup := app.Group("/customers")

@@ -69,7 +69,7 @@ func NewProductGroupServiceWithStockMgmt(
 func (s *productGroupService) Create(input *input.CreateProductGroupInput) (*output.ProductGroupOutput, error) {
 	// NOTE: Product group creation does NOT deduct stock from any stock management system
 	// Components are simply registered without affecting inventory
-	
+
 	// Validate all products exist and quantities are valid
 	if len(input.Products) == 0 {
 		return nil, fmt.Errorf("product group must have at least one product")
@@ -95,7 +95,7 @@ func (s *productGroupService) Create(input *input.CreateProductGroupInput) (*out
 		}
 
 		// Check if product is a resource
-		isResource := product.IsResource 
+		isResource := product.IsResource
 
 		// For non-resource products, enforce quantity matching
 		if !isResource {
@@ -300,8 +300,6 @@ func (s *productGroupService) FindByName(name string) (*output.ProductGroupOutpu
 
 	return s.toOutput(productGroup)
 }
-
-
 
 // adjustStockForReorder adjusts stock based on quantity changes during product group reorder
 // When component quantities decrease, you're creating MORE product groups from existing stock
@@ -757,11 +755,33 @@ func (s *productGroupService) Reorder(id string, reorderInput *input.UpdateProdu
 				return nil, fmt.Errorf("quantity must be greater than 0 for product %s", comp.ProductID)
 			}
 
-			// Validate quantity is a whole number
-			if comp.Quantity != float64(int64(comp.Quantity)) {
-				return nil, fmt.Errorf("product %d quantity must be a whole number. Got: %f", i+1, comp.Quantity)
+			product, err := s.productRepo.FindByID(comp.ProductID)
+			if err != nil {
+				return nil, fmt.Errorf("product %s not found", comp.ProductID)
 			}
 
+			if comp.Quantity <= 0 {
+				return nil, fmt.Errorf("quantity must be greater than 0 for product %s", comp.ProductID)
+			}
+
+			// Allow decimal quantity for gram/kg/ml/liter based products
+			unit := product.ProductDetails.Unit
+
+			isDecimalAllowed :=
+				unit == "gram" ||
+					unit == "kg" ||
+					unit == "ml" ||
+					unit == "liter" ||
+					product.IsResource
+
+			if !isDecimalAllowed && comp.Quantity != float64(int64(comp.Quantity)) {
+				return nil, fmt.Errorf(
+					"product %d quantity must be a whole number for unit %s. Got: %f",
+					i+1,
+					unit,
+					comp.Quantity,
+				)
+			}
 			newProductsMap[key] = comp.Quantity
 		}
 

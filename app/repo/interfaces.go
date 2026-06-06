@@ -526,3 +526,17 @@ type ProductConversionRecordRepository interface {
 	Delete(id string) error
 	GetDB() *gorm.DB
 }
+
+type RawMaterialBagRepository interface {
+	CreateMany(bags []models.RawMaterialBag) error
+	GetAll(limit, offset int) ([]models.RawMaterialBag, int64, error)
+	GetByID(id string) (*models.RawMaterialBag, error)
+	GetByProductID(productID string) ([]models.RawMaterialBag, error)
+	GetByPurchaseOrderID(poID string) ([]models.RawMaterialBag, error)
+	Update(bag *models.RawMaterialBag) error
+}
+
+type VendorShortageClaimRepository interface {
+	Create(claim *models.VendorShortageClaim) error
+	FindByPurchaseOrderID(poID string) ([]models.VendorShortageClaim, error)
+}

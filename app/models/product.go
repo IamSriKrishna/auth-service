@@ -12,19 +12,24 @@ type Product struct {
 	ID   string `json:"id" gorm:"type:varchar(255);primaryKey"`
 	Name string `json:"name" gorm:"not null"`
 
-	// Resource fields
+	// Stock unit conversion
+	BaseUnit         string  `json:"base_unit" gorm:"type:varchar(50)"`          // gram
+	PurchaseUnit    string  `json:"purchase_unit" gorm:"type:varchar(50)"`      // kg
+	ConversionFactor float64 `json:"conversion_factor" gorm:"default:1"`        // 1 kg = 1000 gram
+
 	IsResource          bool    `json:"is_resource" gorm:"default:false"`
 	ResourceName        string  `json:"resource_name" gorm:"type:varchar(255)"`
 	ResourceUnit        string  `json:"resource_unit" gorm:"type:varchar(100)"`
 	ResourceCostPerUnit float64 `json:"resource_cost_per_unit" gorm:"type:decimal(18,2);default:0"`
 
-	// Raw/Preform fields (for preforms like water bottles - no unit of measurement or cost per unit needed)
 	IsRaw               bool    `json:"is_raw" gorm:"default:false"`
 	RawName             string  `json:"raw_name" gorm:"type:varchar(255)"`
-	RawSpecification    string  `json:"raw_specification" gorm:"type:varchar(255)"`                 // e.g., "500 ml", "1L", "5L"
-	RawUnit             string  `json:"raw_unit" gorm:"type:varchar(100)"`                          // e.g., "kg", "liter", "pieces"
-	RawCostPerUnit      float64 `json:"raw_cost_per_unit" gorm:"type:decimal(18,2);default:0"`      // Cost per unit (kg, liter, etc.)
-	RequiredGramPerUnit float64 `json:"required_gram_per_unit" gorm:"type:decimal(10,2);default:0"` // e.g., 25.5 grams
+	RawSpecification    string  `json:"raw_specification" gorm:"type:varchar(255)"`
+	RawUnit             string  `json:"raw_unit" gorm:"type:varchar(100)"`
+	RawCostPerUnit      float64 `json:"raw_cost_per_unit" gorm:"type:decimal(18,2);default:0"`
+	RequiredGramPerUnit float64 `json:"required_gram_per_unit" gorm:"type:decimal(10,2);default:0"`
+
+	ConsumptionPerUnit float64 `json:"consumption_per_unit" gorm:"type:decimal(10,4);default:0"`
 
 	ProductDetails ProductDetails `json:"product_details" gorm:"foreignKey:ProductID;constraint:OnDelete:CASCADE"`
 	SalesInfo      SalesInfo      `json:"sales_info" gorm:"foreignKey:ProductID;references:ID;constraint:OnDelete:CASCADE"`

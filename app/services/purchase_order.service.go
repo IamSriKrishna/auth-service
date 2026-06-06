@@ -9,6 +9,7 @@ import (
 	"github.com/bbapp-org/auth-service/app/domain"
 	"github.com/bbapp-org/auth-service/app/dto/input"
 	"github.com/bbapp-org/auth-service/app/dto/output"
+	"github.com/bbapp-org/auth-service/app/helper"
 	"github.com/bbapp-org/auth-service/app/models"
 	"github.com/bbapp-org/auth-service/app/repo"
 	"github.com/google/uuid"
@@ -82,22 +83,6 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 		return nil, errors.New("vendor not found")
 	}
 
-	if poInput.DeliveryAddressType != "organization" && poInput.DeliveryAddressType != "customer" {
-		return nil, errors.New("invalid delivery address type")
-	}
-
-	var customer *models.Customer
-	if poInput.DeliveryAddressType == "customer" {
-		if poInput.CustomerID == nil {
-			return nil, errors.New("customer_id is required for customer delivery")
-		}
-		var err error
-		customer, err = s.customerRepo.FindByID(*poInput.CustomerID)
-		if err != nil {
-			return nil, errors.New("customer not found")
-		}
-	}
-
 	var tax *models.Tax
 	if poInput.TaxID != nil {
 		tax, err = s.taxRepo.FindByID(*poInput.TaxID)
@@ -110,7 +95,6 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 	subTotal := 0.0
 
 	for _, itemInput := range poInput.LineItems {
-		// Validate product exists
 		if itemInput.ProductID == nil {
 			return nil, errors.New("product_id is required for each line item")
 		}
@@ -120,47 +104,81 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 			return nil, fmt.Errorf("product %s not found", *itemInput.ProductID)
 		}
 
-		// Auto-populate raw material fields if product is raw
 		isRawMaterial := itemInput.IsRawMaterial || product.IsRaw
-		rawMaterialUnit := itemInput.RawMaterialUnit
-		if product.IsRaw && rawMaterialUnit == "" {
-			rawMaterialUnit = product.RawUnit
-		}
 
-		// Validate quantity based on product type
+		quantity := itemInput.Quantity
+		purchaseUnit := itemInput.PurchaseUnit
+
 		if isRawMaterial {
-			// For raw materials, either quantity or (number_of_packs AND quantity_per_pack) must be provided
-			if itemInput.Quantity <= 0 && (itemInput.NumberOfPacks <= 0 || itemInput.QuantityPerPack <= 0) {
-				return nil, errors.New("for raw materials, either quantity OR (number_of_packs AND quantity_per_pack) must be provided")
+			if quantity <= 0 {
+				if itemInput.NumberOfPacks <= 0 || itemInput.QuantityPerPack <= 0 {
+					return nil, errors.New("for raw materials, either quantity OR number_of_packs and quantity_per_pack must be provided")
+				}
+
+				quantity = itemInput.NumberOfPacks * itemInput.QuantityPerPack
+			}
+
+			if purchaseUnit == "" {
+				purchaseUnit = product.RawUnit
 			}
 		} else {
-			if itemInput.Quantity <= 0 {
-				return nil, errors.New("quantity is required for regular products")
+			if quantity <= 0 {
+				return nil, errors.New("quantity is required for product")
+			}
+
+			if purchaseUnit == "" {
+				purchaseUnit = product.PurchaseUnit
+			}
+
+			if purchaseUnit == "" {
+				purchaseUnit = product.ProductDetails.Unit
 			}
 		}
 
-		// Calculate quantity for raw materials from packs only if quantity not explicitly provided
-		quantity := itemInput.Quantity
-		if isRawMaterial && itemInput.Quantity <= 0 {
-			quantity = itemInput.NumberOfPacks * itemInput.QuantityPerPack
+		stockQuantity := quantity
+		stockUnit := purchaseUnit
+
+		if isRawMaterial {
+			switch purchaseUnit {
+			case "kg", "KG", "Kg":
+				stockQuantity = quantity * 1000
+				stockUnit = "gram"
+			case "gram", "grams", "g":
+				stockQuantity = quantity
+				stockUnit = "gram"
+			default:
+				stockQuantity = quantity
+				stockUnit = purchaseUnit
+			}
+		} else {
+			stockQuantity, stockUnit = helper.ConvertToBaseUnit(quantity, purchaseUnit, product)
 		}
 
 		amount := quantity * itemInput.Rate
 		subTotal += amount
 
 		lineItem := models.PurchaseOrderLineItem{
-			ProductID:       itemInput.ProductID,
-			Product:         product,
-			ProductName:     itemInput.ProductName,
-			SKU:             itemInput.SKU,
-			Account:         itemInput.Account,
-			Quantity:        quantity,
-			Rate:            itemInput.Rate,
-			Amount:          amount,
+			ProductID:   itemInput.ProductID,
+			Product:     product,
+			ProductName: itemInput.ProductName,
+			SKU:         itemInput.SKU,
+			Account:     itemInput.Account,
+
+			Quantity:      quantity,      // 50
+			PurchaseUnit:  purchaseUnit,  // kg
+			StockQuantity: stockQuantity, // 50000
+			StockUnit:     stockUnit,     // gram
+
+			Rate:   itemInput.Rate,
+			Amount: amount,
+
 			IsRawMaterial:   isRawMaterial,
-			RawMaterialUnit: rawMaterialUnit,
+			RawMaterialUnit: itemInput.RawMaterialUnit,
 			NumberOfPacks:   itemInput.NumberOfPacks,
 			QuantityPerPack: itemInput.QuantityPerPack,
+
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 		}
 
 		lineItems = append(lineItems, lineItem)
@@ -191,12 +209,6 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 		PurchaseOrderNumber: poNumber,
 		VendorID:            poInput.VendorID,
 		Vendor:              vendor,
-		DeliveryAddressType: poInput.DeliveryAddressType,
-		DeliveryAddressID:   poInput.DeliveryAddressID,
-		OrganizationName:    poInput.OrganizationName,
-		OrganizationAddress: poInput.OrganizationAddress,
-		CustomerID:          poInput.CustomerID,
-		Customer:            customer,
 		ReferenceNo:         poInput.ReferenceNo,
 		PODate:              poInput.Date,
 		DeliveryDate:        poInput.DeliveryDate,
@@ -301,27 +313,6 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 		}
 		po.VendorID = *poInput.VendorID
 		po.Vendor = vendor
-	}
-
-	if poInput.DeliveryAddressType != nil {
-		po.DeliveryAddressType = *poInput.DeliveryAddressType
-	}
-
-	if poInput.OrganizationName != nil {
-		po.OrganizationName = *poInput.OrganizationName
-	}
-
-	if poInput.OrganizationAddress != nil {
-		po.OrganizationAddress = *poInput.OrganizationAddress
-	}
-
-	if poInput.CustomerID != nil {
-		customer, err := s.customerRepo.FindByID(*poInput.CustomerID)
-		if err != nil {
-			return nil, errors.New("customer not found")
-		}
-		po.CustomerID = poInput.CustomerID
-		po.Customer = customer
 	}
 
 	if poInput.ReferenceNo != nil {
@@ -627,26 +618,50 @@ func (s *purchaseOrderService) UpdatePurchaseOrderStatus(id string, status domai
 				// This is a base product (no SKU) - record at product level only
 				// Check if it's a raw material and has pack/unit information
 				if lineItem.IsRawMaterial && lineItem.RawMaterialUnit != "" {
-					// Record with raw material unit
-					err := s.stockManagementSvc.RecordInboundMovementWithRawMaterial(
-						*lineItem.ProductID,      // productID
-						"purchase_order",         // referenceType
-						po.ID,                    // referenceID
-						po.PurchaseOrderNumber,   // referenceNo
-						lineItem.Quantity,        // quantity (already calculated as NumberOfPacks * QuantityPerPack)
-						lineItem.Rate,            // rate
-						lineItem.RawMaterialUnit, // rawMaterialUnit
-						fmt.Sprintf("Received from vendor %s (Packs: %.0f, Per Pack: %.2f %s)",
-							po.Vendor.DisplayName, lineItem.NumberOfPacks, lineItem.QuantityPerPack, lineItem.RawMaterialUnit), // notes
-						userID, // userID
-					)
+					stockQty := lineItem.StockQuantity
+					stockRate := lineItem.Rate
+					stockUnit := lineItem.StockUnit
 
-					if err != nil {
+					if stockQty <= 0 {
+						stockQty = lineItem.Quantity
+					}
+
+					if stockUnit == "" {
+						stockUnit = "gram"
+					}
+
+					if lineItem.StockQuantity > 0 {
+						stockRate = lineItem.Amount / lineItem.StockQuantity
+					}
+
+					if err := s.stockManagementSvc.RecordInboundMovementWithRawMaterial(
+						*lineItem.ProductID,
+						"purchase_order",
+						po.ID,
+						po.PurchaseOrderNumber,
+						stockQty,
+						stockRate,
+						stockUnit,
+						fmt.Sprintf("Received from vendor %s (Packs: %.0f, Per Pack: %.2f %s)",
+							po.Vendor.DisplayName,
+							lineItem.NumberOfPacks,
+							lineItem.QuantityPerPack,
+							lineItem.RawMaterialUnit,
+						),
+						userID,
+					); err != nil {
 						log.Printf("[PO_STATUS] Error recording raw material stock for product %s (Qty: %.2f %s): %v",
-							*lineItem.ProductID, lineItem.Quantity, lineItem.RawMaterialUnit, err)
+							*lineItem.ProductID,
+							stockQty,
+							stockUnit,
+							err,
+						)
 					} else {
 						log.Printf("[PO_STATUS] Successfully recorded raw material stock: %s +%.2f %s",
-							*lineItem.ProductID, lineItem.Quantity, lineItem.RawMaterialUnit)
+							*lineItem.ProductID,
+							stockQty,
+							stockUnit,
+						)
 					}
 				} else {
 					// Record as regular product
@@ -694,22 +709,6 @@ func (s *purchaseOrderService) ReorderProductGroup(reorderInput *input.ReorderPr
 	vendor, err := s.vendorRepo.FindByID(reorderInput.VendorID)
 	if err != nil {
 		return nil, errors.New("vendor not found")
-	}
-
-	// Validate delivery address type
-	if reorderInput.DeliveryAddressType != "organization" && reorderInput.DeliveryAddressType != "customer" {
-		return nil, errors.New("invalid delivery address type")
-	}
-
-	var customer *models.Customer
-	if reorderInput.DeliveryAddressType == "customer" {
-		if reorderInput.CustomerID == nil {
-			return nil, errors.New("customer_id is required for customer delivery")
-		}
-		customer, err = s.customerRepo.FindByID(*reorderInput.CustomerID)
-		if err != nil {
-			return nil, errors.New("customer not found")
-		}
 	}
 
 	// Validate product group exists
@@ -764,17 +763,15 @@ func (s *purchaseOrderService) ReorderProductGroup(reorderInput *input.ReorderPr
 	for i, component := range reorderInput.Components {
 		amount := component.Quantity * component.Rate
 		lineItems[i] = models.PurchaseOrderLineItem{
-			ProductID:      &component.ProductID,
-			ProductName:    component.ProductName,
-			SKU:            component.VariantSku,
-			ProductGroupID: &reorderInput.ProductGroupID,
-			IsProductGroup: false, // Individual component line items
-			Account:        "PURCHASE_EXPENSE",
-			Quantity:       component.Quantity,
-			Rate:           component.Rate,
-			Amount:         amount,
-			CreatedAt:      time.Now(),
-			UpdatedAt:      time.Now(),
+			ProductID:   &component.ProductID,
+			ProductName: component.ProductName,
+			SKU:         component.VariantSku,
+			Account:     "PURCHASE_EXPENSE",
+			Quantity:    component.Quantity,
+			Rate:        component.Rate,
+			Amount:      amount,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
 		}
 		subTotal += amount
 	}
@@ -807,12 +804,6 @@ func (s *purchaseOrderService) ReorderProductGroup(reorderInput *input.ReorderPr
 		PurchaseOrderNumber:  poNumber,
 		VendorID:             reorderInput.VendorID,
 		Vendor:               vendor,
-		DeliveryAddressType:  reorderInput.DeliveryAddressType,
-		DeliveryAddressID:    reorderInput.DeliveryAddressID,
-		OrganizationName:     reorderInput.OrganizationName,
-		OrganizationAddress:  reorderInput.OrganizationAddress,
-		CustomerID:           reorderInput.CustomerID,
-		Customer:             customer,
 		PODate:               reorderInput.Date,
 		DeliveryDate:         reorderInput.DeliveryDate,
 		PaymentTerms:         domain.PaymentTerms(reorderInput.PaymentTerms),

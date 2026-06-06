@@ -51,11 +51,11 @@ type PurchaseOrderLineItemOutput struct {
 	SKU              string  `json:"sku"`
 	Account          string  `json:"account"`
 	Quantity         float64 `json:"quantity"`
+	PurchaseUnit     string  `json:"purchase_unit,omitempty"`
 	ReceivedQuantity float64 `json:"received_quantity"`
 	Rate             float64 `json:"rate"`
 	Amount           float64 `json:"amount"`
 
-	// Raw Material Specific Fields
 	IsRawMaterial   bool    `json:"is_raw_material"`
 	RawMaterialUnit string  `json:"raw_material_unit,omitempty"`
 	NumberOfPacks   float64 `json:"number_of_packs,omitempty"`
@@ -78,6 +78,7 @@ func ToPurchaseOrderOutput(po *models.PurchaseOrder) (*PurchaseOrderOutput, erro
 			SKU:              item.SKU,
 			Account:          item.Account,
 			Quantity:         item.Quantity,
+			PurchaseUnit:     item.PurchaseUnit,
 			ReceivedQuantity: item.ReceivedQuantity,
 			Rate:             item.Rate,
 			Amount:           item.Amount,

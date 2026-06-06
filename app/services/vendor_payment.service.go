@@ -159,41 +159,60 @@ func (s *vendorPaymentService) CreateVendorPayment(
 				continue
 			}
 
+			stockQty := lineItem.Quantity
+			stockRate := lineItem.Rate
+
+			switch lineItem.PurchaseUnit {
+			case "kg":
+				stockQty = lineItem.Quantity * 1000
+				stockRate = lineItem.Rate / 1000
+
+			case "pieces":
+				stockQty = lineItem.Quantity
+				stockRate = lineItem.Rate
+
+			default:
+				stockQty = lineItem.Quantity
+				stockRate = lineItem.Rate
+			}
+
 			if lineItem.SKU != "" {
-				// Variant purchase - record at variant level only
 				err := s.variantStockMgmt.RecordPurchaseInbound(
 					*lineItem.ProductID,
 					lineItem.SKU,
-					lineItem.Quantity,
-					lineItem.Rate,
+					stockQty,
+					stockRate,
 					"purchase_order",
 					po.ID,
 					po.PurchaseOrderNumber,
 					userID,
 				)
+
 				if err != nil {
 					fmt.Printf("[VP_CREATE] Error recording variant stock for SKU %s: %v\n", lineItem.SKU, err)
 				}
 			} else {
-				// Base product (no SKU) - record at product level only
 				err := s.stockMgmtSvc.RecordInboundMovement(
 					*lineItem.ProductID,
 					"purchase_order",
 					po.ID,
 					po.PurchaseOrderNumber,
-					lineItem.Quantity,
-					lineItem.Rate,
+					stockQty,
+					stockRate,
 					fmt.Sprintf("Received from vendor %s", po.Vendor.DisplayName),
 					userID,
 				)
+
 				if err != nil {
 					fmt.Printf("[VP_CREATE] Error recording stock for product %s: %v\n", *lineItem.ProductID, err)
 				}
 			}
 		}
+
 		po.InventorySynced = true
 		now := time.Now()
 		po.InventorySyncDate = &now
+
 		_, err = s.poRepo.Update(po.ID, po)
 		if err != nil {
 			fmt.Printf("[VP_CREATE] Warning: Failed to mark inventory as synced: %v\n", err)
@@ -343,52 +362,61 @@ func (s *vendorPaymentService) RecordPayment(
 		}
 	}
 
-	// When PO is automatically transitioned to "received" after full payment, record stock once
-	// Stock should be recorded exactly once: when PO reaches "received" status, not on every payment
 	if po.Status == "received" && !po.InventorySynced {
 		for _, lineItem := range po.LineItems {
 			if lineItem.ProductID == nil || *lineItem.ProductID == "" {
 				continue
 			}
 
+			stockQty := lineItem.Quantity
+			stockRate := lineItem.Rate
+
+			// Convert kg to grams
+			if lineItem.PurchaseUnit == "kg" {
+				stockQty = lineItem.Quantity * 1000
+				stockRate = lineItem.Rate / 1000
+			}
+
 			if lineItem.SKU != "" {
-				// Variant purchase - record at variant level only
 				err := s.variantStockMgmt.RecordPurchaseInbound(
 					*lineItem.ProductID,
 					lineItem.SKU,
-					lineItem.Quantity,
-					lineItem.Rate,
+					stockQty,  // 50 kg becomes 50000 grams
+					stockRate, // 150/kg becomes 0.15/gram
 					"purchase_order",
 					po.ID,
 					po.PurchaseOrderNumber,
 					userID,
 				)
+
 				if err != nil {
-					fmt.Printf("[VP_RECORD] Error recording variant stock for SKU %s: %v\n", lineItem.SKU, err)
+					fmt.Printf("[VP_CREATE] Error recording variant stock for SKU %s: %v\n", lineItem.SKU, err)
 				}
 			} else {
-				// Base product (no SKU) - record at product level only
 				err := s.stockMgmtSvc.RecordInboundMovement(
 					*lineItem.ProductID,
 					"purchase_order",
 					po.ID,
 					po.PurchaseOrderNumber,
-					lineItem.Quantity,
-					lineItem.Rate,
+					stockQty,
+					stockRate,
 					fmt.Sprintf("Received from vendor %s", po.Vendor.DisplayName),
 					userID,
 				)
+
 				if err != nil {
-					fmt.Printf("[VP_RECORD] Error recording stock for product %s: %v\n", *lineItem.ProductID, err)
+					fmt.Printf("[VP_CREATE] Error recording stock for product %s: %v\n", *lineItem.ProductID, err)
 				}
 			}
 		}
+
 		po.InventorySynced = true
 		now := time.Now()
 		po.InventorySyncDate = &now
+
 		_, err = s.poRepo.Update(po.ID, po)
 		if err != nil {
-			fmt.Printf("[VP_RECORD] Warning: Failed to mark inventory as synced: %v\n", err)
+			fmt.Printf("[VP_CREATE] Warning: Failed to mark inventory as synced: %v\n", err)
 		}
 	}
 
