@@ -13,7 +13,7 @@ import (
 )
 
 type RawMaterialBagService interface {
-	ReceiveBags(req *input.ReceiveRawMaterialBagsInput) (*output.ReceiveRawMaterialBagsOutput, error)
+	ReceiveBags(req *input.ReceiveRawMaterialBagsInput, createdBy string) (*output.ReceiveRawMaterialBagsOutput, error)
 	GetAll(limit, offset int) (*output.RawMaterialBagListOutput, error)
 	GetByID(id string) (*output.RawMaterialBagOutput, error)
 	GetBagsByProduct(productID string) ([]output.RawMaterialBagOutput, error)
@@ -26,6 +26,8 @@ type rawMaterialBagService struct {
 	claimRepo   repo.VendorShortageClaimRepository
 	poRepo      repo.PurchaseOrderRepository
 	productRepo repo.ProductRepository
+	userRepo    repo.UserRepository
+	companyRepo repo.CompanyRepository
 }
 
 func NewRawMaterialBagService(
@@ -33,12 +35,16 @@ func NewRawMaterialBagService(
 	claimRepo repo.VendorShortageClaimRepository,
 	poRepo repo.PurchaseOrderRepository,
 	productRepo repo.ProductRepository,
+	userRepo repo.UserRepository,
+	companyRepo repo.CompanyRepository,
 ) RawMaterialBagService {
 	return &rawMaterialBagService{
 		bagRepo:     bagRepo,
 		claimRepo:   claimRepo,
 		poRepo:      poRepo,
 		productRepo: productRepo,
+		userRepo:    userRepo,
+		companyRepo: companyRepo,
 	}
 }
 
@@ -69,8 +75,7 @@ func (s *rawMaterialBagService) GetByID(id string) (*output.RawMaterialBagOutput
 	return &res, nil
 }
 
-
-func (s *rawMaterialBagService) ReceiveBags(req *input.ReceiveRawMaterialBagsInput) (*output.ReceiveRawMaterialBagsOutput, error) {
+func (s *rawMaterialBagService) ReceiveBags(req *input.ReceiveRawMaterialBagsInput, createdBy string) (*output.ReceiveRawMaterialBagsOutput, error) {
 	po, err := s.poRepo.FindByID(req.PurchaseOrderID)
 	if err != nil {
 		return nil, fmt.Errorf("purchase order not found")
@@ -86,6 +91,33 @@ func (s *rawMaterialBagService) ReceiveBags(req *input.ReceiveRawMaterialBagsInp
 
 	bags := make([]models.RawMaterialBag, 0, len(req.Bags))
 
+	var createdByUserName string
+	var createdByCompanyID uint
+	var createdByCompanyName string
+
+	if createdBy != "" {
+		var userID uint
+		_, err := fmt.Sscanf(createdBy, "%d", &userID)
+		if err == nil {
+			user, err := s.userRepo.GetByID(userID)
+			if err == nil && user != nil {
+				if user.Email != nil {
+					createdByUserName = *user.Email
+				} else if user.Username != nil {
+					createdByUserName = *user.Username
+				}
+
+				if user.CompanyID != nil {
+					createdByCompanyID = *user.CompanyID
+					company, err := s.companyRepo.FindByID(*user.CompanyID)
+					if err == nil && company != nil {
+						createdByCompanyName = company.CompanyName
+					}
+				}
+			}
+		}
+	}
+
 	for _, b := range req.Bags {
 		actualTotalKg += b.ActualKg
 
@@ -95,20 +127,24 @@ func (s *rawMaterialBagService) ReceiveBags(req *input.ReceiveRawMaterialBagsInp
 		}
 
 		bag := models.RawMaterialBag{
-			ID:              "bag_" + uuid.New().String()[:12],
-			PurchaseOrderID: po.ID,
-			PurchaseOrderNo: po.PurchaseOrderNumber,
-			VendorID:        po.VendorID,
-			VendorName:      vendorName,
-			ProductID:       product.ID,
-			ProductName:     product.Name,
-			BagNumber:       b.BagNumber,
-			ExpectedKg:      req.ExpectedKgPerBag,
-			ActualKg:        b.ActualKg,
-			RemainingKg:     b.ActualKg,
-			Status:          "available",
-			CreatedAt:       time.Now(),
-			UpdatedAt:       time.Now(),
+			ID:                   "bag_" + uuid.New().String()[:12],
+			PurchaseOrderID:      po.ID,
+			PurchaseOrderNo:      po.PurchaseOrderNumber,
+			VendorID:             po.VendorID,
+			VendorName:           vendorName,
+			ProductID:            product.ID,
+			ProductName:          product.Name,
+			CreatedBy:            createdBy,
+			CreatedByUserName:    createdByUserName,
+			CreatedByCompanyID:   createdByCompanyID,
+			CreatedByCompanyName: createdByCompanyName,
+			BagNumber:            b.BagNumber,
+			ExpectedKg:           req.ExpectedKgPerBag,
+			ActualKg:             b.ActualKg,
+			RemainingKg:          b.ActualKg,
+			Status:               "available",
+			CreatedAt:            time.Now(),
+			UpdatedAt:            time.Now(),
 		}
 
 		bags = append(bags, bag)

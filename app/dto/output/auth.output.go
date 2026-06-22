@@ -57,11 +57,15 @@ type OTPResponse struct {
 }
 
 type TokenValidationResponse struct {
-	Valid    bool   `json:"valid"`
-	UserID   uint   `json:"user_id,omitempty"`
-	UserType string `json:"user_type,omitempty"`
-	Role     string `json:"role,omitempty"`
-	Claims   Claims `json:"claims,omitempty"`
+	Valid     bool       `json:"valid"`
+	Expired   bool       `json:"expired"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	ExpiresIn int64      `json:"expires_in,omitempty"` // seconds remaining
+	Message   string     `json:"message"`
+	UserID    uint       `json:"user_id,omitempty"`
+	UserType  string     `json:"user_type,omitempty"`
+	Role      string     `json:"role,omitempty"`
+	Claims    Claims     `json:"claims,omitempty"`
 }
 
 type Claims struct {

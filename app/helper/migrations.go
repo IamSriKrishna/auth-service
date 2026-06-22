@@ -3,6 +3,7 @@ package helper
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/bbapp-org/auth-service/app/models"
 	"github.com/bbapp-org/auth-service/app/utils"
@@ -11,6 +12,16 @@ import (
 
 func RunMigrations(db *gorm.DB) error {
 	log.Println("Starting database migration...")
+
+	// helper to interpret environment boolean-like flags
+	envFlag := func(name string) bool {
+		v := os.Getenv(name)
+		if v == "" {
+			return false
+		}
+		v = strings.TrimSpace(strings.ToLower(v))
+		return v == "true" || v == "1" || v == "yes" || v == "y"
+	}
 
 	// // Temporarily disable foreign key checks during migration
 	// log.Println("Disabling foreign key checks...")
@@ -61,57 +72,57 @@ func RunMigrations(db *gorm.DB) error {
 	// 	}
 	// }
 
-	if os.Getenv("DROP_SALES_ORDER_TABLES") == "true" {
+	if envFlag("DROP_SALES_ORDER_TABLES") {
 		log.Println("DROP_SALES_ORDER_TABLES=true detected, dropping sales order tables...")
 		if err := DropSalesOrderTables(db); err != nil {
 			log.Printf("Warning: Failed to drop sales order tables: %v", err)
 		}
 	}
 
-	if os.Getenv("DROP_PURCHASE_ORDER_TABLES") == "true" {
+	if envFlag("DROP_PURCHASE_ORDER_TABLES") {
 		log.Println("DROP_PURCHASE_ORDER_TABLES=true detected, dropping purchase order tables...")
 		if err := DropPurchaseOrderTables(db); err != nil {
 			log.Printf("Warning: Failed to drop purchase order tables: %v", err)
 		}
 	}
 
-	if os.Getenv("DROP_ORDER_FULFILLMENT_TABLES") == "true" {
+	if envFlag("DROP_ORDER_FULFILLMENT_TABLES") {
 		log.Println("DROP_ORDER_FULFILLMENT_TABLES=true detected, dropping order and fulfillment tables...")
 		if err := DropOrderFulfillmentTables(db); err != nil {
 			log.Printf("Warning: Failed to drop order fulfillment tables: %v", err)
 		}
 	}
 
-	if os.Getenv("DROP_ALL_EXCEPT_USER") == "true" {
+	if envFlag("DROP_ALL_EXCEPT_USER") {
 		log.Println("DROP_ALL_EXCEPT_USER=true detected, dropping all tables except user-related...")
 		if err := DropAllTablesExceptUser(db); err != nil {
 			log.Printf("Warning: Failed to drop tables: %v", err)
 		}
 	}
 
-	if os.Getenv("DROP_ITEM_TABLES") == "true" {
+	if envFlag("DROP_ITEM_TABLES") {
 		log.Println("DROP_ITEM_TABLES=true detected, dropping item tables...")
 		if err := DropItemTables(db); err != nil {
 			log.Printf("Warning: Failed to drop existing tables: %v", err)
 		}
 	}
 
-	if os.Getenv("DROP_PRODUCT_DATA") == "true" {
+	if envFlag("DROP_PRODUCT_DATA") {
 		log.Println("DROP_PRODUCT_DATA=true detected, dropping all product data...")
 		if err := DropProductData(db); err != nil {
 			log.Printf("Warning: Failed to drop product data: %v", err)
 		}
 	}
 
-	if os.Getenv("DROP_ITEM_MODEL_ONLY") == "true" {
+	if envFlag("DROP_ITEM_MODEL_ONLY") {
 		log.Println("DROP_ITEM_MODEL_ONLY=true detected, dropping only Item model...")
 		if err := DropItemModelOnly(db); err != nil {
 			log.Printf("Warning: Failed to drop Item model: %v", err)
 		}
 	}
 
-	if os.Getenv("DROP_ALL_TABLES") == "true" {
-		log.Println("DROP_ALL_TABLES=true detected, dropping ALL tables...")
+	if envFlag("DROP_ALL_TABLES") {
+		log.Println("DROP_ALL_TABLES detected, dropping ALL tables...")
 		if err := DropAllTables(db); err != nil {
 			log.Printf("Warning: Failed to drop all tables: %v", err)
 		}

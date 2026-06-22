@@ -14,6 +14,11 @@ type RawMaterialBag struct {
 	ProductID   string `json:"product_id" gorm:"type:varchar(255);index;not null"`
 	ProductName string `json:"product_name" gorm:"type:varchar(255)"`
 
+	CreatedBy            string `json:"created_by" gorm:"type:varchar(255)"`
+	CreatedByUserName    string `json:"created_by_user_name" gorm:"type:varchar(255)"`
+	CreatedByCompanyID   uint   `json:"created_by_company_id"`
+	CreatedByCompanyName string `json:"created_by_company_name" gorm:"type:varchar(255)"`
+
 	BagNumber   int     `json:"bag_number"`
 	ExpectedKg  float64 `json:"expected_kg"`
 	ActualKg    float64 `json:"actual_kg"`

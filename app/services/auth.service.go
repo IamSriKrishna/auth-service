@@ -472,15 +472,32 @@ func (s *authService) GetUserInfo(ctx context.Context, userID uint) (*output.Use
 func (s *authService) ValidateToken(ctx context.Context, tokenString string) (*output.TokenValidationResponse, error) {
 	claims, err := utils.ValidateJWT(tokenString)
 	if err != nil {
-		return &output.TokenValidationResponse{Valid: false}, nil
+		// Check if token is expired or invalid
+		isExpired := errors.Is(err, errors.New("token is expired"))
+		message := err.Error()
+		if message == "token is expired" {
+			isExpired = true
+		}
+		return &output.TokenValidationResponse{
+			Valid:   false,
+			Expired: isExpired,
+			Message: message,
+		}, nil
 	}
 
+	// Extract expiration time from token
+	expiresAt, expiresIn := utils.GetTokenExpiration(tokenString)
+
 	return &output.TokenValidationResponse{
-		Valid:    true,
-		UserID:   claims.UserID,
-		UserType: claims.UserType,
-		Role:     claims.Role,
-		Claims:   *claims,
+		Valid:     true,
+		Expired:   false,
+		UserID:    claims.UserID,
+		UserType:  claims.UserType,
+		Role:      claims.Role,
+		ExpiresAt: expiresAt,
+		ExpiresIn: expiresIn,
+		Message:   "Token is valid",
+		Claims:    *claims,
 	}, nil
 }
 

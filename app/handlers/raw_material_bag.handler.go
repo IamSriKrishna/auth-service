@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
@@ -26,7 +27,12 @@ func (h *RawMaterialBagHandler) ReceiveBags(c *fiber.Ctx) error {
 		})
 	}
 
-	res, err := h.service.ReceiveBags(&req)
+	createdBy := ""
+	if uid := c.Locals("user_id"); uid != nil {
+		createdBy = fmt.Sprintf("%v", uid)
+	}
+
+	res, err := h.service.ReceiveBags(&req, createdBy)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{
 			"success": false,

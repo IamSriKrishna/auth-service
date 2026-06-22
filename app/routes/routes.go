@@ -90,6 +90,8 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		claimRepo,
 		purchaseOrderRepo,
 		productRepo,
+		userRepo,
+		companyRepo,
 	)
 
 	roleService := services.NewRoleService(roleRepo)
@@ -138,7 +140,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	attendanceService := services.NewEmployeeAttendanceService(attendanceRepo, employeeRepo)
 	salaryService := services.NewSalaryService(salaryRepo, employeeRepo, attendanceRepo)
 	customerPricingService := services.NewCustomerPricingService(customerPricingRepo)
-	productConversionService := services.NewProductConversionService(productConversionRepo, productConversionRecordRepo, productRepo, stockManagementService, variantStockManagementService,rawBagService)
+	productConversionService := services.NewProductConversionService(productConversionRepo, productConversionRecordRepo, productRepo, stockManagementService, variantStockManagementService, rawBagService)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	adminHandler := handlers.NewAdminHandler(adminService)

@@ -177,3 +177,32 @@ func GetIdentityType(email, phone, googleID string) string {
 	}
 	return ""
 }
+
+// GetTokenExpiration extracts expiration time from JWT token
+func GetTokenExpiration(tokenString string) (*time.Time, int64) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return jwtSecretKey, nil
+	})
+
+	if err != nil {
+		return nil, 0
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok {
+		if exp, ok := claims["exp"].(float64); ok {
+			expirationTime := time.Unix(int64(exp), 0)
+			expiresIn := int64(expirationTime.Sub(time.Now()).Seconds())
+
+			if expiresIn < 0 {
+				expiresIn = 0
+			}
+
+			return &expirationTime, expiresIn
+		}
+	}
+
+	return nil, 0
+}
