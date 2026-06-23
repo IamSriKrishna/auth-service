@@ -10,6 +10,7 @@ import (
 )
 
 // StockMovementType defines the type of stock movement
+// dsd
 type StockMovementType string
 
 const (
