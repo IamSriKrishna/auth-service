@@ -81,6 +81,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	customerPricingRepo := repo.NewCustomerPricingRepository(db)
 	productConversionRepo := repo.NewProductConversionRepository(db)
 	productConversionRecordRepo := repo.NewProductConversionRecordRepository(db)
+	conversionRecordBagUsageRepo := repo.NewConversionRecordBagUsageRepository(db)
 
 	authService := services.NewAuthService(userRepo, roleRepo, refreshTokenRepo, sessionRepo, companyRepo)
 	adminService := services.NewAdminService(userRepo, roleRepo, companyRepo)
@@ -140,7 +141,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	attendanceService := services.NewEmployeeAttendanceService(attendanceRepo, employeeRepo)
 	salaryService := services.NewSalaryService(salaryRepo, employeeRepo, attendanceRepo)
 	customerPricingService := services.NewCustomerPricingService(customerPricingRepo)
-	productConversionService := services.NewProductConversionService(productConversionRepo, productConversionRecordRepo, productRepo, stockManagementService, variantStockManagementService, rawBagService)
+	productConversionService := services.NewProductConversionService(productConversionRepo, productConversionRecordRepo, conversionRecordBagUsageRepo, productRepo, stockManagementService, variantStockManagementService, rawBagService)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	adminHandler := handlers.NewAdminHandler(adminService)
@@ -509,7 +510,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 
 	productRoutes := app.Group("/products")
 	{
-		productRoutes.Get("/:id", productHandler.GetProduct)
+		productRoutes.Get("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productHandler.GetProduct)
 
 		productRoutes.Get("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productHandler.GetAllProducts)
 		productRoutes.Post("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), productHandler.CreateProduct)

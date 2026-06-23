@@ -228,6 +228,7 @@ func RunMigrations(db *gorm.DB) error {
 		&models.SalaryCalculation{},
 		&models.ProductConversion{},
 		&models.ProductConversionRecord{},
+		&models.ConversionRecordBagUsage{},
 	)
 
 	if err != nil {

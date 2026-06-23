@@ -230,3 +230,41 @@ func (r *productConversionRecordRepository) Delete(id string) error {
 func (r *productConversionRecordRepository) GetDB() *gorm.DB {
 	return r.db
 }
+
+// --- ConversionRecordBagUsage Repository ---
+
+type conversionRecordBagUsageRepository struct {
+	db *gorm.DB
+}
+
+func NewConversionRecordBagUsageRepository(db *gorm.DB) ConversionRecordBagUsageRepository {
+	return &conversionRecordBagUsageRepository{db: db}
+}
+
+// Create creates a new bag usage record for a conversion record
+func (r *conversionRecordBagUsageRepository) Create(bagUsage *models.ConversionRecordBagUsage) error {
+	return r.db.Create(bagUsage).Error
+}
+
+// GetByConversionRecordID retrieves all bags used for a specific conversion record
+func (r *conversionRecordBagUsageRepository) GetByConversionRecordID(recordID string) ([]models.ConversionRecordBagUsage, error) {
+	var usages []models.ConversionRecordBagUsage
+	if err := r.db.Where("conversion_record_id = ?", recordID).Find(&usages).Error; err != nil {
+		return nil, err
+	}
+	return usages, nil
+}
+
+// GetByBagID retrieves all conversion records that used a specific bag
+func (r *conversionRecordBagUsageRepository) GetByBagID(bagID string) ([]models.ConversionRecordBagUsage, error) {
+	var usages []models.ConversionRecordBagUsage
+	if err := r.db.Where("bag_id = ?", bagID).Find(&usages).Error; err != nil {
+		return nil, err
+	}
+	return usages, nil
+}
+
+// GetDB returns the database connection
+func (r *conversionRecordBagUsageRepository) GetDB() *gorm.DB {
+	return r.db
+}

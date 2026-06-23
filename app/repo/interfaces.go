@@ -527,6 +527,14 @@ type ProductConversionRecordRepository interface {
 	GetDB() *gorm.DB
 }
 
+// ConversionRecordBagUsageRepository interface for tracking bag usage in conversions
+type ConversionRecordBagUsageRepository interface {
+	Create(bagUsage *models.ConversionRecordBagUsage) error
+	GetByConversionRecordID(recordID string) ([]models.ConversionRecordBagUsage, error)
+	GetByBagID(bagID string) ([]models.ConversionRecordBagUsage, error)
+	GetDB() *gorm.DB
+}
+
 type RawMaterialBagRepository interface {
 	CreateMany(bags []models.RawMaterialBag) error
 	GetAll(limit, offset int) ([]models.RawMaterialBag, int64, error)

@@ -36,6 +36,7 @@ type ProductConversionService interface {
 type productConversionService struct {
 	conversionRepo     repo.ProductConversionRepository
 	recordRepo         repo.ProductConversionRecordRepository
+	bagUsageRepo       repo.ConversionRecordBagUsageRepository
 	productRepo        repo.ProductRepository
 	stockManagementSvc StockManagementService
 	variantStockMgmt   VariantStockManagementService
@@ -45,6 +46,7 @@ type productConversionService struct {
 func NewProductConversionService(
 	conversionRepo repo.ProductConversionRepository,
 	recordRepo repo.ProductConversionRecordRepository,
+	bagUsageRepo repo.ConversionRecordBagUsageRepository,
 	productRepo repo.ProductRepository,
 	stockManagementSvc StockManagementService,
 	variantStockMgmt VariantStockManagementService,
@@ -53,6 +55,7 @@ func NewProductConversionService(
 	return &productConversionService{
 		conversionRepo:     conversionRepo,
 		recordRepo:         recordRepo,
+		bagUsageRepo:       bagUsageRepo,
 		productRepo:        productRepo,
 		stockManagementSvc: stockManagementSvc,
 		variantStockMgmt:   variantStockMgmt,
@@ -299,6 +302,7 @@ func (s *productConversionService) ExecuteConversion(
 
 	var rawQuantityUsed float64
 	var producedQuantity float64
+	var bagUsageDetails []models.ConversionRecordBagUsage
 
 	if len(conversionInput.RawMaterialBags) > 0 {
 		if s.rawMaterialBagSvc == nil {
@@ -313,6 +317,13 @@ func (s *productConversionService) ExecuteConversion(
 			requiredGrams := bagInput.FinishedQuantity * rawProduct.RequiredGramPerUnit
 			requiredKg := requiredGrams / 1000
 
+			// Get bag details before using it
+			bagRepo := s.recordRepo.GetDB().Model(&models.RawMaterialBag{})
+			var bag models.RawMaterialBag
+			if err := bagRepo.Where("id = ?", bagInput.BagID).First(&bag).Error; err != nil {
+				return nil, fmt.Errorf("failed to fetch bag details: %w", err)
+			}
+
 			_, err := s.rawMaterialBagSvc.UseBags(
 				conversion.RawProductID,
 				[]input.UseRawMaterialBagInput{
@@ -325,6 +336,18 @@ func (s *productConversionService) ExecuteConversion(
 			if err != nil {
 				return nil, err
 			}
+
+			// Create bag usage detail for tracking
+			bagUsageDetail := models.ConversionRecordBagUsage{
+				ID:             uuid.New().String(),
+				BagID:          bagInput.BagID,
+				BagNumber:      bag.BagNumber,
+				ProductID:      bag.ProductID,
+				ProductName:    bag.ProductName,
+				QuantityUsedKg: requiredKg,
+				CreatedAt:      time.Now(),
+			}
+			bagUsageDetails = append(bagUsageDetails, bagUsageDetail)
 
 			rawQuantityUsed += requiredGrams
 			producedQuantity += bagInput.FinishedQuantity
@@ -389,6 +412,15 @@ func (s *productConversionService) ExecuteConversion(
 
 	if err := s.recordRepo.Create(record); err != nil {
 		return nil, fmt.Errorf("error creating conversion record: %w", err)
+	}
+
+	// Save bag usage details
+	for i := range bagUsageDetails {
+		bagUsageDetails[i].ConversionRecordID = record.ID
+		if err := s.bagUsageRepo.Create(&bagUsageDetails[i]); err != nil {
+			// Log error but don't fail the conversion - tracking is secondary
+			fmt.Printf("warning: failed to save bag usage detail: %v\n", err)
+		}
 	}
 
 	if conversionInput.ExecuteConversion {
@@ -586,6 +618,21 @@ func (s *productConversionService) mapConversionToOutput(conversion *models.Prod
 }
 
 func (s *productConversionService) mapRecordToOutput(record *models.ProductConversionRecord) *output.ProductConversionRecordOutput {
+	// Retrieve bag usage details
+	bagsUsed, _ := s.bagUsageRepo.GetByConversionRecordID(record.ID)
+	bagOutputs := make([]output.ConversionRecordBagUsageOutput, len(bagsUsed))
+	for i, bagUsage := range bagsUsed {
+		bagOutputs[i] = output.ConversionRecordBagUsageOutput{
+			ID:             bagUsage.ID,
+			BagID:          bagUsage.BagID,
+			BagNumber:      bagUsage.BagNumber,
+			ProductID:      bagUsage.ProductID,
+			ProductName:    bagUsage.ProductName,
+			QuantityUsedKg: bagUsage.QuantityUsedKg,
+			CreatedAt:      bagUsage.CreatedAt,
+		}
+	}
+
 	return &output.ProductConversionRecordOutput{
 		ID:                       record.ID,
 		ConversionID:             record.ConversionID,
@@ -604,6 +651,7 @@ func (s *productConversionService) mapRecordToOutput(record *models.ProductConve
 		CreatedByUserName:        record.CreatedByUserName,
 		CreatedByCompanyID:       record.CreatedByCompanyID,
 		CreatedByCompanyName:     record.CreatedByCompanyName,
+		BagsUsed:                 bagOutputs,
 		CreatedAt:                record.CreatedAt,
 	}
 }
