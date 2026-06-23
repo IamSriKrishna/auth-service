@@ -11,12 +11,10 @@ type CustomerPricingRepository interface {
 	Update(pricing *models.CustomerPricing) error
 	Delete(id string) error
 	GetByID(id string) (*models.CustomerPricing, error)
-	GetByCustomerAndManufacturer(customerID uint, manufacturerID string) (*models.CustomerPricing, error)
+	GetByCustomerAndProduct(customerID uint, productID string) (*models.CustomerPricing, error)
 	GetByCustomerID(customerID uint, offset, limit int) ([]models.CustomerPricing, int64, error)
-	GetByManufacturerID(manufacturerID string, offset, limit int) ([]models.CustomerPricing, int64, error)
 	GetAll(offset, limit int) ([]models.CustomerPricing, int64, error)
 	GetActiveByCustomer(customerID uint) ([]models.CustomerPricing, error)
-	GetActiveByManufacturer(manufacturerID string) ([]models.CustomerPricing, error)
 }
 
 type customerPricingRepository struct {
@@ -57,13 +55,13 @@ func (r *customerPricingRepository) GetByID(id string) (*models.CustomerPricing,
 	return &pricing, nil
 }
 
-// GetByCustomerAndManufacturer retrieves pricing for a specific customer and manufacturer
-func (r *customerPricingRepository) GetByCustomerAndManufacturer(customerID uint, manufacturerID string) (*models.CustomerPricing, error) {
+// GetByCustomerAndProduct retrieves pricing for a specific customer and product
+func (r *customerPricingRepository) GetByCustomerAndProduct(customerID uint, productID string) (*models.CustomerPricing, error) {
 	var pricing models.CustomerPricing
 	err := r.db.
 		Joins("LEFT JOIN customers ON customers.id = customer_pricing.customer_id").
 		Select("customer_pricing.*, customers.display_name as customer_name").
-		Where("customer_pricing.customer_id = ? AND customer_pricing.manufacturer_id = ?", customerID, manufacturerID).
+		Where("customer_pricing.customer_id = ? AND customer_pricing.product_id = ?", customerID, productID).
 		First(&pricing).Error
 	if err != nil {
 		return nil, err
@@ -80,25 +78,6 @@ func (r *customerPricingRepository) GetByCustomerID(customerID uint, offset, lim
 		Joins("LEFT JOIN customers ON customers.id = customer_pricing.customer_id").
 		Select("customer_pricing.*, customers.display_name as customer_name").
 		Where("customer_pricing.customer_id = ?", customerID).
-		Offset(offset).
-		Limit(limit).
-		Find(&pricings).
-		Offset(-1).
-		Limit(-1).
-		Count(&total).Error
-
-	return pricings, total, err
-}
-
-// GetByManufacturerID retrieves all pricing records for a specific manufacturer
-func (r *customerPricingRepository) GetByManufacturerID(manufacturerID string, offset, limit int) ([]models.CustomerPricing, int64, error) {
-	var pricings []models.CustomerPricing
-	var total int64
-
-	err := r.db.
-		Joins("LEFT JOIN customers ON customers.id = customer_pricing.customer_id").
-		Select("customer_pricing.*, customers.display_name as customer_name").
-		Where("customer_pricing.manufacturer_id = ?", manufacturerID).
 		Offset(offset).
 		Limit(limit).
 		Find(&pricings).
@@ -134,17 +113,6 @@ func (r *customerPricingRepository) GetActiveByCustomer(customerID uint) ([]mode
 		Joins("LEFT JOIN customers ON customers.id = customer_pricing.customer_id").
 		Select("customer_pricing.*, customers.display_name as customer_name").
 		Where("customer_pricing.customer_id = ? AND customer_pricing.is_active = ?", customerID, true).
-		Find(&pricings).Error
-	return pricings, err
-}
-
-// GetActiveByManufacturer retrieves all active pricing records for a specific manufacturer
-func (r *customerPricingRepository) GetActiveByManufacturer(manufacturerID string) ([]models.CustomerPricing, error) {
-	var pricings []models.CustomerPricing
-	err := r.db.
-		Joins("LEFT JOIN customers ON customers.id = customer_pricing.customer_id").
-		Select("customer_pricing.*, customers.display_name as customer_name").
-		Where("customer_pricing.manufacturer_id = ? AND customer_pricing.is_active = ?", manufacturerID, true).
 		Find(&pricings).Error
 	return pricings, err
 }

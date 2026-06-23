@@ -145,43 +145,6 @@ func (h *CustomerPricingHandler) GetCustomerPricingByID(c *fiber.Ctx) error {
 	})
 }
 
-// GetPricingByCustomerAndManufacturer retrieves pricing for specific customer and manufacturer
-// @Summary Get pricing by customer and manufacturer
-// @Description Get pricing for a specific customer-manufacturer combination
-// @Tags Customer Pricing
-// @Produce json
-// @Param customer_id query uint true "Customer ID"
-// @Param manufacturer_id query string true "Manufacturer ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 404 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /customer-pricing/lookup [get]
-func (h *CustomerPricingHandler) GetPricingByCustomerAndManufacturer(c *fiber.Ctx) error {
-	customerIDStr := c.Query("customer_id")
-	manufacturerID := c.Query("manufacturer_id")
-
-	customerID, err := strconv.ParseUint(customerIDStr, 10, 32)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   "invalid customer ID",
-		})
-	}
-
-	pricing, err := h.service.GetPricingByCustomerAndManufacturer(uint(customerID), manufacturerID)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"success": false,
-			"error":   "pricing not found",
-		})
-	}
-
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"data":    pricing,
-	})
-}
-
 // GetPricingByCustomer retrieves all pricing for a customer
 // @Summary Get pricing by customer
 // @Description Retrieve all pricing records for a specific customer
@@ -208,40 +171,6 @@ func (h *CustomerPricingHandler) GetPricingByCustomer(c *fiber.Ctx) error {
 	}
 
 	pricings, total, err := h.service.GetPricingByCustomer(uint(customerID), offset, limit)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
-	}
-
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"data": fiber.Map{
-			"pricings":    pricings,
-			"total_count": total,
-		},
-	})
-}
-
-// GetPricingByManufacturer retrieves all pricing for a manufacturer
-// @Summary Get pricing by manufacturer
-// @Description Retrieve all pricing records for a specific manufacturer
-// @Tags Customer Pricing
-// @Produce json
-// @Param manufacturer_id query string true "Manufacturer ID"
-// @Param offset query int false "Offset for pagination"
-// @Param limit query int false "Limit for pagination"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /api/v1/customer-pricing/manufacturer [get]
-func (h *CustomerPricingHandler) GetPricingByManufacturer(c *fiber.Ctx) error {
-	manufacturerID := c.Query("manufacturer_id")
-	offset, _ := strconv.Atoi(c.Query("offset", "0"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-
-	pricings, total, err := h.service.GetPricingByManufacturer(manufacturerID, offset, limit)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
@@ -310,34 +239,6 @@ func (h *CustomerPricingHandler) GetActivePricingByCustomer(c *fiber.Ctx) error 
 	}
 
 	pricings, err := h.service.GetActivePricingByCustomer(uint(customerID))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
-	}
-
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"data": fiber.Map{
-			"pricings": pricings,
-		},
-	})
-}
-
-// GetActivePricingByManufacturer retrieves all active pricing for a manufacturer
-// @Summary Get active pricing by manufacturer
-// @Description Retrieve all active pricing records for a manufacturer
-// @Tags Customer Pricing
-// @Produce json
-// @Param manufacturer_id query string true "Manufacturer ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /api/v1/customer-pricing/manufacturer/active [get]
-func (h *CustomerPricingHandler) GetActivePricingByManufacturer(c *fiber.Ctx) error {
-	manufacturerID := c.Query("manufacturer_id")
-	pricings, err := h.service.GetActivePricingByManufacturer(manufacturerID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,

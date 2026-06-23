@@ -2,13 +2,13 @@ package input
 
 import "time"
 
-// CustomerPricingLineItem represents a manufacturer pricing line item
+// CustomerPricingLineItem represents a pricing line item tied to a product.
 type CustomerPricingLineItem struct {
-	ManufacturerID   string  `json:"manufacturer_id" binding:"required" example:"mfg-456"`
-	ManufacturerName string  `json:"manufacturer_name" example:"3L Water Bottle"`
-	Rate             float64 `json:"rate" binding:"required" example:"100.00"`
-	Account          string  `json:"account" example:"SALES_REVENUE"`
-	Description      string  `json:"description" example:"Wholesale pricing"`
+	ProductID   string  `json:"product_id" example:"prod_abc123"`
+	ProductName string  `json:"product_name" example:"500ml Bottle"`
+	Rate        float64 `json:"rate" binding:"required" example:"100.00"`
+	Account     string  `json:"account" example:"SALES_REVENUE"`
+	Description string  `json:"description" example:"Wholesale pricing"`
 }
 
 // CreateCustomerPricingDTO represents input for creating customer pricing with line items
@@ -33,9 +33,8 @@ type SetDateRangeDTO struct {
 
 // FilterCustomerPricingDTO represents input for filtering customer pricing
 type FilterCustomerPricingDTO struct {
-	CustomerID     uint   `json:"customer_id" example:"1"`
-	ManufacturerID string `json:"manufacturer_id" example:"mfg-456"`
-	IsActive       *bool  `json:"is_active" example:"true"`
-	Offset         int    `json:"offset" example:"0"`
-	Limit          int    `json:"limit" example:"10"`
+	CustomerID uint  `json:"customer_id" example:"1"`
+	IsActive   *bool `json:"is_active" example:"true"`
+	Offset     int   `json:"offset" example:"0"`
+	Limit      int   `json:"limit" example:"10"`
 }

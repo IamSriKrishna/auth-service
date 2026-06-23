@@ -728,11 +728,8 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		customerPricingRoutes.Post("/", middleware.AdminMiddleware(), customerPricingHandler.CreateCustomerPricing)
 		customerPricingRoutes.Get("/", middleware.AdminMiddleware(), customerPricingHandler.GetAllCustomerPricing)
 		// Define specific routes BEFORE wildcard /:id
-		customerPricingRoutes.Get("/lookup", middleware.AdminMiddleware(), customerPricingHandler.GetPricingByCustomerAndManufacturer)
 		customerPricingRoutes.Get("/customer/active", middleware.AdminMiddleware(), customerPricingHandler.GetActivePricingByCustomer)
-		customerPricingRoutes.Get("/manufacturer/active", middleware.AdminMiddleware(), customerPricingHandler.GetActivePricingByManufacturer)
 		customerPricingRoutes.Get("/customer", middleware.AdminMiddleware(), customerPricingHandler.GetPricingByCustomer)
-		customerPricingRoutes.Get("/manufacturer", middleware.AdminMiddleware(), customerPricingHandler.GetPricingByManufacturer)
 		// Wildcard routes must be defined LAST
 		customerPricingRoutes.Get("/:id", middleware.AdminMiddleware(), customerPricingHandler.GetCustomerPricingByID)
 		customerPricingRoutes.Put("/:id", middleware.AdminMiddleware(), customerPricingHandler.UpdateCustomerPricing)

@@ -18,12 +18,9 @@ type CustomerPricingService interface {
 	UpdatePricing(id string, rate float64, account, description string, isActive bool) (*models.CustomerPricing, error)
 	DeletePricing(id string) error
 	GetPricingByID(id string) (*models.CustomerPricing, error)
-	GetPricingByCustomerAndManufacturer(customerID uint, manufacturerID string) (*models.CustomerPricing, error)
 	GetPricingByCustomer(customerID uint, offset, limit int) ([]models.CustomerPricing, int64, error)
-	GetPricingByManufacturer(manufacturerID string, offset, limit int) ([]models.CustomerPricing, int64, error)
 	GetAllPricing(offset, limit int) ([]models.CustomerPricing, int64, error)
 	GetActivePricingByCustomer(customerID uint) ([]models.CustomerPricing, error)
-	GetActivePricingByManufacturer(manufacturerID string) ([]models.CustomerPricing, error)
 	SetEffectiveDateRange(id string, fromDate, toDate *time.Time) error
 }
 
@@ -56,18 +53,19 @@ func (s *customerPricingService) CreatePricing(
 	var createdPricings []models.CustomerPricing
 
 	for _, item := range lineItems {
-		if item.ManufacturerID == "" {
-			return nil, errors.New("manufacturer ID is required for all line items")
-		}
-
 		if item.Rate < 0 {
 			return nil, errors.New("rate cannot be negative")
 		}
 
-		// Check if pricing already exists for this customer-manufacturer combination
-		existing, err := s.customerPricingRepo.GetByCustomerAndManufacturer(customerID, item.ManufacturerID)
+		// Customer pricing is product-based only.
+		if item.ProductID == "" {
+			return nil, errors.New("product ID is required for all line items")
+		}
+
+		existing, err := s.customerPricingRepo.GetByCustomerAndProduct(customerID, item.ProductID)
+
 		if err == nil && existing != nil {
-			log.Printf("[PRICING] Pricing already exists for customer %d and manufacturer %s, updating instead", customerID, item.ManufacturerID)
+			log.Printf("[PRICING] Pricing already exists for customer %d, updating instead", customerID)
 			// Update instead of creating
 			existing.Rate = item.Rate
 			existing.Account = item.Account
@@ -83,16 +81,16 @@ func (s *customerPricingService) CreatePricing(
 		}
 
 		pricing := &models.CustomerPricing{
-			ID:               uuid.New().String(),
-			CustomerID:       customerID,
-			ManufacturerID:   item.ManufacturerID,
-			ManufacturerName: item.ManufacturerName,
-			Rate:             item.Rate,
-			Account:          item.Account,
-			Description:      item.Description,
-			IsActive:         true,
-			CreatedAt:        time.Now(),
-			UpdatedAt:        time.Now(),
+			ID:          uuid.New().String(),
+			CustomerID:  customerID,
+			ProductID:   item.ProductID,
+			ProductName: item.ProductName,
+			Rate:        item.Rate,
+			Account:     item.Account,
+			Description: item.Description,
+			IsActive:    true,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
 		}
 
 		if err := s.customerPricingRepo.Create(pricing); err != nil {
@@ -160,15 +158,6 @@ func (s *customerPricingService) GetPricingByID(id string) (*models.CustomerPric
 	return s.customerPricingRepo.GetByID(id)
 }
 
-// GetPricingByCustomerAndManufacturer retrieves pricing for a specific customer-manufacturer combination
-func (s *customerPricingService) GetPricingByCustomerAndManufacturer(customerID uint, manufacturerID string) (*models.CustomerPricing, error) {
-	if customerID == 0 || manufacturerID == "" {
-		return nil, errors.New("customer ID and manufacturer ID are required")
-	}
-
-	return s.customerPricingRepo.GetByCustomerAndManufacturer(customerID, manufacturerID)
-}
-
 // GetPricingByCustomer retrieves all pricing records for a specific customer
 func (s *customerPricingService) GetPricingByCustomer(customerID uint, offset, limit int) ([]models.CustomerPricing, int64, error) {
 	if customerID == 0 {
@@ -176,15 +165,6 @@ func (s *customerPricingService) GetPricingByCustomer(customerID uint, offset, l
 	}
 
 	return s.customerPricingRepo.GetByCustomerID(customerID, offset, limit)
-}
-
-// GetPricingByManufacturer retrieves all pricing records for a specific manufacturer
-func (s *customerPricingService) GetPricingByManufacturer(manufacturerID string, offset, limit int) ([]models.CustomerPricing, int64, error) {
-	if manufacturerID == "" {
-		return nil, 0, errors.New("manufacturer ID is required")
-	}
-
-	return s.customerPricingRepo.GetByManufacturerID(manufacturerID, offset, limit)
 }
 
 // GetAllPricing retrieves all customer pricing records
@@ -199,15 +179,6 @@ func (s *customerPricingService) GetActivePricingByCustomer(customerID uint) ([]
 	}
 
 	return s.customerPricingRepo.GetActiveByCustomer(customerID)
-}
-
-// GetActivePricingByManufacturer retrieves all active pricing records for a manufacturer
-func (s *customerPricingService) GetActivePricingByManufacturer(manufacturerID string) ([]models.CustomerPricing, error) {
-	if manufacturerID == "" {
-		return nil, errors.New("manufacturer ID is required")
-	}
-
-	return s.customerPricingRepo.GetActiveByManufacturer(manufacturerID)
 }
 
 // SetEffectiveDateRange sets the effective date range for a pricing record
