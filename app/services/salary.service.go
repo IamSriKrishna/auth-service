@@ -67,13 +67,17 @@ func (s *salaryService) CalculateSalary(ctx context.Context, createdByID, compan
 		return nil, errors.New("to_date must be after from_date")
 	}
 
-	attendanceRecords, err := s.attendanceRepo.GetByEmployeeAndDateRangeNoLimit(req.EmployeeID, startDate, endDate.AddDate(0, 0, 1))
+	// Normalize to calendar dates in the service timezone so the full requested range is counted consistently.
+	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, time.Local)
+	endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 0, 0, 0, 0, time.Local)
+
+	attendanceRecords, err := s.attendanceRepo.GetByEmployeeAndDateRangeNoLimit(req.EmployeeID, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
 
-	// Calculate working days and attendance breakdown (holidays and present treated the same)
-	totalWorkingDays, presentAndHolidayDays, absentDays, halfDays := s.countAttendanceDaysWithHolidayAsSame(startDate, endDate, attendanceRecords)
+	// Calculate working days and attendance breakdown from the attendance rows that actually exist.
+	totalWorkingDays, presentAndHolidayDays, absentDays, halfDays, holidayDays, leaveDays := s.countAttendanceDaysWithHolidayAsSame(startDate, endDate, attendanceRecords)
 
 	// Calculate daily/weekly rate based on salary type
 	var dailyRate float64
@@ -117,6 +121,8 @@ func (s *salaryService) CalculateSalary(ctx context.Context, createdByID, compan
 		PresentDays:      presentAndHolidayDays,
 		AbsentDays:       absentDays,
 		HalfDays:         halfDays,
+		HolidayDays:      holidayDays,
+		LeaveDays:        leaveDays,
 		DailyRate:        dailyRate,
 		EarningAmount:    earningAmount,
 		DeductionAmount:  deductionAmount,
@@ -153,42 +159,39 @@ func (s *salaryService) CalculateSalary(ctx context.Context, createdByID, compan
 	}, nil
 }
 
-// countAttendanceDaysWithHolidayAsSame treats holiday and present days the same for salary calculation
-func (s *salaryService) countAttendanceDaysWithHolidayAsSame(startDate, endDate time.Time, records []models.EmployeeAttendance) (total, presentAndHoliday, absent, halfDay int) {
-	attendanceMap := make(map[string]models.AttendanceStatus)
+// countAttendanceDaysWithHolidayAsSame uses the attendance rows that actually exist for the selected range.
+// Days without an explicit attendance record are ignored, so salary follows the attendance data directly.
+func (s *salaryService) countAttendanceDaysWithHolidayAsSame(startDate, endDate time.Time, records []models.EmployeeAttendance) (total, presentAndHoliday, absent, halfDay, holidayDays, leaveDays int) {
+	attendanceMap := make(map[string]models.AttendanceStatus, len(records))
 	for _, record := range records {
 		attendanceMap[record.Date.Format("2006-01-02")] = record.Status
 	}
 
 	current := startDate
-	for current.Before(endDate) || current.Equal(endDate) {
-		dayOfWeek := current.Weekday()
+	for !current.After(endDate) {
 		status, exists := attendanceMap[current.Format("2006-01-02")]
-
-		// Skip Sundays only if no explicit attendance record exists
-		if dayOfWeek == time.Sunday && !exists {
+		if !exists {
 			current = current.AddDate(0, 0, 1)
 			continue
 		}
 
 		total++
 
-		if !exists {
-			// No record means not marked - treat as present (don't count as absent)
+		switch status {
+		case models.AttendanceOnTime, models.AttendanceLate:
 			presentAndHoliday++
-		} else {
-			switch status {
-			case models.AttendanceOnTime, models.AttendanceLate, models.AttendanceHoliday, models.AttendanceLeave:
-				// Present, Late, Holiday, and Leave all count as full working days
-				presentAndHoliday++
-			case models.AttendanceAbsent:
-				absent++
-			case models.AttendanceHalfDay:
-				halfDay++
-			default:
-				// Only explicitly marked absent should count as absent
-				presentAndHoliday++
-			}
+		case models.AttendanceHoliday:
+			holidayDays++
+			presentAndHoliday++
+		case models.AttendanceLeave:
+			leaveDays++
+			presentAndHoliday++
+		case models.AttendanceAbsent:
+			absent++
+		case models.AttendanceHalfDay:
+			halfDay++
+		default:
+			absent++
 		}
 
 		current = current.AddDate(0, 0, 1)

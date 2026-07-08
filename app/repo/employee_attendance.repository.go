@@ -137,10 +137,11 @@ func (r *employeeAttendanceRepository) GetByEmployeeAndDateRange(employeeID, com
 func (r *employeeAttendanceRepository) GetByEmployeeAndDateRangeNoLimit(employeeID uint, fromDate, toDate time.Time) ([]models.EmployeeAttendance, error) {
 	var attendance []models.EmployeeAttendance
 
-	// Add one day to toDate to ensure all records for that date are included
-	toDateInclusive := toDate.AddDate(0, 0, 1)
+	// Normalize to local calendar dates and include the full end date in the range.
+	fromDateLocal := time.Date(fromDate.Year(), fromDate.Month(), fromDate.Day(), 0, 0, 0, 0, time.Local)
+	toDateInclusive := time.Date(toDate.Year(), toDate.Month(), toDate.Day(), 0, 0, 0, 0, time.Local).AddDate(0, 0, 1)
 
-	err := r.db.Where("employee_id = ? AND date >= ? AND date < ?", employeeID, fromDate, toDateInclusive).
+	err := r.db.Where("employee_id = ? AND date >= ? AND date < ?", employeeID, fromDateLocal, toDateInclusive).
 		Order("date ASC").
 		Find(&attendance).Error
 
