@@ -16,21 +16,45 @@ type StockManagementHandler struct {
 	service          services.StockManagementService
 	variantStockMgmt services.VariantStockManagementService
 	userRepo         repo.UserRepository
+	productRepo      repo.ProductRepository
 }
 
-func NewStockManagementHandler(service services.StockManagementService, variantStockMgmt services.VariantStockManagementService) *StockManagementHandler {
+func NewStockManagementHandler(service services.StockManagementService, variantStockMgmt services.VariantStockManagementService, productRepo repo.ProductRepository) *StockManagementHandler {
 	return &StockManagementHandler{
 		service:          service,
 		variantStockMgmt: variantStockMgmt,
+		productRepo:      productRepo,
 	}
 }
 
-func NewStockManagementHandlerWithUserRepo(service services.StockManagementService, variantStockMgmt services.VariantStockManagementService, userRepo repo.UserRepository) *StockManagementHandler {
+func NewStockManagementHandlerWithUserRepo(service services.StockManagementService, variantStockMgmt services.VariantStockManagementService, userRepo repo.UserRepository, productRepo repo.ProductRepository) *StockManagementHandler {
 	return &StockManagementHandler{
 		service:          service,
 		variantStockMgmt: variantStockMgmt,
 		userRepo:         userRepo,
+		productRepo:      productRepo,
 	}
+}
+
+func (h *StockManagementHandler) shouldIncludeProduct(productID string) bool {
+	if h.productRepo == nil {
+		return true
+	}
+
+	if productID == "" {
+		return false
+	}
+
+	if len(productID) >= 3 && productID[:3] == "pg_" {
+		return true
+	}
+
+	product, err := h.productRepo.FindByID(productID)
+	if err != nil {
+		return false
+	}
+
+	return !product.IsRaw
 }
 
 // extractViewUserID validates the view_user_id parameter and checks permissions
@@ -344,6 +368,152 @@ func (h *StockManagementHandler) RecordAdjustment(c *fiber.Ctx) error {
 	})
 }
 
+// GET /api/stock/summary/raw-materials
+// Get stock summary for raw-material products only
+func (h *StockManagementHandler) GetRawMaterialStocksSummary(c *fiber.Ctx) error {
+	// Validate view_user_id if provided
+	viewUserID, err := h.extractViewUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	limit := 100
+	offset := 0
+
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil {
+			limit = parsed
+		}
+	}
+
+	if o := c.Query("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil {
+			offset = parsed
+		}
+	}
+
+	stocks, total, getAllErr := h.service.GetAllRawMaterialProductStockByUser(viewUserID, offset, limit)
+	if getAllErr != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": getAllErr.Error(),
+		})
+	}
+
+	stocksResponse := make([]fiber.Map, 0)
+	damagedResponse := make([]fiber.Map, 0)
+	totalStockValue := 0.0
+	totalSoldProductValue := 0.0
+	totalDamagedValue := 0.0
+	damagedCount := 0
+
+	for _, stock := range stocks {
+		if stock.DamagedStock > 0 {
+			damagedValue := stock.DamagedStock * stock.AverageCost
+			totalDamagedValue += damagedValue
+			damagedCount++
+
+			damagedResponse = append(damagedResponse, fiber.Map{
+				"product_id":    stock.ProductID,
+				"product_name":  stock.ProductName,
+				"sku":           stock.SKU,
+				"damaged_stock": stock.DamagedStock,
+				"average_cost":  stock.AverageCost,
+				"damaged_value": damagedValue,
+				"damage_reason": stock.DamageReason,
+				"damaged_at":    stock.DamagedAt,
+				"damaged_by":    stock.DamagedBy,
+				"type":          "product",
+			})
+		}
+
+		stockValue := stock.CurrentStock * stock.AverageCost
+		totalStockValue += stockValue
+
+		soldProductValue := stock.SoldStock * stock.AverageCost
+		totalSoldProductValue += soldProductValue
+
+		stocksResponse = append(stocksResponse, fiber.Map{
+			"product_id":      stock.ProductID,
+			"product_name":    stock.ProductName,
+			"sku":             stock.SKU,
+			"current_stock":   stock.CurrentStock,
+			"purchased_total": stock.PurchasedStock,
+			"sold_total":      stock.SoldStock,
+			"reserved_stock":  stock.ReservedStock,
+			"available_stock": stock.AvailableStock,
+			"damaged_stock":   stock.DamagedStock,
+			"average_cost":    stock.AverageCost,
+			"stock_value":     stockValue,
+			"last_purchased":  stock.LastPurchasedDate,
+			"last_sold":       stock.LastSoldDate,
+			"type":            "product",
+		})
+	}
+
+	variantStocks, _, variantGetErr := h.variantStockMgmt.GetAllRawMaterialVariantStocksByUser(viewUserID, offset, limit)
+	if variantGetErr != nil {
+		log.Printf("[STOCK_SUMMARY_RAW] Error fetching raw variant stocks: %v", variantGetErr)
+	} else {
+		for _, vStock := range variantStocks {
+			if vStock.DamagedStock > 0 {
+				damagedValue := vStock.DamagedStock * vStock.AverageCost
+				totalDamagedValue += damagedValue
+				damagedCount++
+
+				damagedResponse = append(damagedResponse, fiber.Map{
+					"product_id":    vStock.ProductID,
+					"product_name":  vStock.ProductName,
+					"variant_sku":   vStock.VariantSKU,
+					"variant_name":  vStock.VariantName,
+					"damaged_stock": vStock.DamagedStock,
+					"average_cost":  vStock.AverageCost,
+					"damaged_value": damagedValue,
+					"damage_reason": vStock.DamageReason,
+					"damaged_at":    vStock.DamagedAt,
+					"damaged_by":    vStock.DamagedBy,
+					"type":          "variant",
+				})
+			}
+
+			stockValue := vStock.CurrentStock * vStock.AverageCost
+			totalStockValue += stockValue
+
+			soldProductValue := vStock.SoldStock * vStock.AverageCost
+			totalSoldProductValue += soldProductValue
+
+			stocksResponse = append(stocksResponse, fiber.Map{
+				"product_id":      vStock.ProductID,
+				"product_name":    vStock.ProductName,
+				"sku":             vStock.VariantSKU,
+				"variant_name":    vStock.VariantName,
+				"current_stock":   vStock.CurrentStock,
+				"purchased_total": vStock.PurchasedStock,
+				"sold_total":      vStock.SoldStock,
+				"reserved_stock":  vStock.ReservedStock,
+				"available_stock": vStock.AvailableStock,
+				"damaged_stock":   vStock.DamagedStock,
+				"average_cost":    vStock.AverageCost,
+				"stock_value":     stockValue,
+				"last_purchased":  vStock.LastPurchasedDate,
+				"last_sold":       vStock.LastSoldDate,
+				"type":            "variant",
+			})
+		}
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"stocks":                   stocksResponse,
+		"damaged_products":         damagedResponse,
+		"damaged_count":            damagedCount,
+		"total":                    total,
+		"total_stock_value":        totalStockValue,
+		"total_sold_product_value": totalSoldProductValue,
+		"total_damaged_value":      totalDamagedValue,
+	})
+}
+
 // GET /api/stock/summary
 // Get updated stock summary for all products
 func (h *StockManagementHandler) GetAllStocksSummary(c *fiber.Ctx) error {
@@ -393,6 +563,10 @@ func (h *StockManagementHandler) GetAllStocksSummary(c *fiber.Ctx) error {
 
 	// Add product stocks
 	for _, stock := range stocks {
+		if !h.shouldIncludeProduct(stock.ProductID) {
+			continue
+		}
+
 		if stock.DamagedStock > 0 {
 			// Add to damaged products list
 			damagedValue := stock.DamagedStock * stock.AverageCost
@@ -450,6 +624,10 @@ func (h *StockManagementHandler) GetAllStocksSummary(c *fiber.Ctx) error {
 	} else {
 		// Add variant stocks
 		for _, vStock := range variantStocks {
+			if !h.shouldIncludeProduct(vStock.ProductID) {
+				continue
+			}
+
 			if vStock.DamagedStock > 0 {
 				// Add to damaged variants list
 				damagedValue := vStock.DamagedStock * vStock.AverageCost

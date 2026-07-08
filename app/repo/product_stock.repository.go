@@ -94,13 +94,24 @@ func (r *productStockRepository) GetLowStockProducts(threshold float64, offset, 
 
 // GetAllByUser retrieves all product stocks for a specific user
 func (r *productStockRepository) GetAllByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error) {
+	return r.GetAllByUserWithRawFilter(userID, offset, limit, false)
+}
+
+func (r *productStockRepository) GetAllByUserWithRawFilter(userID uint, offset, limit int, includeRaw bool) ([]models.ProductStock, int64, error) {
 	var stocks []models.ProductStock
 	var total int64
 
-	err := r.db.Model(&models.ProductStock{}).
+	query := r.db.Model(&models.ProductStock{}).
 		Joins("JOIN products ON product_stocks.product_id = products.id").
-		Where("products.created_by = ?", userID).
-		Count(&total).
+		Where("products.created_by = ?", userID)
+
+	if !includeRaw {
+		query = query.Where("products.is_raw = ?", false)
+	} else {
+		query = query.Where("products.is_raw = ?", true)
+	}
+
+	err := query.Count(&total).
 		Preload("Product").
 		Offset(offset).
 		Limit(limit).

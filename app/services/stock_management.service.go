@@ -35,6 +35,7 @@ type StockManagementService interface {
 	GetProductStock(productID string) (*models.ProductStock, error)
 	GetAllProductStock(offset, limit int) ([]models.ProductStock, int64, error)
 	GetAllProductStockByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error)
+	GetAllRawMaterialProductStockByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error)
 	GetLowStockProducts(threshold float64, offset, limit int) ([]models.ProductStock, int64, error)
 	GetLowStockProductsByUser(userID uint, threshold float64, offset, limit int) ([]models.ProductStock, int64, error)
 
@@ -108,12 +109,30 @@ func (s *stockManagementService) GetAllProductStock(offset, limit int) ([]models
 
 // GetAllProductStockByUser retrieves all product stocks for a specific user
 func (s *stockManagementService) GetAllProductStockByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error) {
-	return s.productStockRepo.GetAllByUser(userID, offset, limit)
+	return s.productStockRepo.GetAllByUserWithRawFilter(userID, offset, limit, false)
+}
+
+// GetAllRawMaterialProductStockByUser retrieves raw-material product stocks for a specific user
+func (s *stockManagementService) GetAllRawMaterialProductStockByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error) {
+	return s.productStockRepo.GetAllByUserWithRawFilter(userID, offset, limit, true)
 }
 
 // GetLowStockProducts retrieves products with stock below threshold
 func (s *stockManagementService) GetLowStockProducts(threshold float64, offset, limit int) ([]models.ProductStock, int64, error) {
 	return s.productStockRepo.GetLowStockProducts(threshold, offset, limit)
+}
+
+func (s *stockManagementService) isRawMaterialStock(product *models.Product, productID string) bool {
+	if product != nil {
+		return product.IsRaw
+	}
+
+	loadedProduct, err := s.productRepo.FindByID(productID)
+	if err != nil {
+		return false
+	}
+
+	return loadedProduct.IsRaw
 }
 
 // GetLowStockProductsByUser retrieves low stock products for a specific user

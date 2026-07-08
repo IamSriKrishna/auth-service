@@ -372,6 +372,7 @@ type ProductStockRepository interface {
 	Delete(id string) error
 	GetAll(offset, limit int) ([]models.ProductStock, int64, error)
 	GetAllByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error)
+	GetAllByUserWithRawFilter(userID uint, offset, limit int, includeRaw bool) ([]models.ProductStock, int64, error)
 	GetByProductIDs(productIDs []string) ([]models.ProductStock, error)
 	GetLowStockProducts(threshold float64, offset, limit int) ([]models.ProductStock, int64, error)
 	GetLowStockProductsByUser(userID uint, threshold float64, offset, limit int) ([]models.ProductStock, int64, error)
@@ -400,6 +401,7 @@ type VariantStockRepository interface {
 	Delete(id string) error
 	GetAll(offset, limit int) ([]models.VariantStock, int64, error)
 	GetAllByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error)
+	GetAllByUserWithRawFilter(userID uint, offset, limit int, includeRaw bool) ([]models.VariantStock, int64, error)
 	GetBySKUs(skus []string) ([]models.VariantStock, error)
 	GetLowStockVariants(threshold float64, offset, limit int) ([]models.VariantStock, int64, error)
 	GetDamagedVariants(offset, limit int) ([]models.VariantStock, int64, error)

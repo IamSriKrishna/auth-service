@@ -33,6 +33,7 @@ type VariantStockManagementService interface {
 	GetLowStockVariants(offset, limit int) ([]models.VariantStock, int64, error)
 	GetAllVariantStocks(offset, limit int) ([]models.VariantStock, int64, error)
 	GetAllVariantStocksByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error)
+	GetAllRawMaterialVariantStocksByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error)
 
 	// Damaged variant management
 	MarkVariantAsDamaged(variantSKU string, quantity float64, reason, userID string) error
@@ -71,6 +72,20 @@ func NewVariantStockManagementService(
 		productRepo:         productRepo,
 		db:                  db,
 	}
+}
+
+func (s *variantStockManagementService) isRawMaterialVariant(productID string) bool {
+	product, err := s.productRepo.FindByID(productID)
+	if err != nil {
+		return false
+	}
+
+	return product.IsRaw
+}
+
+// GetAllRawMaterialVariantStocksByUser returns raw-material variant stocks for a specific user
+func (s *variantStockManagementService) GetAllRawMaterialVariantStocksByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error) {
+	return s.variantStockRepo.GetAllByUserWithRawFilter(userID, offset, limit, true)
 }
 
 // InitializeVariantStock creates new variant stock entry
@@ -563,7 +578,7 @@ func (s *variantStockManagementService) GetAllVariantStocks(offset, limit int) (
 
 // GetAllVariantStocksByUser returns all variant stocks for a specific user
 func (s *variantStockManagementService) GetAllVariantStocksByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error) {
-	return s.variantStockRepo.GetAllByUser(userID, offset, limit)
+	return s.variantStockRepo.GetAllByUserWithRawFilter(userID, offset, limit, false)
 }
 
 // SyncAggregateStock syncs variant stock to product level

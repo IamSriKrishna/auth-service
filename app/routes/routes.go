@@ -177,7 +177,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	employeeHandler := handlers.NewEmployeeHandler(employeeService)
 	attendanceHandler := handlers.NewAttendanceHandler(attendanceService)
 	salaryHandler := handlers.NewSalaryHandler(salaryService)
-	stockManagementHandler := handlers.NewStockManagementHandlerWithUserRepo(stockManagementService, variantStockManagementService, userRepo)
+	stockManagementHandler := handlers.NewStockManagementHandlerWithUserRepo(stockManagementService, variantStockManagementService, userRepo, productRepo)
 	customerPricingHandler := handlers.NewCustomerPricingHandler(customerPricingService)
 	productConversionHandler := handlers.NewProductConversionHandler(productConversionService)
 
@@ -716,6 +716,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	stockRoutes.Use(middleware.AuthMiddleware())
 	{
 		stockRoutes.Get("/summary", middleware.AdminMiddleware(), stockManagementHandler.GetAllStocksSummary)
+		stockRoutes.Get("/summary/raw-materials", middleware.AdminMiddleware(), stockManagementHandler.GetRawMaterialStocksSummary)
 		stockRoutes.Get("/damaged", middleware.AdminMiddleware(), stockManagementHandler.GetDamagedProducts)
 		stockRoutes.Patch("/mark-damaged", middleware.AdminMiddleware(), stockManagementHandler.MarkProductAsDamaged)
 		stockRoutes.Get("/product/:product_id/movements", middleware.AdminMiddleware(), stockManagementHandler.GetProductMovements)

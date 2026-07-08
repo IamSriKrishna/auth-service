@@ -83,6 +83,10 @@ func (r *variantStockRepository) GetAll(offset, limit int) ([]models.VariantStoc
 }
 
 func (r *variantStockRepository) GetAllByUser(userID uint, offset, limit int) ([]models.VariantStock, int64, error) {
+	return r.GetAllByUserWithRawFilter(userID, offset, limit, false)
+}
+
+func (r *variantStockRepository) GetAllByUserWithRawFilter(userID uint, offset, limit int, includeRaw bool) ([]models.VariantStock, int64, error) {
 	var stocks []models.VariantStock
 	var total int64
 
@@ -90,10 +94,17 @@ func (r *variantStockRepository) GetAllByUser(userID uint, offset, limit int) ([
 	// Product groups don't have entries in the products table, but their variant stocks
 	// should be visible to the user who created them via the product group creation flow
 	// For product groups, we include them since they're accessed via PG permissions
-	err := r.db.Model(&models.VariantStock{}).
+	query := r.db.Model(&models.VariantStock{}).
 		Joins("LEFT JOIN products ON variant_stocks.product_id = products.id").
-		Where("products.created_by = ? OR variant_stocks.product_id LIKE 'pg_%'", userID).
-		Count(&total).
+		Where("products.created_by = ? OR variant_stocks.product_id LIKE 'pg_%'", userID)
+
+	if !includeRaw {
+		query = query.Where("products.id IS NULL OR products.is_raw = ?", false)
+	} else {
+		query = query.Where("products.id IS NOT NULL AND products.is_raw = ?", true)
+	}
+
+	err := query.Count(&total).
 		Offset(offset).
 		Limit(limit).
 		Order("variant_stocks.created_at DESC").
