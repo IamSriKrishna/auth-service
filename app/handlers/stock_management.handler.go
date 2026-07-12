@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/models"
@@ -415,16 +416,22 @@ func (h *StockManagementHandler) GetRawMaterialStocksSummary(c *fiber.Ctx) error
 			damagedCount++
 
 			damagedResponse = append(damagedResponse, fiber.Map{
-				"product_id":    stock.ProductID,
-				"product_name":  stock.ProductName,
-				"sku":           stock.SKU,
-				"damaged_stock": stock.DamagedStock,
-				"average_cost":  stock.AverageCost,
-				"damaged_value": damagedValue,
-				"damage_reason": stock.DamageReason,
-				"damaged_at":    stock.DamagedAt,
-				"damaged_by":    stock.DamagedBy,
-				"type":          "product",
+				"product_id":        stock.ProductID,
+				"product_name":      stock.ProductName,
+				"damaged_stock":     stock.DamagedStock,
+				"average_cost":      stock.AverageCost,
+				"damaged_value":     damagedValue,
+				"damage_reason":     stock.DamageReason,
+				"damaged_at":        stock.DamagedAt,
+				"damaged_by":        stock.DamagedBy,
+				"raw_material_unit": stock.RawMaterialUnit,
+				"required_gram_per_unit": func() float64 {
+					if stock.Product != nil {
+						return stock.Product.RequiredGramPerUnit
+					}
+					return 0
+				}(),
+				"type": "product",
 			})
 		}
 
@@ -434,11 +441,19 @@ func (h *StockManagementHandler) GetRawMaterialStocksSummary(c *fiber.Ctx) error
 		soldProductValue := stock.SoldStock * stock.AverageCost
 		totalSoldProductValue += soldProductValue
 
+		totalPieces := computeRawMaterialPieces(&stock)
+
 		stocksResponse = append(stocksResponse, fiber.Map{
-			"product_id":      stock.ProductID,
-			"product_name":    stock.ProductName,
-			"sku":             stock.SKU,
-			"current_stock":   stock.CurrentStock,
+			"product_id":        stock.ProductID,
+			"product_name":      stock.ProductName,
+			"current_stock":     stock.CurrentStock,
+			"raw_material_unit": stock.RawMaterialUnit,
+			"required_gram_per_unit": func() float64 {
+				if stock.Product != nil {
+					return stock.Product.RequiredGramPerUnit
+				}
+				return 0
+			}(),
 			"purchased_total": stock.PurchasedStock,
 			"sold_total":      stock.SoldStock,
 			"reserved_stock":  stock.ReservedStock,
@@ -446,61 +461,11 @@ func (h *StockManagementHandler) GetRawMaterialStocksSummary(c *fiber.Ctx) error
 			"damaged_stock":   stock.DamagedStock,
 			"average_cost":    stock.AverageCost,
 			"stock_value":     stockValue,
+			"total_pieces":    totalPieces,
 			"last_purchased":  stock.LastPurchasedDate,
 			"last_sold":       stock.LastSoldDate,
 			"type":            "product",
 		})
-	}
-
-	variantStocks, _, variantGetErr := h.variantStockMgmt.GetAllRawMaterialVariantStocksByUser(viewUserID, offset, limit)
-	if variantGetErr != nil {
-		log.Printf("[STOCK_SUMMARY_RAW] Error fetching raw variant stocks: %v", variantGetErr)
-	} else {
-		for _, vStock := range variantStocks {
-			if vStock.DamagedStock > 0 {
-				damagedValue := vStock.DamagedStock * vStock.AverageCost
-				totalDamagedValue += damagedValue
-				damagedCount++
-
-				damagedResponse = append(damagedResponse, fiber.Map{
-					"product_id":    vStock.ProductID,
-					"product_name":  vStock.ProductName,
-					"variant_sku":   vStock.VariantSKU,
-					"variant_name":  vStock.VariantName,
-					"damaged_stock": vStock.DamagedStock,
-					"average_cost":  vStock.AverageCost,
-					"damaged_value": damagedValue,
-					"damage_reason": vStock.DamageReason,
-					"damaged_at":    vStock.DamagedAt,
-					"damaged_by":    vStock.DamagedBy,
-					"type":          "variant",
-				})
-			}
-
-			stockValue := vStock.CurrentStock * vStock.AverageCost
-			totalStockValue += stockValue
-
-			soldProductValue := vStock.SoldStock * vStock.AverageCost
-			totalSoldProductValue += soldProductValue
-
-			stocksResponse = append(stocksResponse, fiber.Map{
-				"product_id":      vStock.ProductID,
-				"product_name":    vStock.ProductName,
-				"sku":             vStock.VariantSKU,
-				"variant_name":    vStock.VariantName,
-				"current_stock":   vStock.CurrentStock,
-				"purchased_total": vStock.PurchasedStock,
-				"sold_total":      vStock.SoldStock,
-				"reserved_stock":  vStock.ReservedStock,
-				"available_stock": vStock.AvailableStock,
-				"damaged_stock":   vStock.DamagedStock,
-				"average_cost":    vStock.AverageCost,
-				"stock_value":     stockValue,
-				"last_purchased":  vStock.LastPurchasedDate,
-				"last_sold":       vStock.LastSoldDate,
-				"type":            "variant",
-			})
-		}
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -512,6 +477,32 @@ func (h *StockManagementHandler) GetRawMaterialStocksSummary(c *fiber.Ctx) error
 		"total_sold_product_value": totalSoldProductValue,
 		"total_damaged_value":      totalDamagedValue,
 	})
+}
+
+func computeRawMaterialPieces(stock *models.ProductStock) int64 {
+	if stock == nil || stock.CurrentStock <= 0 || stock.Product == nil || stock.Product.RequiredGramPerUnit <= 0 {
+		return 0
+	}
+
+	unit := strings.TrimSpace(strings.ToLower(stock.RawMaterialUnit))
+	if unit == "" {
+		unit = strings.TrimSpace(strings.ToLower(stock.Product.RawUnit))
+	}
+
+	stockInGrams := stock.CurrentStock
+	switch unit {
+	case "kg", "kilogram", "kilograms":
+		stockInGrams *= 1000
+	case "mg", "milligram", "milligrams":
+		stockInGrams /= 1000
+	case "g", "gram", "grams":
+		// already grams
+	default:
+		// Unknown unit: cannot reliably convert to grams
+		return 0
+	}
+
+	return int64(stockInGrams / stock.Product.RequiredGramPerUnit)
 }
 
 // GET /api/stock/summary

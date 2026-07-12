@@ -134,25 +134,25 @@ func (r *productRepository) Update(product *models.Product) error {
 			return err
 		}
 
-		if err := tx.Where("item_id = ?", product.ID).Updates(&product.SalesInfo).Error; err != nil {
+		if err := tx.Where("product_id = ?", product.ID).Updates(&product.SalesInfo).Error; err != nil {
 			return err
 		}
 
 		if product.PurchaseInfo.Account != "" {
-			if err := tx.Where("item_id = ?", product.ID).Save(&product.PurchaseInfo).Error; err != nil {
+			if err := tx.Where("product_id = ?", product.ID).Save(&product.PurchaseInfo).Error; err != nil {
 				return err
 			}
 		}
 
-		if err := tx.Where("item_id = ?", product.ID).Updates(&product.Inventory).Error; err != nil {
+		if err := tx.Where("product_id = ?", product.ID).Updates(&product.Inventory).Error; err != nil {
 			return err
 		}
 
-		if err := tx.Where("item_id = ?", product.ID).Updates(&product.ReturnPolicy).Error; err != nil {
+		if err := tx.Where("product_id = ?", product.ID).Updates(&product.ReturnPolicy).Error; err != nil {
 			return err
 		}
 
-		if err := tx.Where("item_id = ?", product.ID).
+		if err := tx.Where("product_id = ?", product.ID).
 			Omit("ProductVariants").
 			Updates(&product.ProductDetails).Error; err != nil {
 			return err

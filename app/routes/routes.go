@@ -749,18 +749,19 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		conversionRoutes.Get("/active", middleware.AdminMiddleware(), productConversionHandler.ListActiveConversions)
 		conversionRoutes.Get("/by-raw", middleware.AdminMiddleware(), productConversionHandler.GetConversionsByRawProduct)
 		conversionRoutes.Get("/by-finished", middleware.AdminMiddleware(), productConversionHandler.GetConversionsByFinishedProduct)
-		conversionRoutes.Get("/:id", middleware.AdminMiddleware(), productConversionHandler.GetConversion)
-		conversionRoutes.Put("/:id", middleware.AdminMiddleware(), productConversionHandler.UpdateConversion)
-		conversionRoutes.Delete("/:id", middleware.AdminMiddleware(), productConversionHandler.DeleteConversion)
-
-		// Conversion Execution
-		conversionRoutes.Post("/execute", middleware.AdminMiddleware(), productConversionHandler.ExecuteConversion)
 
 		// Conversion Records
 		conversionRoutes.Get("/records", middleware.AdminMiddleware(), productConversionHandler.ListConversionRecords)
 		conversionRoutes.Get("/records/by-rule", middleware.AdminMiddleware(), productConversionHandler.ListConversionRecordsByRule)
 		conversionRoutes.Get("/records/by-date-range", middleware.AdminMiddleware(), productConversionHandler.ListConversionRecordsByDateRange)
 		conversionRoutes.Get("/records/:record_id", middleware.AdminMiddleware(), productConversionHandler.GetConversionRecord)
+
+		conversionRoutes.Get("/:id", middleware.AdminMiddleware(), productConversionHandler.GetConversion)
+		conversionRoutes.Put("/:id", middleware.AdminMiddleware(), productConversionHandler.UpdateConversion)
+		conversionRoutes.Delete("/:id", middleware.AdminMiddleware(), productConversionHandler.DeleteConversion)
+
+		// Conversion Execution
+		conversionRoutes.Post("/execute", middleware.AdminMiddleware(), productConversionHandler.ExecuteConversion)
 	}
 
 	// Dashboard Routes
