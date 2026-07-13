@@ -18,6 +18,7 @@ func MapCreateVendorInput(input *input.CreateVendorInput) *models.Vendor {
 		Mobile:         input.Mobile,
 		MobileCode:     input.MobileCode,
 		VendorLanguage: input.VendorLanguage,
+		GSTIN:          input.GSTIN,
 	}
 
 	if input.OtherDetails != nil {

@@ -76,36 +76,126 @@ func SeedBanks(db *gorm.DB) error {
 	banks := []models.Bank{
 		{
 			BankName: "HDFC Bank",
-			City:     "Bangalore",
-			State:    "Karnataka",
 			Country:  "India",
 			IsActive: true,
 		},
 		{
 			BankName: "ICICI Bank",
-			City:     "Mumbai",
-			State:    "Maharashtra",
 			Country:  "India",
 			IsActive: true,
 		},
 		{
 			BankName: "State Bank of India",
-			City:     "Delhi",
-			State:    "Delhi",
 			Country:  "India",
 			IsActive: true,
 		},
 		{
 			BankName: "Axis Bank",
-			City:     "Mumbai",
-			State:    "Maharashtra",
 			Country:  "India",
 			IsActive: true,
 		},
 		{
 			BankName: "Kotak Mahindra Bank",
-			City:     "Mumbai",
-			State:    "Maharashtra",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Punjab National Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Bank of Baroda",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Canara Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Union Bank of India",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Indian Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Bank of India",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Central Bank of India",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "UCO Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Punjab & Sind Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Indian Overseas Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "IDBI Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "IDFC FIRST Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Yes Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "IndusInd Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "AU Small Finance Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Equitas Small Finance Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Ujjivan Small Finance Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Bandhan Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "Federal Bank",
+			Country:  "India",
+			IsActive: true,
+		},
+		{
+			BankName: "South Indian Bank",
 			Country:  "India",
 			IsActive: true,
 		},

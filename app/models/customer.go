@@ -26,11 +26,15 @@ type Customer struct {
 	UpdatedAt        time.Time      `json:"updated_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
 
-	OtherDetails   *EntityOtherDetails   `gorm:"polymorphic:Entity;polymorphicValue:customer" json:"other_details,omitempty"`
-	Addresses      []EntityAddress       `gorm:"polymorphic:Entity;polymorphicValue:customer" json:"addresses,omitempty"`
+	OtherDetails *EntityOtherDetails `gorm:"polymorphic:Entity;polymorphicValue:customer" json:"other_details,omitempty"`
+
+	Addresses []EntityAddress `gorm:"polymorphic:Entity;polymorphicValue:customer" json:"addresses,omitempty"`
+
 	ContactPersons []EntityContactPerson `gorm:"polymorphic:Entity;polymorphicValue:customer" json:"contact_persons,omitempty"`
-	User           *User                 `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Company        *Company              `gorm:"foreignKey:CompanyID" json:"company,omitempty"`
+
+	User *User `gorm:"foreignKey:UserID;references:ID" json:"user,omitempty"`
+
+	Company *Company `gorm:"foreignKey:CompanyID;references:ID" json:"company,omitempty"`
 }
 
 func (Customer) TableName() string {

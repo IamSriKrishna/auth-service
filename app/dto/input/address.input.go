@@ -1,7 +1,6 @@
 package input
 
 type AddressInput struct {
-	// Primary field names
 	Attention     string `json:"attention"`
 	CountryRegion string `json:"country_region"`
 	AddressLine1  string `json:"address_line1"`
@@ -12,8 +11,8 @@ type AddressInput struct {
 	Phone         string `json:"phone"`
 	PhoneCode     string `json:"phone_code"`
 	FaxNumber     string `json:"fax_number"`
+	SameAsBilling bool   `json:"same_as_billing"`
 
-	// Alternative field names (for flexibility)
 	Street     string `json:"street"`
 	Country    string `json:"country"`
 	PostalCode string `json:"postal_code"`

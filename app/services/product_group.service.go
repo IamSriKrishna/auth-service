@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -26,6 +27,15 @@ type ProductGroupService interface {
 	ValidateStockAvailability(productGroupID string, quantityToCreate float64) ([]string, error)
 	Reorder(id string, input *input.UpdateProductGroupInput) (*output.ProductGroupOutput, error)
 	ReorderWithSummary(id string, input *input.UpdateProductGroupInput) (*output.ReorderProductGroupOutput, error)
+
+	// Company-scoped operations used by authenticated routes.
+	CreateForCompany(input *input.CreateProductGroupInput, userID, companyID uint) (*output.ProductGroupOutput, error)
+	FindByIDForCompany(id string, companyID uint) (*output.ProductGroupOutput, error)
+	FindAllForCompany(companyID uint, limit, offset int, search string) (*output.ProductGroupListOutput, error)
+	UpdateForCompany(id string, input *input.UpdateProductGroupInput, userID, companyID uint) (*output.ProductGroupOutput, error)
+	DeleteForCompany(id string, userID, companyID uint) error
+	FindByNameForCompany(name string, companyID uint) (*output.ProductGroupOutput, error)
+	ReorderWithSummaryForCompany(id string, input *input.UpdateProductGroupInput, userID, companyID uint) (*output.ReorderProductGroupOutput, error)
 }
 
 type productGroupService struct {
@@ -35,6 +45,7 @@ type productGroupService struct {
 	productGroupInventoryService ProductGroupInventoryService
 	stockManagementService       StockManagementService
 	productStockRepo             repo.ProductStockRepository
+	userRepo                     repo.UserRepository
 }
 
 func NewProductGroupService(
@@ -44,6 +55,27 @@ func NewProductGroupService(
 	return &productGroupService{
 		productGroupRepo: productGroupRepo,
 		productRepo:      productRepo,
+	}
+}
+
+// NewProductGroupServiceWithDependencies creates the complete service with company validation.
+func NewProductGroupServiceWithDependencies(
+	productGroupRepo repo.ProductGroupRepository,
+	productRepo repo.ProductRepository,
+	variantStockMgmtService VariantStockManagementService,
+	productGroupInventoryService ProductGroupInventoryService,
+	stockManagementService StockManagementService,
+	productStockRepo repo.ProductStockRepository,
+	userRepo repo.UserRepository,
+) ProductGroupService {
+	return &productGroupService{
+		productGroupRepo:             productGroupRepo,
+		productRepo:                  productRepo,
+		variantStockMgmtService:      variantStockMgmtService,
+		productGroupInventoryService: productGroupInventoryService,
+		stockManagementService:       stockManagementService,
+		productStockRepo:             productStockRepo,
+		userRepo:                     userRepo,
 	}
 }
 
@@ -67,6 +99,10 @@ func NewProductGroupServiceWithStockMgmt(
 }
 
 func (s *productGroupService) Create(input *input.CreateProductGroupInput) (*output.ProductGroupOutput, error) {
+	return s.createProductGroupScoped(input, 0, 0)
+}
+
+func (s *productGroupService) createProductGroupScoped(input *input.CreateProductGroupInput, companyID, userID uint) (*output.ProductGroupOutput, error) {
 	// NOTE: Product group creation does NOT deduct stock from any stock management system
 	// Components are simply registered without affecting inventory
 
@@ -159,10 +195,14 @@ func (s *productGroupService) Create(input *input.CreateProductGroupInput) (*out
 
 	productGroup := &models.ProductGroup{
 		ID:          productGroupID,
+		CompanyID:   companyID,
 		Name:        input.Name,
 		Description: input.Description,
 		IsActive:    input.IsActive,
 		Components:  components,
+		UserID:      userID,
+		CreatedBy:   userID,
+		UpdatedBy:   userID,
 	}
 
 	err := s.productGroupRepo.Create(productGroup)
@@ -983,4 +1023,196 @@ func (s *productGroupService) ReorderWithSummary(id string, reorderInput *input.
 		},
 		UpdatedAt: updatedProductGroup.UpdatedAt,
 	}, nil
+}
+
+// ========================
+// Company-scoped operations
+// ========================
+
+func (s *productGroupService) validateUserCompany(userID, companyID uint) error {
+	if userID == 0 {
+		return errors.New("invalid authenticated user")
+	}
+	if companyID == 0 {
+		return errors.New("invalid authenticated company")
+	}
+	if s.userRepo == nil {
+		return errors.New("user repository is required for company validation")
+	}
+	user, err := s.userRepo.GetByIDAndCompanyID(userID, companyID)
+	if err != nil || user == nil {
+		return errors.New("user does not belong to the company")
+	}
+	return nil
+}
+
+func (s *productGroupService) validateProductsForCompany(products []input.ProductGroupComponentInput, companyID uint) error {
+	if s.productRepo == nil {
+		return errors.New("product repository is required")
+	}
+	for _, component := range products {
+		if component.ProductID == "" {
+			return errors.New("product_id is required")
+		}
+		product, err := s.productRepo.FindByIDAndCompany(component.ProductID, companyID)
+		if err != nil || product == nil {
+			return fmt.Errorf("product %s not found in your company", component.ProductID)
+		}
+		if component.VariantSku != nil && *component.VariantSku != "" {
+			found := false
+			for _, variant := range product.ProductDetails.ProductVariants {
+				if variant.SKU == *component.VariantSku {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("variant %s not found in product %s for your company", *component.VariantSku, component.ProductID)
+			}
+		}
+	}
+	return nil
+}
+
+func (s *productGroupService) CreateForCompany(
+	req *input.CreateProductGroupInput,
+	userID, companyID uint,
+) (*output.ProductGroupOutput, error) {
+	if req == nil {
+		return nil, errors.New("input cannot be nil")
+	}
+	if err := s.validateUserCompany(userID, companyID); err != nil {
+		return nil, err
+	}
+	if err := s.validateProductsForCompany(req.Products, companyID); err != nil {
+		return nil, err
+	}
+	if _, err := s.productGroupRepo.FindByNameAndCompany(req.Name, companyID); err == nil {
+		return nil, fmt.Errorf("product group name %s already exists in your company", req.Name)
+	}
+
+	created, err := s.createProductGroupScoped(req, companyID, userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.FindByIDForCompany(created.ID, companyID)
+}
+
+func (s *productGroupService) FindByIDForCompany(id string, companyID uint) (*output.ProductGroupOutput, error) {
+	if id == "" || companyID == 0 {
+		return nil, errors.New("invalid product group or company")
+	}
+	group, err := s.productGroupRepo.FindByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, errors.New("product group not found")
+	}
+	return s.toOutput(group)
+}
+
+func (s *productGroupService) FindAllForCompany(companyID uint, limit, offset int, search string) (*output.ProductGroupListOutput, error) {
+	if companyID == 0 {
+		return nil, errors.New("invalid company")
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	groups, total, err := s.productGroupRepo.FindAllByCompany(companyID, limit, offset, search)
+	if err != nil {
+		return nil, err
+	}
+	outputs := make([]output.ProductGroupOutput, len(groups))
+	for i := range groups {
+		mapped, mapErr := s.toOutput(&groups[i])
+		if mapErr != nil {
+			return nil, mapErr
+		}
+		outputs[i] = *mapped
+	}
+	return &output.ProductGroupListOutput{ProductGroups: outputs, Total: total}, nil
+}
+
+func (s *productGroupService) UpdateForCompany(id string, req *input.UpdateProductGroupInput, userID, companyID uint) (*output.ProductGroupOutput, error) {
+	if req == nil {
+		return nil, errors.New("input cannot be nil")
+	}
+	if err := s.validateUserCompany(userID, companyID); err != nil {
+		return nil, err
+	}
+	if _, err := s.productGroupRepo.FindByIDAndCompany(id, companyID); err != nil {
+		return nil, errors.New("product group not found")
+	}
+	if len(req.Products) > 0 {
+		if err := s.validateProductsForCompany(req.Products, companyID); err != nil {
+			return nil, err
+		}
+	}
+	if req.Name != "" {
+		existing, err := s.productGroupRepo.FindByNameAndCompany(req.Name, companyID)
+		if err == nil && existing != nil && existing.ID != id {
+			return nil, fmt.Errorf("product group name %s already exists in your company", req.Name)
+		}
+	}
+	updated, err := s.Update(id, req)
+	if err != nil {
+		return nil, err
+	}
+	model, err := s.productGroupRepo.FindByIDAndCompany(updated.ID, companyID)
+	if err != nil {
+		return nil, err
+	}
+	model.UpdatedBy = userID
+	model.UpdatedAt = time.Now()
+	if err := s.productGroupRepo.UpdateByCompany(model, companyID); err != nil {
+		return nil, err
+	}
+	return s.FindByIDForCompany(id, companyID)
+}
+
+func (s *productGroupService) DeleteForCompany(id string, userID, companyID uint) error {
+	if err := s.validateUserCompany(userID, companyID); err != nil {
+		return err
+	}
+	return s.productGroupRepo.DeleteByCompany(id, companyID)
+}
+
+func (s *productGroupService) FindByNameForCompany(name string, companyID uint) (*output.ProductGroupOutput, error) {
+	group, err := s.productGroupRepo.FindByNameAndCompany(name, companyID)
+	if err != nil {
+		return nil, errors.New("product group not found")
+	}
+	return s.toOutput(group)
+}
+
+func (s *productGroupService) ReorderWithSummaryForCompany(id string, req *input.UpdateProductGroupInput, userID, companyID uint) (*output.ReorderProductGroupOutput, error) {
+	if req == nil {
+		return nil, errors.New("input cannot be nil")
+	}
+	if err := s.validateUserCompany(userID, companyID); err != nil {
+		return nil, err
+	}
+	if _, err := s.productGroupRepo.FindByIDAndCompany(id, companyID); err != nil {
+		return nil, errors.New("product group not found")
+	}
+	if len(req.Products) > 0 {
+		if err := s.validateProductsForCompany(req.Products, companyID); err != nil {
+			return nil, err
+		}
+	}
+	result, err := s.ReorderWithSummary(id, req)
+	if err != nil {
+		return nil, err
+	}
+	group, err := s.productGroupRepo.FindByIDAndCompany(id, companyID)
+	if err == nil {
+		group.UpdatedBy = userID
+		group.UpdatedAt = time.Now()
+		_ = s.productGroupRepo.UpdateByCompany(group, companyID)
+	}
+	return result, nil
 }

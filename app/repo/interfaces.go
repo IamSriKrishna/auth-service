@@ -21,8 +21,18 @@ type UserRepository interface {
 	ListWithFilters(offset, limit int, search, role string) ([]models.User, int64, error)
 	UpdateLastLogin(id uint) error
 	UpdatePasswordChangedAt(id uint) error
-	GetDashboardStats(customerType *string, fromDate, toDate *time.Time) (map[string]interface{}, error)
-	GetByIDAndCompanyID(id uint, companyID uint) (*models.User, error)
+
+	GetDashboardStats(
+		customerType *string,
+		fromDate *time.Time,
+		toDate *time.Time,
+	) (map[string]interface{}, error)
+
+	GetByIDAndCompanyID(
+		id uint,
+		companyID uint,
+	) (*models.User, error)
+
 	ListByCompanyID(
 		companyID uint,
 	) ([]models.User, error)
@@ -441,6 +451,7 @@ type ItemGroupRepository interface {
 }
 
 type ProductGroupRepository interface {
+	// Existing methods retained for internal/backward compatibility.
 	Create(productGroup *models.ProductGroup) error
 	FindByID(id string) (*models.ProductGroup, error)
 	FindAll(limit, offset int, search string) ([]models.ProductGroup, int64, error)
@@ -448,10 +459,15 @@ type ProductGroupRepository interface {
 	Delete(id string) error
 	FindByName(name string) (*models.ProductGroup, error)
 	FindActiveGroups(limit, offset int) ([]models.ProductGroup, int64, error)
-	FindByIDAndCompany(
-		id string,
-		companyID uint,
-	) (*models.ProductGroup, error)
+
+	// Company-scoped methods used by authenticated routes.
+	CreateForCompany(productGroup *models.ProductGroup, companyID, userID uint) error
+	FindByIDAndCompany(id string, companyID uint) (*models.ProductGroup, error)
+	FindAllByCompany(companyID uint, limit, offset int, search string) ([]models.ProductGroup, int64, error)
+	FindByNameAndCompany(name string, companyID uint) (*models.ProductGroup, error)
+	FindActiveGroupsByCompany(companyID uint, limit, offset int) ([]models.ProductGroup, int64, error)
+	UpdateByCompany(productGroup *models.ProductGroup, companyID uint) error
+	DeleteByCompany(id string, companyID uint) error
 }
 
 type PurchaseOrderRepository interface {

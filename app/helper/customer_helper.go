@@ -59,6 +59,9 @@ func ApplyUpdateCustomerInput(customer *models.Customer, input *input.UpdateCust
 	if input.LastName != nil {
 		customer.LastName = *input.LastName
 	}
+	if input.CustomerType != nil {
+		customer.CustomerType = *input.CustomerType
+	}
 	if input.DisplayName != nil {
 		customer.DisplayName = *input.DisplayName
 	}
@@ -184,7 +187,13 @@ func mapOtherDetails(input *input.OtherDetailsCustomerInput) *models.EntityOther
 	}
 }
 
-func MapCustomerToOutput(customer *models.Customer) *output.CustomerOutput {
+func MapCustomerToOutput(
+	customer *models.Customer,
+) *output.CustomerOutput {
+	if customer == nil {
+		return nil
+	}
+
 	out := &output.CustomerOutput{
 		ID:               customer.ID,
 		Salutation:       customer.Salutation,
@@ -201,35 +210,41 @@ func MapCustomerToOutput(customer *models.Customer) *output.CustomerOutput {
 		UpdatedAt:        customer.UpdatedAt,
 		UserID:           customer.UserID,
 		CompanyID:        customer.CompanyID,
+		ContactPersons:   make([]output.CustomerContactPersonOutput, 0),
 	}
 
-	// Map User information
 	if customer.User != nil {
 		email := ""
 		if customer.User.Email != nil {
 			email = *customer.User.Email
 		}
+
+		username := ""
+		if customer.User.Username != nil {
+			username = *customer.User.Username
+		}
+
 		out.User = &output.CustomerUserOutput{
 			ID:        customer.User.ID,
-			FirstName: customer.FirstName,
-			LastName:  customer.LastName,
+			FirstName: username,
+			LastName:  "",
 			Email:     email,
 		}
-		// Set UserName from email or username
-		if customer.User.Email != nil {
-			out.UserName = *customer.User.Email
-		} else if customer.User.Username != nil {
-			out.UserName = *customer.User.Username
+
+		if username != "" {
+			out.UserName = username
+		} else {
+			out.UserName = email
 		}
 	}
 
-	// Map Company information
 	if customer.Company != nil {
 		out.Company = &output.CustomerCompanyOutput{
 			ID:          customer.Company.ID,
 			Name:        customer.Company.CompanyName,
-			CompanyCode: "", // company_code field needs to be added to Company model if needed
+			CompanyCode: "",
 		}
+
 		out.CompanyName = customer.Company.CompanyName
 	}
 
@@ -246,31 +261,37 @@ func MapCustomerToOutput(customer *models.Customer) *output.CustomerOutput {
 		}
 	}
 
-	billingAddr := customer.GetBillingAddress()
-	if billingAddr != nil {
-		out.BillingAddress = mapAddressOutput(billingAddr)
+	for i := range customer.Addresses {
+		address := &customer.Addresses[i]
+
+		switch address.AddressType {
+		case "billing":
+			out.BillingAddress = mapAddressOutput(address)
+		case "shipping":
+			out.ShippingAddress = mapAddressOutput(address)
+		}
 	}
 
-	shippingAddr := customer.GetShippingAddress()
-	if shippingAddr != nil {
-		out.ShippingAddress = mapAddressOutput(shippingAddr)
-	}
+	for i := range customer.ContactPersons {
+		cp := customer.ContactPersons[i]
 
-	for _, cp := range customer.ContactPersons {
-		out.ContactPersons = append(out.ContactPersons, output.CustomerContactPersonOutput{
-			ID:            cp.ID,
-			CustomerID:    cp.EntityID,
-			Salutation:    cp.Salutation,
-			FirstName:     cp.FirstName,
-			LastName:      cp.LastName,
-			EmailAddress:  cp.EmailAddress,
-			WorkPhone:     cp.WorkPhone,
-			WorkPhoneCode: cp.WorkPhoneCode,
-			Mobile:        cp.Mobile,
-			MobileCode:    cp.MobileCode,
-			CreatedAt:     cp.CreatedAt,
-			UpdatedAt:     cp.UpdatedAt,
-		})
+		out.ContactPersons = append(
+			out.ContactPersons,
+			output.CustomerContactPersonOutput{
+				ID:            cp.ID,
+				CustomerID:    cp.EntityID,
+				Salutation:    cp.Salutation,
+				FirstName:     cp.FirstName,
+				LastName:      cp.LastName,
+				EmailAddress:  cp.EmailAddress,
+				WorkPhone:     cp.WorkPhone,
+				WorkPhoneCode: cp.WorkPhoneCode,
+				Mobile:        cp.Mobile,
+				MobileCode:    cp.MobileCode,
+				CreatedAt:     cp.CreatedAt,
+				UpdatedAt:     cp.UpdatedAt,
+			},
+		)
 	}
 
 	return out

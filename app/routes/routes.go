@@ -124,7 +124,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	productGroupInventoryService := services.NewProductGroupInventoryService(pgInventoryRepo, compInventoryRepo, pgTransactionRepo, productGroupRepo, productRepo)
 
 	// Manufacturer Service with dependencies
-	manufacturerService := services.NewManufacturerServiceWithDependencies(manufacturerRepo, productGroupRepo, employeeRepo, productStockRepo, userRepo, stockManagementService)
+	manufacturerService := services.NewManufacturerServiceWithDependencies(manufacturerRepo, productGroupRepo, employeeRepo, productStockRepo, userRepo, productRepo, stockManagementService)
 
 	purchaseOrderService := services.NewPurchaseOrderService(purchaseOrderRepo, vendorRepo, customerRepo, productRepo, productGroupRepo, taxRepo, userRepo, companyRepo, stockManagementService, stockLedgerRepo, variantStockManagementService)
 	vendorPaymentService := services.NewVendorPaymentService(vendorPaymentRepo, purchaseOrderRepo, vendorRepo, stockManagementService, variantStockManagementService, userRepo)
@@ -135,7 +135,15 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	billService := services.NewBillService(billRepo, vendorRepo, productRepo, taxRepo, userRepo)
 	bankService := services.NewBankService(bankRepo)
 	itemGroupService := services.NewItemGroupService(itemGroupRepo, itemRepo)
-	productGroupService := services.NewProductGroupServiceWithStockMgmt(productGroupRepo, productRepo, variantStockManagementService, productGroupInventoryService, stockManagementService, productStockRepo)
+	productGroupService := services.NewProductGroupServiceWithDependencies(
+		productGroupRepo,
+		productRepo,
+		variantStockManagementService,
+		productGroupInventoryService,
+		stockManagementService,
+		productStockRepo,
+		userRepo,
+	)
 	dashboardService := services.NewDashboardService(dashboardRepo, userRepo, companyRepo)
 	employeeService := services.NewEmployeeService(employeeRepo, userRepo, cloudinaryClient)
 	attendanceService := services.NewEmployeeAttendanceService(attendanceRepo, employeeRepo)

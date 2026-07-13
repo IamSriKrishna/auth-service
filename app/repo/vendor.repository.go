@@ -168,8 +168,17 @@ func (r *vendorRepository) FindByIDAndCompany(
 	var vendor models.Vendor
 
 	err := r.db.
+		Preload("User").
+		Preload("Company").
+		Preload("OtherDetails").
+		Preload("BillingAddress", "address_type = ?", "billing").
+		Preload("ShippingAddress", "address_type = ?", "shipping").
+		Preload("ContactPersons").
+		Preload("BankDetails").
+		Preload("BankDetails.Bank").
+		Preload("Documents").
 		Where(
-			"id = ? AND company_id = ?",
+			"vendors.id = ? AND vendors.company_id = ?",
 			id,
 			companyID,
 		).

@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
@@ -98,6 +99,7 @@ type manufacturerService struct {
 	productGroupRepo repo.ProductGroupRepository
 	employeeRepo     repo.EmployeeRepository
 	productStockRepo repo.ProductStockRepository
+	productRepo      repo.ProductRepository
 	userRepo         repo.UserRepository
 	stockMgmtService StockManagementService
 }
@@ -116,6 +118,7 @@ func NewManufacturerServiceWithDependencies(
 	employeeRepo repo.EmployeeRepository,
 	productStockRepo repo.ProductStockRepository,
 	userRepo repo.UserRepository,
+	productRepo repo.ProductRepository,
 	stockMgmtService StockManagementService,
 ) ManufacturerService {
 	return &manufacturerService{
@@ -123,6 +126,7 @@ func NewManufacturerServiceWithDependencies(
 		productGroupRepo: productGroupRepo,
 		employeeRepo:     employeeRepo,
 		productStockRepo: productStockRepo,
+		productRepo:      productRepo,
 		userRepo:         userRepo,
 		stockMgmtService: stockMgmtService,
 	}
@@ -297,74 +301,25 @@ func (s *manufacturerService) createWithValidatedProductGroup(
 				continue
 			}
 
-			if _, err :=
-				s.productStockRepo.GetByProductIDAndCompany(
-					component.ProductID,
-					companyID,
-					true,
-				); err != nil {
-				return nil, fmt.Errorf(
-					"component product %s does not belong to your company or has no stock record",
-					component.ProductID,
-				)
+			if err := s.validateCompanyScopedComponentProduct(
+				component.ProductID,
+				companyID,
+			); err != nil {
+				return nil, err
 			}
 		}
 	}
 
-	// Preserve the existing product/variant stock deduction workflow.
-	for _, component := range productGroup.Components {
-		if component.Product == nil ||
-			component.Product.IsResource {
-			continue
-		}
-
-		requiredQuantity :=
-			float64(component.Quantity * req.Quantity)
-
-		notes := fmt.Sprintf(
-			"Manufacturing %s: %.0f units of %s",
-			req.Name,
-			req.Quantity,
-			component.Product.Name,
-		)
-
-		var deductionErr error
-
-		if component.VariantSku != nil &&
-			*component.VariantSku != "" {
-			deductionErr =
-				s.stockMgmtService.
-					RecordOutboundMovementWithVariant(
-						component.ProductID,
-						*component.VariantSku,
-						"PRODUCTION_USAGE",
-						manufacturerID,
-						req.Name,
-						requiredQuantity,
-						notes,
-						fmt.Sprintf("%d", userID),
-					)
-		} else {
-			deductionErr =
-				s.stockMgmtService.RecordOutboundMovement(
-					component.ProductID,
-					"PRODUCTION_USAGE",
-					manufacturerID,
-					req.Name,
-					requiredQuantity,
-					notes,
-					fmt.Sprintf("%d", userID),
-				)
-		}
-
-		if deductionErr != nil {
-			return nil, fmt.Errorf(
-				"failed to deduct stock for component %s (%s): %v",
-				component.Product.Name,
-				component.ProductID,
-				deductionErr,
-			)
-		}
+	if err := s.consumeComponentStockForManufacturer(
+		productGroup,
+		manufacturerID,
+		req.Name,
+		req.Quantity,
+		userID,
+		companyID,
+		companyScoped,
+	); err != nil {
+		return nil, err
 	}
 
 	if err := s.manufacturerRepo.Create(
@@ -490,7 +445,22 @@ func (s *manufacturerService) Update(
 		return nil, err
 	}
 
+	oldStatus := manufacturer.Status
 	applyManufacturerUpdate(manufacturer, req)
+
+	if shouldConsumeStockOnCompletion(oldStatus, manufacturer.Status) {
+		if err := s.consumeComponentStockForManufacturer(
+			manufacturer.ProductGroup,
+			manufacturer.ID,
+			manufacturer.Name,
+			manufacturer.Quantity,
+			0,
+			0,
+			false,
+		); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := s.manufacturerRepo.Update(
 		manufacturer,
@@ -511,6 +481,38 @@ func (s *manufacturerService) Delete(
 	id string,
 ) error {
 	return s.manufacturerRepo.DeleteByStringID(id)
+}
+
+func (s *manufacturerService) validateCompanyScopedComponentProduct(
+	productID string,
+	companyID uint,
+) error {
+	if productID == "" {
+		return nil
+	}
+
+	if companyID == 0 {
+		return errors.New("invalid company")
+	}
+
+	if s.productRepo == nil {
+		return errors.New(
+			"product repository is required for company validation",
+		)
+	}
+
+	product, err := s.productRepo.FindByIDAndCompany(
+		productID,
+		companyID,
+	)
+	if err != nil || product == nil {
+		return fmt.Errorf(
+			"component product %s does not belong to your company",
+			productID,
+		)
+	}
+
+	return nil
 }
 
 func (s *manufacturerService) validateUserCompany(
@@ -709,7 +711,22 @@ func (s *manufacturerService) UpdateForCompany(
 		)
 	}
 
+	oldStatus := manufacturer.Status
 	applyManufacturerUpdate(manufacturer, req)
+
+	if shouldConsumeStockOnCompletion(oldStatus, manufacturer.Status) {
+		if err := s.consumeComponentStockForManufacturer(
+			manufacturer.ProductGroup,
+			manufacturer.ID,
+			manufacturer.Name,
+			manufacturer.Quantity,
+			userID,
+			companyID,
+			true,
+		); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := s.manufacturerRepo.UpdateByCompany(
 		manufacturer,
@@ -755,6 +772,94 @@ func (s *manufacturerService) DeleteForCompany(
 		id,
 		companyID,
 	)
+}
+
+func shouldConsumeStockOnCompletion(oldStatus, newStatus string) bool {
+	oldNormalized := strings.ToLower(strings.TrimSpace(oldStatus))
+	newNormalized := strings.ToLower(strings.TrimSpace(newStatus))
+
+	return newNormalized == "completed" && oldNormalized != "completed"
+}
+
+func (s *manufacturerService) consumeComponentStockForManufacturer(
+	productGroup *models.ProductGroup,
+	manufacturerID, manufacturerName string,
+	quantity float64,
+	userID uint,
+	companyID uint,
+	companyScoped bool,
+) error {
+	if productGroup == nil {
+		return nil
+	}
+
+	if s.stockMgmtService == nil {
+		return errors.New("stock management service is required")
+	}
+
+	if companyScoped {
+		for _, component := range productGroup.Components {
+			if component.Product == nil || component.Product.IsResource {
+				continue
+			}
+
+			if err := s.validateCompanyScopedComponentProduct(
+				component.ProductID,
+				companyID,
+			); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, component := range productGroup.Components {
+		if component.Product == nil || component.Product.IsResource {
+			continue
+		}
+
+		requiredQuantity := float64(component.Quantity) * quantity
+		notes := fmt.Sprintf(
+			"Manufacturing %s: %.0f units of %s",
+			manufacturerName,
+			quantity,
+			component.Product.Name,
+		)
+
+		var deductionErr error
+		if component.VariantSku != nil && *component.VariantSku != "" {
+			deductionErr = s.stockMgmtService.RecordOutboundMovementWithVariant(
+				component.ProductID,
+				*component.VariantSku,
+				"PRODUCTION_USAGE",
+				manufacturerID,
+				manufacturerName,
+				requiredQuantity,
+				notes,
+				fmt.Sprintf("%d", userID),
+			)
+		} else {
+			deductionErr = s.stockMgmtService.RecordOutboundMovement(
+				component.ProductID,
+				"PRODUCTION_USAGE",
+				manufacturerID,
+				manufacturerName,
+				requiredQuantity,
+				notes,
+				fmt.Sprintf("%d", userID),
+			)
+		}
+
+		if deductionErr != nil {
+			return fmt.Errorf(
+				"failed to deduct stock for component %s (%s): %v",
+				component.Product.Name,
+				component.ProductID,
+				deductionErr,
+			)
+		}
+	}
+
+	return nil
 }
 
 func applyManufacturerUpdate(

@@ -16,7 +16,18 @@ func NewCustomerRepository(db *gorm.DB) CustomerRepository {
 func (r *customerRepository) Create(
 	customer *models.Customer,
 ) error {
-	return r.db.Create(customer).Error
+	if customer == nil {
+		return gorm.ErrInvalidData
+	}
+
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		return tx.
+			Session(&gorm.Session{
+				FullSaveAssociations: true,
+			}).
+			Create(customer).
+			Error
+	})
 }
 
 func (r *customerRepository) Update(
@@ -31,6 +42,11 @@ func (r *customerRepository) FindByID(
 	var customer models.Customer
 
 	err := r.db.
+		Preload("User").
+		Preload("Company").
+		Preload("OtherDetails").
+		Preload("Addresses").
+		Preload("ContactPersons").
 		Where("id = ?", id).
 		First(&customer).
 		Error
@@ -123,6 +139,11 @@ func (r *customerRepository) FindByIDAndUser(
 	var customer models.Customer
 
 	err := r.db.
+		Preload("User").
+		Preload("Company").
+		Preload("OtherDetails").
+		Preload("Addresses").
+		Preload("ContactPersons").
 		Where(
 			"id = ? AND user_id = ?",
 			id,
@@ -168,8 +189,13 @@ func (r *customerRepository) FindByIDAndCompany(
 	var customer models.Customer
 
 	err := r.db.
+		Preload("User").
+		Preload("Company").
+		Preload("OtherDetails").
+		Preload("Addresses").
+		Preload("ContactPersons").
 		Where(
-			"id = ? AND company_id = ?",
+			"customers.id = ? AND customers.company_id = ?",
 			id,
 			companyID,
 		).

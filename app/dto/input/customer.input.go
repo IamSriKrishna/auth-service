@@ -1,6 +1,7 @@
 package input
 
 type CreateCustomerInput struct {
+	CustomerType     string                     `json:"customer_type"`
 	Salutation       string                     `json:"salutation" validate:"required"`
 	FirstName        string                     `json:"first_name" validate:"required"`
 	LastName         string                     `json:"last_name"`
@@ -18,6 +19,7 @@ type CreateCustomerInput struct {
 }
 
 type UpdateCustomerInput struct {
+	CustomerType     *string                    `json:"customer_type"`
 	Salutation       *string                    `json:"salutation"`
 	FirstName        *string                    `json:"first_name"`
 	LastName         *string                    `json:"last_name"`
