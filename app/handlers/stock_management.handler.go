@@ -495,10 +495,13 @@ func computeRawMaterialPieces(stock *models.ProductStock) int64 {
 		stockInGrams *= 1000
 	case "mg", "milligram", "milligrams":
 		stockInGrams /= 1000
-	case "g", "gram", "grams":
-		// already grams
+	case "g", "gram", "grams", "piece", "pieces", "pcs", "pc", "":
+		// Keep the current stock as-is for gram/piece-based values.
 	default:
-		// Unknown unit: cannot reliably convert to grams
+		// Unknown unit: fall back to the current stock so the API still returns a value.
+	}
+
+	if stock.Product.RequiredGramPerUnit <= 0 {
 		return 0
 	}
 
