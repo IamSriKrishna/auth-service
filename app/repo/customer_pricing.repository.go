@@ -5,7 +5,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// CustomerPricingRepository defines database operations for customer pricing
 type CustomerPricingRepository interface {
 	Create(pricing *models.CustomerPricing) error
 	Update(pricing *models.CustomerPricing) error
@@ -15,38 +14,96 @@ type CustomerPricingRepository interface {
 	GetByCustomerID(customerID uint, offset, limit int) ([]models.CustomerPricing, int64, error)
 	GetAll(offset, limit int) ([]models.CustomerPricing, int64, error)
 	GetActiveByCustomer(customerID uint) ([]models.CustomerPricing, error)
+
+	CreateForCompany(pricing *models.CustomerPricing, companyID uint) error
+	UpdateByCompany(pricing *models.CustomerPricing, companyID uint) error
+	DeleteByCompany(id string, companyID uint) error
+	GetByIDAndCompany(id string, companyID uint) (*models.CustomerPricing, error)
+	GetByCustomerAndProductAndCompany(customerID uint, productID string, companyID uint) (*models.CustomerPricing, error)
+	GetByCustomerIDAndCompany(customerID uint, companyID uint, offset, limit int) ([]models.CustomerPricing, int64, error)
+	GetAllByCompany(companyID uint, offset, limit int) ([]models.CustomerPricing, int64, error)
+	GetActiveByCustomerAndCompany(customerID uint, companyID uint) ([]models.CustomerPricing, error)
 }
 
 type customerPricingRepository struct {
 	db *gorm.DB
 }
 
-// NewCustomerPricingRepository creates a new instance of customer pricing repository
 func NewCustomerPricingRepository(db *gorm.DB) CustomerPricingRepository {
 	return &customerPricingRepository{db: db}
 }
 
-// Create inserts a new customer pricing record
+func (r *customerPricingRepository) pricingPreloads(db *gorm.DB) *gorm.DB {
+	// CustomerPricing stores the customer and product names directly on the record,
+	// so no relation preloading is required here.
+	return db
+}
+
 func (r *customerPricingRepository) Create(pricing *models.CustomerPricing) error {
+	if pricing == nil {
+		return gorm.ErrInvalidData
+	}
 	return r.db.Create(pricing).Error
 }
 
-// Update updates an existing customer pricing record
+func (r *customerPricingRepository) CreateForCompany(pricing *models.CustomerPricing, companyID uint) error {
+	if pricing == nil {
+		return gorm.ErrInvalidData
+	}
+	pricing.CompanyID = companyID
+	return r.db.Create(pricing).Error
+}
+
 func (r *customerPricingRepository) Update(pricing *models.CustomerPricing) error {
+	if pricing == nil {
+		return gorm.ErrInvalidData
+	}
 	return r.db.Save(pricing).Error
 }
 
-// Delete soft deletes a customer pricing record
-func (r *customerPricingRepository) Delete(id string) error {
-	return r.db.Where("id = ?", id).Delete(&models.CustomerPricing{}).Error
+func (r *customerPricingRepository) UpdateByCompany(pricing *models.CustomerPricing, companyID uint) error {
+	if pricing == nil {
+		return gorm.ErrInvalidData
+	}
+
+	result := r.db.Model(&models.CustomerPricing{}).
+		Where("id = ? AND company_id = ?", pricing.ID, companyID).
+		Updates(pricing)
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
-// GetByID retrieves a customer pricing record by ID
+func (r *customerPricingRepository) Delete(id string) error {
+	result := r.db.Where("id = ?", id).Delete(&models.CustomerPricing{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *customerPricingRepository) DeleteByCompany(id string, companyID uint) error {
+	result := r.db.Where("id = ? AND company_id = ?", id, companyID).Delete(&models.CustomerPricing{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (r *customerPricingRepository) GetByID(id string) (*models.CustomerPricing, error) {
 	var pricing models.CustomerPricing
-	err := r.db.
-		Joins("LEFT JOIN customers ON customers.id = customer_pricing.customer_id").
-		Select("customer_pricing.*, customers.display_name as customer_name").
+	err := r.pricingPreloads(r.db).
 		Where("customer_pricing.id = ?", id).
 		First(&pricing).Error
 	if err != nil {
@@ -55,13 +112,10 @@ func (r *customerPricingRepository) GetByID(id string) (*models.CustomerPricing,
 	return &pricing, nil
 }
 
-// GetByCustomerAndProduct retrieves pricing for a specific customer and product
-func (r *customerPricingRepository) GetByCustomerAndProduct(customerID uint, productID string) (*models.CustomerPricing, error) {
+func (r *customerPricingRepository) GetByIDAndCompany(id string, companyID uint) (*models.CustomerPricing, error) {
 	var pricing models.CustomerPricing
-	err := r.db.
-		Joins("LEFT JOIN customers ON customers.id = customer_pricing.customer_id").
-		Select("customer_pricing.*, customers.display_name as customer_name").
-		Where("customer_pricing.customer_id = ? AND customer_pricing.product_id = ?", customerID, productID).
+	err := r.pricingPreloads(r.db).
+		Where("customer_pricing.id = ? AND customer_pricing.company_id = ?", id, companyID).
 		First(&pricing).Error
 	if err != nil {
 		return nil, err
@@ -69,50 +123,88 @@ func (r *customerPricingRepository) GetByCustomerAndProduct(customerID uint, pro
 	return &pricing, nil
 }
 
-// GetByCustomerID retrieves all pricing records for a specific customer
+func (r *customerPricingRepository) GetByCustomerAndProduct(customerID uint, productID string) (*models.CustomerPricing, error) {
+	var pricing models.CustomerPricing
+	err := r.pricingPreloads(r.db).
+		Where("customer_id = ? AND product_id = ?", customerID, productID).
+		First(&pricing).Error
+	if err != nil {
+		return nil, err
+	}
+	return &pricing, nil
+}
+
+func (r *customerPricingRepository) GetByCustomerAndProductAndCompany(customerID uint, productID string, companyID uint) (*models.CustomerPricing, error) {
+	var pricing models.CustomerPricing
+	err := r.pricingPreloads(r.db).
+		Where("customer_id = ? AND product_id = ? AND company_id = ?", customerID, productID, companyID).
+		First(&pricing).Error
+	if err != nil {
+		return nil, err
+	}
+	return &pricing, nil
+}
+
+func (r *customerPricingRepository) list(query *gorm.DB, offset, limit int) ([]models.CustomerPricing, int64, error) {
+	var pricings []models.CustomerPricing
+	var total int64
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := r.pricingPreloads(query).
+		Order("customer_pricing.created_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&pricings).Error
+
+	return pricings, total, err
+}
+
 func (r *customerPricingRepository) GetByCustomerID(customerID uint, offset, limit int) ([]models.CustomerPricing, int64, error) {
-	var pricings []models.CustomerPricing
-	var total int64
-
-	err := r.db.
-		Joins("LEFT JOIN customers ON customers.id = customer_pricing.customer_id").
-		Select("customer_pricing.*, customers.display_name as customer_name").
-		Where("customer_pricing.customer_id = ?", customerID).
-		Offset(offset).
-		Limit(limit).
-		Find(&pricings).
-		Offset(-1).
-		Limit(-1).
-		Count(&total).Error
-
-	return pricings, total, err
+	return r.list(
+		r.db.Model(&models.CustomerPricing{}).Where("customer_id = ?", customerID),
+		offset,
+		limit,
+	)
 }
 
-// GetAll retrieves all customer pricing records with pagination
+func (r *customerPricingRepository) GetByCustomerIDAndCompany(customerID uint, companyID uint, offset, limit int) ([]models.CustomerPricing, int64, error) {
+	return r.list(
+		r.db.Model(&models.CustomerPricing{}).
+			Where("customer_id = ? AND company_id = ?", customerID, companyID),
+		offset,
+		limit,
+	)
+}
+
 func (r *customerPricingRepository) GetAll(offset, limit int) ([]models.CustomerPricing, int64, error) {
-	var pricings []models.CustomerPricing
-	var total int64
-
-	err := r.db.
-		Joins("LEFT JOIN customers ON customers.id = customer_pricing.customer_id").
-		Select("customer_pricing.*, customers.display_name as customer_name").
-		Offset(offset).
-		Limit(limit).
-		Find(&pricings).
-		Offset(-1).
-		Limit(-1).
-		Count(&total).Error
-
-	return pricings, total, err
+	return r.list(r.db.Model(&models.CustomerPricing{}), offset, limit)
 }
 
-// GetActiveByCustomer retrieves all active pricing records for a specific customer
+func (r *customerPricingRepository) GetAllByCompany(companyID uint, offset, limit int) ([]models.CustomerPricing, int64, error) {
+	return r.list(
+		r.db.Model(&models.CustomerPricing{}).Where("company_id = ?", companyID),
+		offset,
+		limit,
+	)
+}
+
 func (r *customerPricingRepository) GetActiveByCustomer(customerID uint) ([]models.CustomerPricing, error) {
 	var pricings []models.CustomerPricing
-	err := r.db.
-		Joins("LEFT JOIN customers ON customers.id = customer_pricing.customer_id").
-		Select("customer_pricing.*, customers.display_name as customer_name").
-		Where("customer_pricing.customer_id = ? AND customer_pricing.is_active = ?", customerID, true).
+	err := r.pricingPreloads(r.db).
+		Where("customer_id = ? AND is_active = ?", customerID, true).
+		Order("customer_pricing.created_at DESC").
+		Find(&pricings).Error
+	return pricings, err
+}
+
+func (r *customerPricingRepository) GetActiveByCustomerAndCompany(customerID uint, companyID uint) ([]models.CustomerPricing, error) {
+	var pricings []models.CustomerPricing
+	err := r.pricingPreloads(r.db).
+		Where("customer_id = ? AND company_id = ? AND is_active = ?", customerID, companyID, true).
+		Order("customer_pricing.created_at DESC").
 		Find(&pricings).Error
 	return pricings, err
 }

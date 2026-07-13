@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
@@ -8,285 +10,279 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// CustomerPricingHandler handles HTTP requests for customer pricing
 type CustomerPricingHandler struct {
 	service services.CustomerPricingService
 }
 
-// NewCustomerPricingHandler creates a new instance of customer pricing handler
 func NewCustomerPricingHandler(service services.CustomerPricingService) *CustomerPricingHandler {
-	return &CustomerPricingHandler{
-		service: service,
+	return &CustomerPricingHandler{service: service}
+}
+
+func customerPricingLocalToUint(value interface{}) (uint, error) {
+	if value == nil {
+		return 0, fmt.Errorf("value is missing")
+	}
+
+	switch typedValue := value.(type) {
+	case uint:
+		return typedValue, nil
+	case uint8:
+		return uint(typedValue), nil
+	case uint16:
+		return uint(typedValue), nil
+	case uint32:
+		return uint(typedValue), nil
+	case uint64:
+		return uint(typedValue), nil
+	case int:
+		if typedValue <= 0 {
+			return 0, fmt.Errorf("value must be greater than zero")
+		}
+		return uint(typedValue), nil
+	case int8:
+		if typedValue <= 0 {
+			return 0, fmt.Errorf("value must be greater than zero")
+		}
+		return uint(typedValue), nil
+	case int16:
+		if typedValue <= 0 {
+			return 0, fmt.Errorf("value must be greater than zero")
+		}
+		return uint(typedValue), nil
+	case int32:
+		if typedValue <= 0 {
+			return 0, fmt.Errorf("value must be greater than zero")
+		}
+		return uint(typedValue), nil
+	case int64:
+		if typedValue <= 0 {
+			return 0, fmt.Errorf("value must be greater than zero")
+		}
+		return uint(typedValue), nil
+	case float32:
+		if typedValue <= 0 {
+			return 0, fmt.Errorf("value must be greater than zero")
+		}
+		return uint(typedValue), nil
+	case float64:
+		if typedValue <= 0 {
+			return 0, fmt.Errorf("value must be greater than zero")
+		}
+		return uint(typedValue), nil
+	case json.Number:
+		parsed, err := strconv.ParseUint(typedValue.String(), 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return uint(parsed), nil
+	case string:
+		parsed, err := strconv.ParseUint(typedValue, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return uint(parsed), nil
+	default:
+		parsed, err := strconv.ParseUint(fmt.Sprintf("%v", typedValue), 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("unsupported numeric type %T with value %v", value, value)
+		}
+		return uint(parsed), nil
 	}
 }
 
-// CreateCustomerPricing creates new customer pricing records from line items
-// @Summary Create customer pricing
-// @Description Create multiple customer pricing records from line items
-// @Tags Customer Pricing
-// @Accept json
-// @Produce json
-// @Param request body input.CreateCustomerPricingDTO true "Pricing details with line items"
-// @Success 201 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /customer-pricing [post]
+func customerPricingContext(c *fiber.Ctx) (uint, uint, error) {
+	rawUserID := c.Locals("user_id")
+	rawCompanyID := c.Locals("company_id")
+
+	userID, err := customerPricingLocalToUint(rawUserID)
+	if err != nil || userID == 0 {
+		return 0, 0, fiber.NewError(
+			fiber.StatusUnauthorized,
+			fmt.Sprintf("invalid authenticated user: value=%v type=%T", rawUserID, rawUserID),
+		)
+	}
+
+	companyID, err := customerPricingLocalToUint(rawCompanyID)
+	if err != nil || companyID == 0 {
+		return 0, 0, fiber.NewError(
+			fiber.StatusForbidden,
+			fmt.Sprintf("invalid authenticated company: value=%v type=%T", rawCompanyID, rawCompanyID),
+		)
+	}
+
+	return userID, companyID, nil
+}
+
+func customerPricingPagination(c *fiber.Ctx) (int, int) {
+	offset, err := strconv.Atoi(c.Query("offset", "0"))
+	if err != nil || offset < 0 {
+		offset = 0
+	}
+
+	limit, err := strconv.Atoi(c.Query("limit", "10"))
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	return offset, limit
+}
+
 func (h *CustomerPricingHandler) CreateCustomerPricing(c *fiber.Ctx) error {
 	var req input.CreateCustomerPricingDTO
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   "invalid request body",
-			"details": err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": "invalid request body", "details": err.Error()})
 	}
 
-	pricings, err := h.service.CreatePricing(req.CustomerID, req.LineItems)
+	userID, companyID, err := customerPricingContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+		return err
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"success": true,
-		"data":    pricings,
-		"count":   len(pricings),
-		"message": "customer pricing created successfully",
-	})
+	pricings, err := h.service.CreatePricingForCompany(req.CustomerID, req.LineItems, userID, companyID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"success": true, "data": pricings, "count": len(pricings), "message": "customer pricing created successfully"})
 }
 
-// UpdateCustomerPricing updates an existing customer pricing record
-// @Summary Update customer pricing
-// @Description Update customer pricing details
-// @Tags Customer Pricing
-// @Accept json
-// @Produce json
-// @Param id path string true "Pricing ID"
-// @Param request body input.UpdateCustomerPricingDTO true "Updated pricing details"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 404 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /customer-pricing/{id} [put]
 func (h *CustomerPricingHandler) UpdateCustomerPricing(c *fiber.Ctx) error {
 	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": "pricing ID is required"})
+	}
+
 	var req input.UpdateCustomerPricingDTO
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   "invalid request body",
-			"details": err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": "invalid request body", "details": err.Error()})
 	}
 
-	pricing, err := h.service.UpdatePricing(id, req.Rate, req.Account, req.Description, req.IsActive)
+	userID, companyID, err := customerPricingContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+		return err
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"data":    pricing,
-	})
+	pricing, err := h.service.UpdatePricingForCompany(id, req.Rate, req.Account, req.Description, req.IsActive, userID, companyID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"success": true, "data": pricing})
 }
 
-// DeleteCustomerPricing deletes a customer pricing record
-// @Summary Delete customer pricing
-// @Description Delete a customer pricing record
-// @Tags Customer Pricing
-// @Param id path string true "Pricing ID"
-// @Success 204
-// @Failure 404 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /customer-pricing/{id} [delete]
 func (h *CustomerPricingHandler) DeleteCustomerPricing(c *fiber.Ctx) error {
 	id := c.Params("id")
-	if err := h.service.DeletePricing(id); err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": "pricing ID is required"})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"message": "customer pricing deleted successfully",
-	})
+	userID, companyID, err := customerPricingContext(c)
+	if err != nil {
+		return err
+	}
+
+	if err := h.service.DeletePricingForCompany(id, userID, companyID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"success": true, "message": "customer pricing deleted successfully"})
 }
 
-// GetCustomerPricingByID retrieves a pricing record by ID
-// @Summary Get customer pricing by ID
-// @Description Retrieve a specific customer pricing record
-// @Tags Customer Pricing
-// @Produce json
-// @Param id path string true "Pricing ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 404 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /customer-pricing/{id} [get]
 func (h *CustomerPricingHandler) GetCustomerPricingByID(c *fiber.Ctx) error {
 	id := c.Params("id")
-	pricing, err := h.service.GetPricingByID(id)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"success": false,
-			"error":   "pricing not found",
-		})
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": "pricing ID is required"})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"data":    pricing,
-	})
+	_, companyID, err := customerPricingContext(c)
+	if err != nil {
+		return err
+	}
+
+	pricing, err := h.service.GetPricingByIDForCompany(id, companyID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"success": false, "error": "pricing not found"})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"success": true, "data": pricing})
 }
 
-// GetPricingByCustomer retrieves all pricing for a customer
-// @Summary Get pricing by customer
-// @Description Retrieve all pricing records for a specific customer
-// @Tags Customer Pricing
-// @Produce json
-// @Param customer_id query uint true "Customer ID"
-// @Param offset query int false "Offset for pagination"
-// @Param limit query int false "Limit for pagination"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /customer-pricing/customer [get]
 func (h *CustomerPricingHandler) GetPricingByCustomer(c *fiber.Ctx) error {
-	customerIDStr := c.Query("customer_id")
-	offset, _ := strconv.Atoi(c.Query("offset", "0"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-
-	customerID, err := strconv.ParseUint(customerIDStr, 10, 32)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   "invalid customer ID",
-		})
+	customerID, err := strconv.ParseUint(c.Query("customer_id"), 10, 32)
+	if err != nil || customerID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": "invalid customer ID"})
 	}
 
-	pricings, total, err := h.service.GetPricingByCustomer(uint(customerID), offset, limit)
+	offset, limit := customerPricingPagination(c)
+	_, companyID, err := customerPricingContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+		return err
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"data": fiber.Map{
-			"pricings":    pricings,
-			"total_count": total,
-		},
-	})
+	pricings, total, err := h.service.GetPricingByCustomerForCompany(uint(customerID), companyID, offset, limit)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"success": true, "data": fiber.Map{"pricings": pricings, "total_count": total}})
 }
 
-// GetAllCustomerPricing retrieves all customer pricing records
-// @Summary Get all customer pricing
-// @Description Retrieve all customer pricing records with pagination
-// @Tags Customer Pricing
-// @Produce json
-// @Param offset query int false "Offset for pagination"
-// @Param limit query int false "Limit for pagination"
-// @Success 200 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /customer-pricing [get]
 func (h *CustomerPricingHandler) GetAllCustomerPricing(c *fiber.Ctx) error {
-	offset, _ := strconv.Atoi(c.Query("offset", "0"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-
-	pricings, total, err := h.service.GetAllPricing(offset, limit)
+	offset, limit := customerPricingPagination(c)
+	_, companyID, err := customerPricingContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+		return err
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"data": fiber.Map{
-			"pricings":    pricings,
-			"total_count": total,
-		},
-	})
+	pricings, total, err := h.service.GetAllPricingForCompany(companyID, offset, limit)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"success": true, "data": fiber.Map{"pricings": pricings, "total_count": total}})
 }
 
-// GetActivePricingByCustomer retrieves all active pricing for a customer
-// @Summary Get active pricing by customer
-// @Description Retrieve all active pricing records for a customer
-// @Tags Customer Pricing
-// @Produce json
-// @Param customer_id query uint true "Customer ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /customer-pricing/customer/active [get]
 func (h *CustomerPricingHandler) GetActivePricingByCustomer(c *fiber.Ctx) error {
-	customerIDStr := c.Query("customer_id")
-	customerID, err := strconv.ParseUint(customerIDStr, 10, 32)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   "invalid customer ID",
-		})
+	customerID, err := strconv.ParseUint(c.Query("customer_id"), 10, 32)
+	if err != nil || customerID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": "invalid customer ID"})
 	}
 
-	pricings, err := h.service.GetActivePricingByCustomer(uint(customerID))
+	_, companyID, err := customerPricingContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+		return err
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"data": fiber.Map{
-			"pricings": pricings,
-		},
-	})
+	pricings, err := h.service.GetActivePricingByCustomerForCompany(uint(customerID), companyID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"success": true, "data": fiber.Map{"pricings": pricings}})
 }
 
-// SetEffectiveDateRange sets the effective date range for pricing
-// @Summary Set effective date range
-// @Description Set the effective date range for a customer pricing record
-// @Tags Customer Pricing
-// @Accept json
-// @Produce json
-// @Param id path string true "Pricing ID"
-// @Param request body input.SetDateRangeDTO true "Date range details"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 404 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /api/v1/customer-pricing/{id}/date-range [put]
 func (h *CustomerPricingHandler) SetEffectiveDateRange(c *fiber.Ctx) error {
 	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": "pricing ID is required"})
+	}
+
 	var req input.SetDateRangeDTO
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   "invalid request body",
-			"details": err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": "invalid request body", "details": err.Error()})
 	}
 
-	if err := h.service.SetEffectiveDateRange(id, req.EffectiveFrom, req.EffectiveTo); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"error":   err.Error(),
-		})
+	userID, companyID, err := customerPricingContext(c)
+	if err != nil {
+		return err
 	}
 
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"message": "date range updated successfully",
-	})
+	if err := h.service.SetEffectiveDateRangeForCompany(id, req.EffectiveFrom, req.EffectiveTo, userID, companyID); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "error": err.Error()})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"success": true, "message": "date range updated successfully"})
 }

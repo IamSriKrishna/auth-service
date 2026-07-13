@@ -14,18 +14,50 @@ import (
 )
 
 type VendorPaymentService interface {
-	// Basic CRUD Operations
-	CreateVendorPayment(paymentInput *input.CreateVendorPaymentInput, userID, userName, companyName string, companyID uint) (*output.VendorPaymentOutput, error)
+	// Existing methods retained.
+	CreateVendorPayment(
+		paymentInput *input.CreateVendorPaymentInput,
+		userID, userName, companyName string,
+		companyID uint,
+	) (*output.VendorPaymentOutput, error)
 	GetVendorPayment(id uint) (*output.VendorPaymentOutput, error)
 	GetAllVendorPayments(limit, offset int) ([]output.VendorPaymentOutput, int64, error)
 	GetVendorPaymentsByPurchaseOrder(poID string, limit, offset int) ([]output.VendorPaymentOutput, int64, error)
 	GetVendorPaymentsByVendor(vendorID uint, limit, offset int) ([]output.VendorPaymentOutput, int64, error)
 	GetVendorPaymentsByStatus(status string, limit, offset int) ([]output.VendorPaymentOutput, int64, error)
 	UpdateVendorPayment(id uint, paymentInput *input.UpdateVendorPaymentInput, userID string) (*output.VendorPaymentOutput, error)
-
-	// Payment recording and status management
-	RecordPayment(id uint, paymentInput *input.RecordVendorPaymentInput, userID, userName, companyName string, companyID uint) (*output.VendorPaymentOutput, error)
+	RecordPayment(
+		id uint,
+		paymentInput *input.RecordVendorPaymentInput,
+		userID, userName, companyName string,
+		companyID uint,
+	) (*output.VendorPaymentOutput, error)
 	DeleteVendorPayment(id uint) error
+
+	// Company-scoped methods used by authenticated routes.
+	CreateVendorPaymentForCompany(
+		paymentInput *input.CreateVendorPaymentInput,
+		userID, userName, companyName string,
+		companyID uint,
+	) (*output.VendorPaymentOutput, error)
+	GetVendorPaymentByCompany(id uint, companyID uint) (*output.VendorPaymentOutput, error)
+	GetAllVendorPaymentsByCompany(companyID uint, limit, offset int) ([]output.VendorPaymentOutput, int64, error)
+	GetVendorPaymentsByPurchaseOrderAndCompany(poID string, companyID uint, limit, offset int) ([]output.VendorPaymentOutput, int64, error)
+	GetVendorPaymentsByVendorAndCompany(vendorID, companyID uint, limit, offset int) ([]output.VendorPaymentOutput, int64, error)
+	GetVendorPaymentsByStatusAndCompany(status string, companyID uint, limit, offset int) ([]output.VendorPaymentOutput, int64, error)
+	UpdateVendorPaymentForCompany(
+		id uint,
+		paymentInput *input.UpdateVendorPaymentInput,
+		userID string,
+		companyID uint,
+	) (*output.VendorPaymentOutput, error)
+	RecordPaymentForCompany(
+		id uint,
+		paymentInput *input.RecordVendorPaymentInput,
+		userID, userName, companyName string,
+		companyID uint,
+	) (*output.VendorPaymentOutput, error)
+	DeleteVendorPaymentForCompany(id uint, companyID uint) error
 }
 
 type vendorPaymentService struct {
@@ -34,6 +66,7 @@ type vendorPaymentService struct {
 	vendorRepo        repo.VendorRepository
 	stockMgmtSvc      StockManagementService
 	variantStockMgmt  VariantStockManagementService
+	userRepo          repo.UserRepository
 }
 
 func NewVendorPaymentService(
@@ -42,6 +75,7 @@ func NewVendorPaymentService(
 	vendorRepo repo.VendorRepository,
 	stockMgmtSvc StockManagementService,
 	variantStockMgmt VariantStockManagementService,
+	userRepo repo.UserRepository,
 ) VendorPaymentService {
 	return &vendorPaymentService{
 		vendorPaymentRepo: vendorPaymentRepo,
@@ -49,6 +83,7 @@ func NewVendorPaymentService(
 		vendorRepo:        vendorRepo,
 		stockMgmtSvc:      stockMgmtSvc,
 		variantStockMgmt:  variantStockMgmt,
+		userRepo:          userRepo,
 	}
 }
 
@@ -425,4 +460,273 @@ func (s *vendorPaymentService) RecordPayment(
 
 func (s *vendorPaymentService) DeleteVendorPayment(id uint) error {
 	return s.vendorPaymentRepo.Delete(id)
+}
+
+func (s *vendorPaymentService) validateVendorPaymentUserCompany(
+	userID string,
+	companyID uint,
+) error {
+	if companyID == 0 {
+		return errors.New("invalid company")
+	}
+
+	var parsedUserID uint
+	if _, err := fmt.Sscanf(userID, "%d", &parsedUserID); err != nil || parsedUserID == 0 {
+		return errors.New("invalid authenticated user")
+	}
+
+	user, err := s.userRepo.GetByIDAndCompanyID(parsedUserID, companyID)
+	if err != nil || user == nil {
+		return errors.New("user does not belong to the company")
+	}
+
+	return nil
+}
+
+func (s *vendorPaymentService) validateVendorPaymentReferences(
+	paymentInput *input.CreateVendorPaymentInput,
+	companyID uint,
+) error {
+	if paymentInput == nil {
+		return errors.New("input cannot be nil")
+	}
+
+	po, err := s.poRepo.FindByIDAndCompany(
+		paymentInput.PurchaseOrderID,
+		companyID,
+	)
+	if err != nil {
+		return errors.New("purchase order not found in your company")
+	}
+
+	vendor, err := s.vendorRepo.FindByIDAndCompany(
+		paymentInput.VendorID,
+		companyID,
+	)
+	if err != nil {
+		return errors.New("vendor not found in your company")
+	}
+
+	if po.VendorID != vendor.ID {
+		return errors.New("vendor does not match purchase order vendor")
+	}
+
+	return nil
+}
+
+func (s *vendorPaymentService) CreateVendorPaymentForCompany(
+	paymentInput *input.CreateVendorPaymentInput,
+	userID, userName, companyName string,
+	companyID uint,
+) (*output.VendorPaymentOutput, error) {
+	if err := s.validateVendorPaymentUserCompany(userID, companyID); err != nil {
+		return nil, err
+	}
+
+	if err := s.validateVendorPaymentReferences(paymentInput, companyID); err != nil {
+		return nil, err
+	}
+
+	payment, err := s.CreateVendorPayment(
+		paymentInput,
+		userID,
+		userName,
+		companyName,
+		companyID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetVendorPaymentByCompany(payment.ID, companyID)
+}
+
+func (s *vendorPaymentService) GetVendorPaymentByCompany(
+	id uint,
+	companyID uint,
+) (*output.VendorPaymentOutput, error) {
+	payment, err := s.vendorPaymentRepo.FindByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, errors.New("vendor payment not found")
+	}
+
+	return output.ConvertVendorPaymentToOutput(payment), nil
+}
+
+func (s *vendorPaymentService) GetAllVendorPaymentsByCompany(
+	companyID uint,
+	limit, offset int,
+) ([]output.VendorPaymentOutput, int64, error) {
+	payments, total, err := s.vendorPaymentRepo.FindAllByCompany(
+		companyID,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return output.ConvertVendorPaymentsToOutput(payments), total, nil
+}
+
+func (s *vendorPaymentService) GetVendorPaymentsByPurchaseOrderAndCompany(
+	poID string,
+	companyID uint,
+	limit, offset int,
+) ([]output.VendorPaymentOutput, int64, error) {
+	if _, err := s.poRepo.FindByIDAndCompany(poID, companyID); err != nil {
+		return nil, 0, errors.New("purchase order not found in your company")
+	}
+
+	payments, total, err := s.vendorPaymentRepo.FindByPurchaseOrderIDAndCompany(
+		poID,
+		companyID,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return output.ConvertVendorPaymentsToOutput(payments), total, nil
+}
+
+func (s *vendorPaymentService) GetVendorPaymentsByVendorAndCompany(
+	vendorID, companyID uint,
+	limit, offset int,
+) ([]output.VendorPaymentOutput, int64, error) {
+	if _, err := s.vendorRepo.FindByIDAndCompany(vendorID, companyID); err != nil {
+		return nil, 0, errors.New("vendor not found in your company")
+	}
+
+	payments, total, err := s.vendorPaymentRepo.FindByVendorIDAndCompany(
+		vendorID,
+		companyID,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return output.ConvertVendorPaymentsToOutput(payments), total, nil
+}
+
+func (s *vendorPaymentService) GetVendorPaymentsByStatusAndCompany(
+	status string,
+	companyID uint,
+	limit, offset int,
+) ([]output.VendorPaymentOutput, int64, error) {
+	payments, total, err := s.vendorPaymentRepo.FindByPaymentStatusAndCompany(
+		status,
+		companyID,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return output.ConvertVendorPaymentsToOutput(payments), total, nil
+}
+
+func (s *vendorPaymentService) UpdateVendorPaymentForCompany(
+	id uint,
+	paymentInput *input.UpdateVendorPaymentInput,
+	userID string,
+	companyID uint,
+) (*output.VendorPaymentOutput, error) {
+	if err := s.validateVendorPaymentUserCompany(userID, companyID); err != nil {
+		return nil, err
+	}
+
+	payment, err := s.vendorPaymentRepo.FindByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, errors.New("vendor payment not found")
+	}
+
+	if paymentInput == nil {
+		return nil, errors.New("input cannot be nil")
+	}
+
+	if paymentInput.PaymentMode != nil {
+		payment.PaymentMode = domain.PaymentMode(*paymentInput.PaymentMode)
+	}
+	if paymentInput.Amount != nil {
+		payment.Amount = *paymentInput.Amount
+	}
+	if paymentInput.PaymentDate != nil {
+		payment.PaymentDate = *paymentInput.PaymentDate
+	}
+	if paymentInput.ReferenceNumber != nil {
+		payment.ReferenceNumber = *paymentInput.ReferenceNumber
+	}
+	if paymentInput.Notes != nil {
+		payment.Notes = *paymentInput.Notes
+	}
+
+	updated, err := s.vendorPaymentRepo.UpdateByCompany(
+		id,
+		companyID,
+		payment,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return output.ConvertVendorPaymentToOutput(updated), nil
+}
+
+func (s *vendorPaymentService) RecordPaymentForCompany(
+	id uint,
+	paymentInput *input.RecordVendorPaymentInput,
+	userID, userName, companyName string,
+	companyID uint,
+) (*output.VendorPaymentOutput, error) {
+	if err := s.validateVendorPaymentUserCompany(userID, companyID); err != nil {
+		return nil, err
+	}
+
+	payment, err := s.vendorPaymentRepo.FindByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, errors.New("vendor payment not found")
+	}
+
+	if _, err := s.poRepo.FindByIDAndCompany(
+		payment.PurchaseOrderID,
+		companyID,
+	); err != nil {
+		return nil, errors.New("purchase order not found in your company")
+	}
+
+	if _, err := s.vendorRepo.FindByIDAndCompany(
+		payment.VendorID,
+		companyID,
+	); err != nil {
+		return nil, errors.New("vendor not found in your company")
+	}
+
+	if _, err := s.RecordPayment(
+		id,
+		paymentInput,
+		userID,
+		userName,
+		companyName,
+		companyID,
+	); err != nil {
+		return nil, err
+	}
+
+	return s.GetVendorPaymentByCompany(id, companyID)
+}
+
+func (s *vendorPaymentService) DeleteVendorPaymentForCompany(
+	id uint,
+	companyID uint,
+) error {
+	if _, err := s.vendorPaymentRepo.FindByIDAndCompany(id, companyID); err != nil {
+		return errors.New("vendor payment not found")
+	}
+
+	return s.vendorPaymentRepo.DeleteByCompany(id, companyID)
 }

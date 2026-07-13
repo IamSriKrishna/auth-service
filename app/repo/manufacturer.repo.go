@@ -1,8 +1,6 @@
 package repo
 
 import (
-	"errors"
-
 	"github.com/bbapp-org/auth-service/app/models"
 	"gorm.io/gorm"
 )
@@ -11,112 +9,284 @@ type manufacturerRepository struct {
 	db *gorm.DB
 }
 
-func NewManufacturerRepository(db *gorm.DB) ManufacturerRepository {
+func NewManufacturerRepository(
+	db *gorm.DB,
+) ManufacturerRepository {
 	return &manufacturerRepository{db: db}
 }
 
-func (r *manufacturerRepository) Create(manufacturer *models.Manufacturer) error {
+func (r *manufacturerRepository) manufacturerPreloads(
+	db *gorm.DB,
+) *gorm.DB {
+	return db.
+		Preload("ProductGroup").
+		Preload("ProductGroup.Components").
+		Preload("ProductGroup.Components.Product")
+}
+
+func (r *manufacturerRepository) Create(
+	manufacturer *models.Manufacturer,
+) error {
+	if manufacturer == nil {
+		return gorm.ErrInvalidData
+	}
+
 	return r.db.Create(manufacturer).Error
 }
 
-func (r *manufacturerRepository) FindByID(id uint) (*models.Manufacturer, error) {
+func (r *manufacturerRepository) FindByID(
+	id uint,
+) (*models.Manufacturer, error) {
 	var manufacturer models.Manufacturer
-	err := r.db.First(&manufacturer, id).Error
+
+	err := r.manufacturerPreloads(r.db).
+		Where("manufacturers.id = ?", id).
+		First(&manufacturer).
+		Error
 	if err != nil {
 		return nil, err
 	}
+
 	return &manufacturer, nil
 }
 
-// FindByStringID finds manufacturer by string ID
-func (r *manufacturerRepository) FindByStringID(id string) (*models.Manufacturer, error) {
+func (r *manufacturerRepository) FindByStringID(
+	id string,
+) (*models.Manufacturer, error) {
 	var manufacturer models.Manufacturer
-	err := r.db.
-		Preload("ProductGroup.Components.Product").
-		Preload("Company").
-		Preload("User").
-		Where("id = ?", id).
-		First(&manufacturer).Error
+
+	err := r.manufacturerPreloads(r.db).
+		Where("manufacturers.id = ?", id).
+		First(&manufacturer).
+		Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("manufacturer not found")
-		}
 		return nil, err
 	}
+
 	return &manufacturer, nil
 }
 
-// FindByProductGroupID finds all manufacturers for a specific product group
-func (r *manufacturerRepository) FindByProductGroupID(productGroupID string) ([]models.Manufacturer, error) {
+func (r *manufacturerRepository) FindByStringIDAndCompany(
+	id string,
+	companyID uint,
+) (*models.Manufacturer, error) {
+	var manufacturer models.Manufacturer
+
+	err := r.manufacturerPreloads(r.db).
+		Where(
+			"manufacturers.id = ? AND manufacturers.company_id = ?",
+			id,
+			companyID,
+		).
+		First(&manufacturer).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &manufacturer, nil
+}
+
+func (r *manufacturerRepository) findList(
+	query *gorm.DB,
+	limit int,
+	offset int,
+) ([]models.Manufacturer, int64, error) {
 	var manufacturers []models.Manufacturer
-	err := r.db.
-		Where("product_group_id = ?", productGroupID).
-		Preload("ProductGroup.Components.Product").
-		Find(&manufacturers).Error
+	var total int64
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := r.manufacturerPreloads(query).
+		Order("manufacturers.created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&manufacturers).
+		Error
+
+	return manufacturers, total, err
+}
+
+func (r *manufacturerRepository) FindAll(
+	limit int,
+	offset int,
+) ([]models.Manufacturer, int64, error) {
+	return r.findList(
+		r.db.Model(&models.Manufacturer{}),
+		limit,
+		offset,
+	)
+}
+
+func (r *manufacturerRepository) FindAllByCompany(
+	companyID uint,
+	limit int,
+	offset int,
+) ([]models.Manufacturer, int64, error) {
+	return r.findList(
+		r.db.Model(&models.Manufacturer{}).
+			Where(
+				"manufacturers.company_id = ?",
+				companyID,
+			),
+		limit,
+		offset,
+	)
+}
+
+func (r *manufacturerRepository) FindAllWithFilter(
+	limit int,
+	offset int,
+	companyID *uint,
+	productGroupID *string,
+) ([]models.Manufacturer, int64, error) {
+	query := r.db.Model(&models.Manufacturer{})
+
+	if companyID != nil && *companyID > 0 {
+		query = query.Where(
+			"manufacturers.company_id = ?",
+			*companyID,
+		)
+	}
+
+	if productGroupID != nil &&
+		*productGroupID != "" {
+		query = query.Where(
+			"manufacturers.product_group_id = ?",
+			*productGroupID,
+		)
+	}
+
+	return r.findList(query, limit, offset)
+}
+
+func (r *manufacturerRepository) FindByProductGroupID(
+	productGroupID string,
+) ([]models.Manufacturer, error) {
+	var manufacturers []models.Manufacturer
+
+	err := r.manufacturerPreloads(r.db).
+		Where(
+			"manufacturers.product_group_id = ?",
+			productGroupID,
+		).
+		Order("manufacturers.created_at DESC").
+		Find(&manufacturers).
+		Error
+
 	return manufacturers, err
 }
 
-func (r *manufacturerRepository) FindAll(limit, offset int) ([]models.Manufacturer, int64, error) {
+func (r *manufacturerRepository) FindByProductGroupIDAndCompany(
+	productGroupID string,
+	companyID uint,
+) ([]models.Manufacturer, error) {
 	var manufacturers []models.Manufacturer
-	var count int64
-	err := r.db.Model(&models.Manufacturer{}).Count(&count).Error
-	if err != nil {
-		return nil, 0, err
-	}
-	err = r.db.
-		Preload("ProductGroup.Components.Product").
-		Preload("Company").
-		Preload("User").
-		Limit(limit).
-		Offset(offset).
-		Find(&manufacturers).Error
-	if err != nil {
-		return nil, 0, err
-	}
-	return manufacturers, count, nil
+
+	err := r.manufacturerPreloads(r.db).
+		Where(
+			"manufacturers.product_group_id = ? AND manufacturers.company_id = ?",
+			productGroupID,
+			companyID,
+		).
+		Order("manufacturers.created_at DESC").
+		Find(&manufacturers).
+		Error
+
+	return manufacturers, err
 }
 
-// FindAllWithFilter finds all manufacturers with optional filters for company and product group
-func (r *manufacturerRepository) FindAllWithFilter(limit, offset int, companyID *uint, productGroupID *string) ([]models.Manufacturer, int64, error) {
-	var manufacturers []models.Manufacturer
-	var count int64
-	query := r.db.Model(&models.Manufacturer{})
-
-	if companyID != nil {
-		query = query.Where("company_id = ?", *companyID)
-	}
-	if productGroupID != nil {
-		query = query.Where("product_group_id = ?", *productGroupID)
+func (r *manufacturerRepository) Update(
+	manufacturer *models.Manufacturer,
+) error {
+	if manufacturer == nil {
+		return gorm.ErrInvalidData
 	}
 
-	err := query.Count(&count).Error
-	if err != nil {
-		return nil, 0, err
-	}
-
-	err = query.
-		Preload("ProductGroup.Components.Product").
-		Preload("Company").
-		Preload("User").
-		Limit(limit).
-		Offset(offset).
-		Order("created_at DESC").
-		Find(&manufacturers).Error
-	if err != nil {
-		return nil, 0, err
-	}
-	return manufacturers, count, nil
-}
-
-func (r *manufacturerRepository) Update(manufacturer *models.Manufacturer) error {
 	return r.db.Save(manufacturer).Error
 }
 
-func (r *manufacturerRepository) Delete(id uint) error {
-	return r.db.Delete(&models.Manufacturer{}, id).Error
+func (r *manufacturerRepository) UpdateByCompany(
+	manufacturer *models.Manufacturer,
+	companyID uint,
+) error {
+	if manufacturer == nil {
+		return gorm.ErrInvalidData
+	}
+
+	result := r.db.Model(&models.Manufacturer{}).
+		Where(
+			"id = ? AND company_id = ?",
+			manufacturer.ID,
+			companyID,
+		).
+		Updates(manufacturer)
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
 }
 
-// DeleteByStringID deletes a manufacturer by string ID
-func (r *manufacturerRepository) DeleteByStringID(id string) error {
-	return r.db.Delete(&models.Manufacturer{}, "id = ?", id).Error
+func (r *manufacturerRepository) Delete(
+	id uint,
+) error {
+	result := r.db.Delete(
+		&models.Manufacturer{},
+		id,
+	)
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
+}
+
+func (r *manufacturerRepository) DeleteByStringID(
+	id string,
+) error {
+	result := r.db.
+		Where("id = ?", id).
+		Delete(&models.Manufacturer{})
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
+}
+
+func (r *manufacturerRepository) DeleteByStringIDAndCompany(
+	id string,
+	companyID uint,
+) error {
+	result := r.db.
+		Where(
+			"id = ? AND company_id = ?",
+			id,
+			companyID,
+		).
+		Delete(&models.Manufacturer{})
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
 }

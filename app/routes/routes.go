@@ -124,11 +124,11 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	productGroupInventoryService := services.NewProductGroupInventoryService(pgInventoryRepo, compInventoryRepo, pgTransactionRepo, productGroupRepo, productRepo)
 
 	// Manufacturer Service with dependencies
-	manufacturerService := services.NewManufacturerServiceWithDependencies(manufacturerRepo, productGroupRepo, employeeRepo, productStockRepo, stockManagementService)
+	manufacturerService := services.NewManufacturerServiceWithDependencies(manufacturerRepo, productGroupRepo, employeeRepo, productStockRepo, userRepo, stockManagementService)
 
 	purchaseOrderService := services.NewPurchaseOrderService(purchaseOrderRepo, vendorRepo, customerRepo, productRepo, productGroupRepo, taxRepo, userRepo, companyRepo, stockManagementService, stockLedgerRepo, variantStockManagementService)
-	vendorPaymentService := services.NewVendorPaymentService(vendorPaymentRepo, purchaseOrderRepo, vendorRepo, stockManagementService, variantStockManagementService)
-	customerPaymentService := services.NewCustomerPaymentService(customerPaymentRepo, salesOrderRepo, customerRepo)
+	vendorPaymentService := services.NewVendorPaymentService(vendorPaymentRepo, purchaseOrderRepo, vendorRepo, stockManagementService, variantStockManagementService, userRepo)
+	customerPaymentService := services.NewCustomerPaymentService(customerPaymentRepo, salesOrderRepo, customerRepo, userRepo)
 	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo, inventoryBalanceRepo, stockMovementService, productStockRepo, stockLedgerRepo, variantStockManagementService, stockManagementService, productGroupInventoryService)
 	packageService := services.NewPackageService(packageRepo, salesOrderRepo, customerRepo, itemRepo, stockMovementService)
 	shipmentService := services.NewShipmentService(shipmentRepo, packageRepo, salesOrderRepo, customerRepo, inventoryBalanceRepo, stockMovementService)
@@ -214,9 +214,9 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 
 	manufacturerGroup := app.Group("/manufacturers")
 	{
-		manufacturerGroup.Get("/", manufacturerHandler.GetAllManufacturers)
-		manufacturerGroup.Get("/product-group/:product_group_id", manufacturerHandler.GetManufacturersByProductGroup)
-		manufacturerGroup.Get("/:id", manufacturerHandler.GetManufacturerByID)
+		manufacturerGroup.Get("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), manufacturerHandler.GetAllManufacturers)
+		manufacturerGroup.Get("/product-group/:product_group_id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), manufacturerHandler.GetManufacturersByProductGroup)
+		manufacturerGroup.Get("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), manufacturerHandler.GetManufacturerByID)
 		manufacturerGroup.Post("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), manufacturerHandler.CreateManufacturer)
 		manufacturerGroup.Put("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), manufacturerHandler.UpdateManufacturer)
 		manufacturerGroup.Delete("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), manufacturerHandler.DeleteManufacturer)

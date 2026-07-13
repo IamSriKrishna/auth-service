@@ -99,3 +99,25 @@ func (r *productGroupRepository) FindActiveGroups(limit, offset int) ([]models.P
 
 	return productGroups, count, nil
 }
+
+func (r *productGroupRepository) FindByIDAndCompany(
+	id string,
+	companyID uint,
+) (*models.ProductGroup, error) {
+	var productGroup models.ProductGroup
+
+	err := r.db.
+		Preload("Components.Product").
+		Where(
+			"id = ? AND company_id = ?",
+			id,
+			companyID,
+		).
+		First(&productGroup).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &productGroup, nil
+}

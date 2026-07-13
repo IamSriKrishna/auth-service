@@ -149,3 +149,25 @@ func (r *salesOrderRepository) UpdateStatus(id string, status string) error {
 func (r *salesOrderRepository) GetDB() *gorm.DB {
 	return r.db
 }
+
+func (r *salesOrderRepository) FindByIDAndCompany(id string, companyID uint) (*models.SalesOrder, error) {
+	var so models.SalesOrder
+	if err := r.db.
+		Where("id = ? AND company_id = ?", id, companyID).
+		Preload("Customer").
+		Preload("Salesperson").
+		Preload("LineItems").
+		First(&so).Error; err != nil {
+		return nil, err
+	}
+	return &so, nil
+}
+
+func (r *salesOrderRepository) UpdateByCompany(id string, companyID uint, salesOrder *models.SalesOrder) (*models.SalesOrder, error) {
+	if err := r.db.Model(&models.SalesOrder{}).
+		Where("id = ? AND company_id = ?", id, companyID).
+		Updates(salesOrder).Error; err != nil {
+		return nil, err
+	}
+	return r.FindByIDAndCompany(id, companyID)
+}

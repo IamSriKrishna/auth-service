@@ -384,6 +384,7 @@ type PaymentRepository interface {
 }
 
 type ManufacturerRepository interface {
+	// Existing methods retained.
 	Create(manufacturer *models.Manufacturer) error
 	FindByID(id uint) (*models.Manufacturer, error)
 	FindByStringID(id string) (*models.Manufacturer, error)
@@ -393,6 +394,13 @@ type ManufacturerRepository interface {
 	Update(manufacturer *models.Manufacturer) error
 	Delete(id uint) error
 	DeleteByStringID(id string) error
+
+	// Company-scoped methods.
+	FindByStringIDAndCompany(id string, companyID uint) (*models.Manufacturer, error)
+	FindAllByCompany(companyID uint, limit, offset int) ([]models.Manufacturer, int64, error)
+	FindByProductGroupIDAndCompany(productGroupID string, companyID uint) ([]models.Manufacturer, error)
+	UpdateByCompany(manufacturer *models.Manufacturer, companyID uint) error
+	DeleteByStringIDAndCompany(id string, companyID uint) error
 }
 
 type BrandRepository interface {
@@ -440,6 +448,10 @@ type ProductGroupRepository interface {
 	Delete(id string) error
 	FindByName(name string) (*models.ProductGroup, error)
 	FindActiveGroups(limit, offset int) ([]models.ProductGroup, int64, error)
+	FindByIDAndCompany(
+		id string,
+		companyID uint,
+	) (*models.ProductGroup, error)
 }
 
 type PurchaseOrderRepository interface {
@@ -453,50 +465,16 @@ type PurchaseOrderRepository interface {
 	Delete(id string) error
 	UpdateStatus(id string, status string) error
 	GetDB() *gorm.DB
-	purchaseOrderPreloads(db *gorm.DB) *gorm.DB
-	FindByIDAndCompany(
-		id string,
-		companyID uint,
-	) (*models.PurchaseOrder, error)
-	FindAllByCompany(
-		companyID uint,
-		limit int,
-		offset int,
-	) ([]models.PurchaseOrder, int64, error)
-	FindByVendorAndCompany(
-		vendorID uint,
-		companyID uint,
-		limit int,
-		offset int,
-	) ([]models.PurchaseOrder, int64, error)
-	FindByCustomerAndCompany(
-		customerID uint,
-		companyID uint,
-		limit int,
-		offset int,
-	) ([]models.PurchaseOrder, int64, error)
-	FindByStatusAndCompany(
-		status string,
-		companyID uint,
-		limit int,
-		offset int,
-	) ([]models.PurchaseOrder, int64, error)
-	UpdateByCompany(
-		id string,
-		companyID uint,
-		purchaseOrder *models.PurchaseOrder,
-	) (*models.PurchaseOrder, error)
-	DeleteByCompany(
-		id string,
-		companyID uint,
-	) error
-	UpdateStatusByCompany(
-		id string,
-		companyID uint,
-		status string,
-	) error
-}
 
+	FindByIDAndCompany(id string, companyID uint) (*models.PurchaseOrder, error)
+	FindAllByCompany(companyID uint, limit, offset int) ([]models.PurchaseOrder, int64, error)
+	FindByVendorAndCompany(vendorID, companyID uint, limit, offset int) ([]models.PurchaseOrder, int64, error)
+	FindByCustomerAndCompany(customerID, companyID uint, limit, offset int) ([]models.PurchaseOrder, int64, error)
+	FindByStatusAndCompany(status string, companyID uint, limit, offset int) ([]models.PurchaseOrder, int64, error)
+	UpdateByCompany(id string, companyID uint, po *models.PurchaseOrder) (*models.PurchaseOrder, error)
+	DeleteByCompany(id string, companyID uint) error
+	UpdateStatusByCompany(id string, companyID uint, status string) error
+}
 type SalesOrderRepository interface {
 	Create(so *models.SalesOrder) (*models.SalesOrder, error)
 	FindByID(id string) (*models.SalesOrder, error)
@@ -507,6 +485,16 @@ type SalesOrderRepository interface {
 	Delete(id string) error
 	UpdateStatus(id string, status string) error
 	GetDB() *gorm.DB
+	FindByIDAndCompany(
+		id string,
+		companyID uint,
+	) (*models.SalesOrder, error)
+
+	UpdateByCompany(
+		id string,
+		companyID uint,
+		salesOrder *models.SalesOrder,
+	) (*models.SalesOrder, error)
 }
 
 type BillRepository interface {
@@ -804,6 +792,7 @@ type ProductGroupTransactionRepository interface {
 
 // VendorPaymentRepository interface for vendor payment operations
 type VendorPaymentRepository interface {
+	// Existing methods retained.
 	Create(vp *models.VendorPayment) (*models.VendorPayment, error)
 	FindByID(id uint) (*models.VendorPayment, error)
 	FindByPaymentNumber(paymentNumber string) (*models.VendorPayment, error)
@@ -815,10 +804,22 @@ type VendorPaymentRepository interface {
 	UpdatePaymentStatus(id uint, status string, paidAmount, remainingAmount float64) error
 	Delete(id uint) error
 	GetDB() *gorm.DB
+
+	// Company-scoped methods.
+	FindByIDAndCompany(id, companyID uint) (*models.VendorPayment, error)
+	FindByPaymentNumberAndCompany(paymentNumber string, companyID uint) (*models.VendorPayment, error)
+	FindByPurchaseOrderIDAndCompany(poID string, companyID uint, limit, offset int) ([]models.VendorPayment, int64, error)
+	FindByVendorIDAndCompany(vendorID, companyID uint, limit, offset int) ([]models.VendorPayment, int64, error)
+	FindAllByCompany(companyID uint, limit, offset int) ([]models.VendorPayment, int64, error)
+	FindByPaymentStatusAndCompany(status string, companyID uint, limit, offset int) ([]models.VendorPayment, int64, error)
+	UpdateByCompany(id, companyID uint, vp *models.VendorPayment) (*models.VendorPayment, error)
+	UpdatePaymentStatusByCompany(id, companyID uint, status string, paidAmount, remainingAmount float64) error
+	DeleteByCompany(id, companyID uint) error
 }
 
 // CustomerPaymentRepository interface for customer payment operations
 type CustomerPaymentRepository interface {
+	// Existing methods retained.
 	Create(cp *models.CustomerPayment) (*models.CustomerPayment, error)
 	FindByID(id uint) (*models.CustomerPayment, error)
 	FindByPaymentNumber(paymentNumber string) (*models.CustomerPayment, error)
@@ -830,6 +831,17 @@ type CustomerPaymentRepository interface {
 	UpdatePaymentStatus(id uint, status string, receivedAmount, remainingAmount float64) error
 	Delete(id uint) error
 	GetDB() *gorm.DB
+
+	// Company-scoped methods.
+	FindByIDAndCompany(id, companyID uint) (*models.CustomerPayment, error)
+	FindByPaymentNumberAndCompany(paymentNumber string, companyID uint) (*models.CustomerPayment, error)
+	FindBySalesOrderIDAndCompany(soID string, companyID uint, limit, offset int) ([]models.CustomerPayment, int64, error)
+	FindByCustomerIDAndCompany(customerID, companyID uint, limit, offset int) ([]models.CustomerPayment, int64, error)
+	FindAllByCompany(companyID uint, limit, offset int) ([]models.CustomerPayment, int64, error)
+	FindByPaymentStatusAndCompany(status string, companyID uint, limit, offset int) ([]models.CustomerPayment, int64, error)
+	UpdateByCompany(id, companyID uint, cp *models.CustomerPayment) (*models.CustomerPayment, error)
+	UpdatePaymentStatusByCompany(id, companyID uint, status string, receivedAmount, remainingAmount float64) error
+	DeleteByCompany(id, companyID uint) error
 }
 
 // SalaryRepository interface for salary calculation operations
@@ -951,7 +963,6 @@ type RawMaterialBagRepository interface {
 		companyID uint,
 	) error
 }
-
 
 type VendorShortageClaimRepository interface {
 	// Existing methods retained.
