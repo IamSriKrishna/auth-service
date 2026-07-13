@@ -3,7 +3,6 @@ package repo
 import (
 	"github.com/bbapp-org/auth-service/app/models"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type customerRepository struct {
@@ -14,81 +13,27 @@ func NewCustomerRepository(db *gorm.DB) CustomerRepository {
 	return &customerRepository{db: db}
 }
 
-func (r *customerRepository) Create(customer *models.Customer) error {
+func (r *customerRepository) Create(
+	customer *models.Customer,
+) error {
 	return r.db.Create(customer).Error
 }
 
-func (r *customerRepository) Update(customer *models.Customer) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(customer).Updates(customer).Error; err != nil {
-			return err
-		}
-
-		if customer.OtherDetails != nil {
-			customer.OtherDetails.EntityID = customer.ID
-			customer.OtherDetails.EntityType = "customer"
-			if customer.OtherDetails.ID == 0 {
-				if err := tx.Create(customer.OtherDetails).Error; err != nil {
-					return err
-				}
-			} else {
-				if err := tx.Model(customer.OtherDetails).Updates(customer.OtherDetails).Error; err != nil {
-					return err
-				}
-			}
-		}
-
-		for i := range customer.Addresses {
-			customer.Addresses[i].EntityID = customer.ID
-			customer.Addresses[i].EntityType = "customer"
-
-			var existingAddr models.EntityAddress
-			err := tx.Where("entity_id = ? AND entity_type = ? AND address_type = ?",
-				customer.ID, "customer", customer.Addresses[i].AddressType).
-				First(&existingAddr).Error
-
-			switch err {
-			case gorm.ErrRecordNotFound:
-				if err := tx.Create(&customer.Addresses[i]).Error; err != nil {
-					return err
-				}
-			case nil:
-				customer.Addresses[i].ID = existingAddr.ID
-				if err := tx.Model(&customer.Addresses[i]).Updates(&customer.Addresses[i]).Error; err != nil {
-					return err
-				}
-			default:
-				return err
-			}
-		}
-
-		if err := tx.Where("entity_id = ? AND entity_type = ?", customer.ID, "customer").
-			Delete(&models.EntityContactPerson{}).Error; err != nil {
-			return err
-		}
-
-		for i := range customer.ContactPersons {
-			customer.ContactPersons[i].EntityID = customer.ID
-			customer.ContactPersons[i].EntityType = "customer"
-			customer.ContactPersons[i].ID = 0
-			if err := tx.Create(&customer.ContactPersons[i]).Error; err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
+func (r *customerRepository) Update(
+	customer *models.Customer,
+) error {
+	return r.db.Save(customer).Error
 }
 
-func (r *customerRepository) FindByID(id uint) (*models.Customer, error) {
+func (r *customerRepository) FindByID(
+	id uint,
+) (*models.Customer, error) {
 	var customer models.Customer
+
 	err := r.db.
-		Preload("User").
-		Preload("Company").
-		Preload("OtherDetails").
-		Preload("Addresses").
-		Preload("ContactPersons").
-		First(&customer, id).Error
+		Where("id = ?", id).
+		First(&customer).
+		Error
 
 	if err != nil {
 		return nil, err
@@ -97,59 +42,94 @@ func (r *customerRepository) FindByID(id uint) (*models.Customer, error) {
 	return &customer, nil
 }
 
-func (r *customerRepository) FindAll(page, limit int) ([]models.Customer, int64, error) {
+func (r *customerRepository) FindAll(
+	page int,
+	limit int,
+) ([]models.Customer, int64, error) {
 	var customers []models.Customer
 	var total int64
 
+	if page < 1 {
+		page = 1
+	}
+
+	if limit < 1 {
+		limit = 10
+	}
+
 	offset := (page - 1) * limit
 
-	if err := r.db.Model(&models.Customer{}).Count(&total).Error; err != nil {
+	query := r.db.Model(&models.Customer{})
+
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
+
+	err := query.
+		Order("created_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&customers).
+		Error
+
+	return customers, total, err
+}
+
+func (r *customerRepository) FindByUserID(
+	userID uint,
+	companyID uint,
+	page int,
+	limit int,
+) ([]models.Customer, int64, error) {
+	var customers []models.Customer
+	var total int64
+
+	if page < 1 {
+		page = 1
+	}
+
+	if limit < 1 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	query := r.db.
+		Model(&models.Customer{}).
+		Where(
+			"user_id = ? AND company_id = ?",
+			userID,
+			companyID,
+		)
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := query.
+		Order("created_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&customers).
+		Error
+
+	return customers, total, err
+}
+
+func (r *customerRepository) FindByIDAndUser(
+	id uint,
+	userID uint,
+) (*models.Customer, error) {
+	var customer models.Customer
 
 	err := r.db.
-		Preload("User").
-		Preload("Company").
-		Offset(offset).
-		Limit(limit).
-		Order("created_at DESC").
-		Find(&customers).Error
-
-	return customers, total, err
-}
-
-func (r *customerRepository) FindByUserID(userID, companyID uint, page, limit int) ([]models.Customer, int64, error) {
-	var customers []models.Customer
-	var total int64
-
-	offset := (page - 1) * limit
-
-	if err := r.db.Model(&models.Customer{}).
-		Where("user_id = ? AND company_id = ?", userID, companyID).
-		Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	err := r.db.Where("user_id = ? AND company_id = ?", userID, companyID).
-		Preload("User").
-		Preload("Company").
-		Offset(offset).
-		Limit(limit).
-		Order("created_at DESC").
-		Find(&customers).Error
-
-	return customers, total, err
-}
-
-func (r *customerRepository) FindByIDAndUser(id, userID uint) (*models.Customer, error) {
-	var customer models.Customer
-	err := r.db.Where("id = ? AND user_id = ?", id, userID).
-		Preload("User").
-		Preload("Company").
-		Preload("OtherDetails").
-		Preload("Addresses").
-		Preload("ContactPersons").
-		First(&customer).Error
+		Where(
+			"id = ? AND user_id = ?",
+			id,
+			userID,
+		).
+		First(&customer).
+		Error
 
 	if err != nil {
 		return nil, err
@@ -158,13 +138,152 @@ func (r *customerRepository) FindByIDAndUser(id, userID uint) (*models.Customer,
 	return &customer, nil
 }
 
-func (r *customerRepository) Delete(customer *models.Customer) error {
-	return r.db.Select(clause.Associations).Delete(customer).Error
+func (r *customerRepository) Delete(
+	customer *models.Customer,
+) error {
+	return r.db.Delete(customer).Error
 }
 
-func (r *customerRepository) FindByMobile(mobile string) (*models.Customer, error) {
+func (r *customerRepository) FindByMobile(
+	mobile string,
+) (*models.Customer, error) {
 	var customer models.Customer
-	err := r.db.Where("mobile = ?", mobile).First(&customer).Error
+
+	err := r.db.
+		Where("mobile = ?", mobile).
+		First(&customer).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &customer, nil
+}
+
+func (r *customerRepository) FindByIDAndCompany(
+	id uint,
+	companyID uint,
+) (*models.Customer, error) {
+	var customer models.Customer
+
+	err := r.db.
+		Where(
+			"id = ? AND company_id = ?",
+			id,
+			companyID,
+		).
+		First(&customer).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &customer, nil
+}
+
+func (r *customerRepository) FindByCompanyID(
+	companyID uint,
+	page int,
+	limit int,
+) ([]models.Customer, int64, error) {
+	var customers []models.Customer
+	var total int64
+
+	if page < 1 {
+		page = 1
+	}
+
+	if limit < 1 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	query := r.db.
+		Model(&models.Customer{}).
+		Where("company_id = ?", companyID)
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := query.
+		Order("created_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&customers).
+		Error
+
+	return customers, total, err
+}
+
+func (r *customerRepository) UpdateByCompanyID(
+	customer *models.Customer,
+	companyID uint,
+) error {
+	if customer == nil {
+		return gorm.ErrInvalidData
+	}
+
+	result := r.db.
+		Model(&models.Customer{}).
+		Where(
+			"id = ? AND company_id = ?",
+			customer.ID,
+			companyID,
+		).
+		Updates(customer)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
+}
+
+func (r *customerRepository) DeleteByIDAndCompany(
+	id uint,
+	companyID uint,
+) error {
+	result := r.db.
+		Where(
+			"id = ? AND company_id = ?",
+			id,
+			companyID,
+		).
+		Delete(&models.Customer{})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
+}
+
+func (r *customerRepository) FindByMobileAndCompany(
+	mobile string,
+	companyID uint,
+) (*models.Customer, error) {
+	var customer models.Customer
+
+	err := r.db.
+		Where(
+			"mobile = ? AND company_id = ?",
+			mobile,
+			companyID,
+		).
+		First(&customer).
+		Error
 
 	if err != nil {
 		return nil, err

@@ -14,11 +14,48 @@ import (
 )
 
 type EmployeeService interface {
-	CreateEmployeeWithFile(ctx context.Context, createdByID, companyID uint, req *input.CreateEmployeeRequest, file *multipart.FileHeader) (*output.EmployeeOutput, error)
-	GetEmployeeByID(ctx context.Context, employeeID, createdByID uint) (*output.EmployeeOutput, error)
-	GetEmployeesByUser(ctx context.Context, createdByID, companyID uint, page, limit int) (*output.PaginatedResponse, error)
-	UpdateEmployee(ctx context.Context, employeeID, createdByID uint, req *input.UpdateEmployeeRequest) (*output.EmployeeOutput, error)
-	DeleteEmployee(ctx context.Context, employeeID, createdByID uint) error
+	CreateEmployeeWithFile(
+		ctx context.Context,
+		createdByID uint,
+		companyID uint,
+		req *input.CreateEmployeeRequest,
+		file *multipart.FileHeader,
+	) (*output.EmployeeOutput, error)
+
+	GetEmployeeByID(
+		ctx context.Context,
+		employeeID uint,
+		companyID uint,
+	) (*output.EmployeeOutput, error)
+
+	GetEmployeesByCompany(
+		ctx context.Context,
+		companyID uint,
+		page int,
+		limit int,
+	) (*output.PaginatedResponse, error)
+
+	UpdateEmployee(
+		ctx context.Context,
+		employeeID uint,
+		companyID uint,
+		req *input.UpdateEmployeeRequest,
+	) (*output.EmployeeOutput, error)
+
+	DeleteEmployee(
+		ctx context.Context,
+		employeeID uint,
+		companyID uint,
+	) error
+
+	// Existing compatibility method retained for other services.
+	GetEmployeesByUser(
+		ctx context.Context,
+		createdByID uint,
+		companyID uint,
+		page int,
+		limit int,
+	) (*output.PaginatedResponse, error)
 }
 
 type employeeService struct {
@@ -39,7 +76,32 @@ func NewEmployeeService(
 	}
 }
 
-func (s *employeeService) CreateEmployeeWithFile(ctx context.Context, createdByID, companyID uint, req *input.CreateEmployeeRequest, file *multipart.FileHeader) (*output.EmployeeOutput, error) {
+func employeeToOutput(employee *models.Employee) *output.EmployeeOutput {
+	return &output.EmployeeOutput{
+		ID:            employee.ID,
+		Name:          employee.Name,
+		Email:         employee.Email,
+		Number:        employee.Number,
+		Address:       employee.Address,
+		EmployeeType:  employee.EmployeeType,
+		MonthlySalary: employee.MonthlySalary,
+		WeeklySalary:  employee.WeeklySalary,
+		SalaryType:    employee.SalaryType,
+		DocumentURL:   employee.DocumentURL,
+		UserID:        employee.UserID,
+		CompanyID:     employee.CompanyID,
+		CreatedAt:     employee.CreatedAt,
+		UpdatedAt:     employee.UpdatedAt,
+	}
+}
+
+func (s *employeeService) CreateEmployeeWithFile(
+	ctx context.Context,
+	createdByID uint,
+	companyID uint,
+	req *input.CreateEmployeeRequest,
+	file *multipart.FileHeader,
+) (*output.EmployeeOutput, error) {
 	if req == nil {
 		return nil, errors.New("request cannot be nil")
 	}
@@ -48,7 +110,14 @@ func (s *employeeService) CreateEmployeeWithFile(ctx context.Context, createdByI
 		return nil, errors.New("document file is required")
 	}
 
-	// Create employee first without document URL
+	if createdByID == 0 {
+		return nil, errors.New("invalid creating user")
+	}
+
+	if companyID == 0 {
+		return nil, errors.New("invalid company")
+	}
+
 	employee := &models.Employee{
 		Name:          req.Name,
 		Email:         req.Email,
@@ -66,106 +135,108 @@ func (s *employeeService) CreateEmployeeWithFile(ctx context.Context, createdByI
 		return nil, err
 	}
 
-	// Upload document to Cloudinary
 	if s.cloudinary != nil {
 		fileReader, err := file.Open()
 		if err != nil {
+			_ = s.employeeRepo.DeleteByIDAndCompanyID(employee.ID, companyID)
 			return nil, errors.New("failed to open document file: " + err.Error())
 		}
 		defer fileReader.Close()
 
-		fmt.Printf("DEBUG: Uploading document %s for employee %d\n", file.Filename, employee.ID)
-		documentURL, err := s.cloudinary.UploadEmployeeDocumentFromReader(ctx, fileReader, file.Filename, employee.ID)
+		documentURL, err := s.cloudinary.UploadEmployeeDocumentFromReader(
+			ctx,
+			fileReader,
+			file.Filename,
+			employee.ID,
+		)
 		if err != nil {
+			_ = s.employeeRepo.DeleteByIDAndCompanyID(employee.ID, companyID)
 			return nil, errors.New("failed to upload document: " + err.Error())
 		}
-		fmt.Printf("DEBUG: Document uploaded successfully, URL: %s\n", documentURL)
+
 		employee.DocumentURL = documentURL
 
-		if err := s.employeeRepo.Update(employee); err != nil {
+		if err := s.employeeRepo.UpdateByCompanyID(employee, companyID); err != nil {
 			return nil, err
 		}
 	}
 
-	return &output.EmployeeOutput{
-		ID:            employee.ID,
-		Name:          employee.Name,
-		Email:         employee.Email,
-		Number:        employee.Number,
-		Address:       employee.Address,
-		EmployeeType:  employee.EmployeeType,
-		MonthlySalary: employee.MonthlySalary,
-		DocumentURL:   employee.DocumentURL,
-		UserID:        employee.UserID,
-		CompanyID:     employee.CompanyID,
-		CreatedAt:     employee.CreatedAt,
-		UpdatedAt:     employee.UpdatedAt,
-	}, nil
+	return employeeToOutput(employee), nil
 }
 
-func (s *employeeService) GetEmployeeByID(ctx context.Context, employeeID, createdByID uint) (*output.EmployeeOutput, error) {
-	employee, err := s.employeeRepo.GetByID(employeeID)
+func (s *employeeService) GetEmployeeByID(
+	ctx context.Context,
+	employeeID uint,
+	companyID uint,
+) (*output.EmployeeOutput, error) {
+	_ = ctx
+
+	employee, err := s.employeeRepo.GetByIDAndCompanyID(
+		employeeID,
+		companyID,
+	)
 	if err != nil {
 		return nil, errors.New("employee not found")
 	}
 
-	// Verify that the employee belongs to the user
-	if employee.UserID != createdByID {
-		return nil, errors.New("unauthorized access to employee")
-	}
-
-	return &output.EmployeeOutput{
-		ID:            employee.ID,
-		Name:          employee.Name,
-		Email:         employee.Email,
-		Number:        employee.Number,
-		Address:       employee.Address,
-		EmployeeType:  employee.EmployeeType,
-		MonthlySalary: employee.MonthlySalary,
-		WeeklySalary:  employee.WeeklySalary,
-		SalaryType:    employee.SalaryType,
-		DocumentURL:   employee.DocumentURL,
-		UserID:        employee.UserID,
-		CompanyID:     employee.CompanyID,
-		CreatedAt:     employee.CreatedAt,
-		UpdatedAt:     employee.UpdatedAt,
-	}, nil
+	return employeeToOutput(employee), nil
 }
 
-func (s *employeeService) GetEmployeesByUser(ctx context.Context, createdByID, companyID uint, page, limit int) (*output.PaginatedResponse, error) {
-	offset := (page - 1) * limit
+func (s *employeeService) GetEmployeesByCompany(
+	ctx context.Context,
+	companyID uint,
+	page int,
+	limit int,
+) (*output.PaginatedResponse, error) {
+	_ = ctx
+
+	if page < 1 {
+		page = 1
+	}
+
 	if limit <= 0 {
 		limit = 10
 	}
-	if offset < 0 {
-		offset = 0
+
+	if limit > 100 {
+		limit = 100
 	}
 
-	employees, total, err := s.employeeRepo.GetByCompanyAndUser(companyID, createdByID, offset, limit)
+	offset := (page - 1) * limit
+
+	employees, total, err := s.employeeRepo.GetByCompany(
+		companyID,
+		offset,
+		limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	var employeeOutputs []output.EmployeeListOutput
-	for _, emp := range employees {
+	employeeOutputs := make([]output.EmployeeListOutput, 0, len(employees))
+
+	for _, employee := range employees {
 		employeeOutputs = append(employeeOutputs, output.EmployeeListOutput{
-			ID:            emp.ID,
-			Name:          emp.Name,
-			Email:         emp.Email,
-			Number:        emp.Number,
-			Address:       emp.Address,
-			EmployeeType:  emp.EmployeeType,
-			MonthlySalary: emp.MonthlySalary,
-			WeeklySalary:  emp.WeeklySalary,
-			SalaryType:    emp.SalaryType,
-			DocumentURL:   emp.DocumentURL,
-			UserID:        emp.UserID,
-			CompanyID:     emp.CompanyID,
-			CreatedAt:     emp.CreatedAt,
+			ID:            employee.ID,
+			Name:          employee.Name,
+			Email:         employee.Email,
+			Number:        employee.Number,
+			Address:       employee.Address,
+			EmployeeType:  employee.EmployeeType,
+			MonthlySalary: employee.MonthlySalary,
+			WeeklySalary:  employee.WeeklySalary,
+			SalaryType:    employee.SalaryType,
+			DocumentURL:   employee.DocumentURL,
+			UserID:        employee.UserID,
+			CompanyID:     employee.CompanyID,
+			CreatedAt:     employee.CreatedAt,
 		})
 	}
 
-	totalPages := (total + int64(limit) - 1) / int64(limit)
+	totalPages := 0
+	if total > 0 {
+		totalPages = int((total + int64(limit) - 1) / int64(limit))
+	}
 
 	return &output.PaginatedResponse{
 		Success: true,
@@ -174,27 +245,50 @@ func (s *employeeService) GetEmployeesByUser(ctx context.Context, createdByID, c
 			CurrentPage: page,
 			PerPage:     limit,
 			Total:       int(total),
-			TotalPages:  int(totalPages),
+			TotalPages:  totalPages,
 		},
 	}, nil
 }
 
-func (s *employeeService) UpdateEmployee(ctx context.Context, employeeID, createdByID uint, req *input.UpdateEmployeeRequest) (*output.EmployeeOutput, error) {
+// Compatibility method retained.
+// It now returns all employees in the company instead of only one user's employees.
+func (s *employeeService) GetEmployeesByUser(
+	ctx context.Context,
+	createdByID uint,
+	companyID uint,
+	page int,
+	limit int,
+) (*output.PaginatedResponse, error) {
+	_ = createdByID
+
+	return s.GetEmployeesByCompany(
+		ctx,
+		companyID,
+		page,
+		limit,
+	)
+}
+
+func (s *employeeService) UpdateEmployee(
+	ctx context.Context,
+	employeeID uint,
+	companyID uint,
+	req *input.UpdateEmployeeRequest,
+) (*output.EmployeeOutput, error) {
+	_ = ctx
+
 	if req == nil {
 		return nil, errors.New("request cannot be nil")
 	}
 
-	employee, err := s.employeeRepo.GetByID(employeeID)
+	employee, err := s.employeeRepo.GetByIDAndCompanyID(
+		employeeID,
+		companyID,
+	)
 	if err != nil {
 		return nil, errors.New("employee not found")
 	}
 
-	// Verify that the employee belongs to the user
-	if employee.UserID != createdByID {
-		return nil, errors.New("unauthorized access to employee")
-	}
-
-	// Update fields if provided
 	if req.Name != nil {
 		employee.Name = *req.Name
 	}
@@ -220,38 +314,29 @@ func (s *employeeService) UpdateEmployee(ctx context.Context, employeeID, create
 		employee.SalaryType = *req.SalaryType
 	}
 
-	if err := s.employeeRepo.Update(employee); err != nil {
-		return nil, err
+	if err := s.employeeRepo.UpdateByCompanyID(
+		employee,
+		companyID,
+	); err != nil {
+		return nil, fmt.Errorf("failed to update employee: %w", err)
 	}
 
-	return &output.EmployeeOutput{
-		ID:            employee.ID,
-		Name:          employee.Name,
-		Email:         employee.Email,
-		Number:        employee.Number,
-		Address:       employee.Address,
-		EmployeeType:  employee.EmployeeType,
-		MonthlySalary: employee.MonthlySalary,
-		WeeklySalary:  employee.WeeklySalary,
-		SalaryType:    employee.SalaryType,
-		DocumentURL:   employee.DocumentURL,
-		UserID:        employee.UserID,
-		CompanyID:     employee.CompanyID,
-		CreatedAt:     employee.CreatedAt,
-		UpdatedAt:     employee.UpdatedAt,
-	}, nil
+	return employeeToOutput(employee), nil
 }
 
-func (s *employeeService) DeleteEmployee(ctx context.Context, employeeID, createdByID uint) error {
-	employee, err := s.employeeRepo.GetByID(employeeID)
-	if err != nil {
+func (s *employeeService) DeleteEmployee(
+	ctx context.Context,
+	employeeID uint,
+	companyID uint,
+) error {
+	_ = ctx
+
+	if err := s.employeeRepo.DeleteByIDAndCompanyID(
+		employeeID,
+		companyID,
+	); err != nil {
 		return errors.New("employee not found")
 	}
 
-	// Verify that the employee belongs to the user
-	if employee.UserID != createdByID {
-		return errors.New("unauthorized access to employee")
-	}
-
-	return s.employeeRepo.Delete(employeeID)
+	return nil
 }

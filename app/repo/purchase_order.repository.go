@@ -35,6 +35,250 @@ func (r *purchaseOrderRepository) FindByID(id string) (*models.PurchaseOrder, er
 	return &po, nil
 }
 
+func (r *purchaseOrderRepository) purchaseOrderPreloads(db *gorm.DB) *gorm.DB {
+	return db.
+		Preload("Vendor").
+		Preload("Customer").
+		Preload("Tax").
+		Preload("LineItems").
+		Preload("LineItems.Product")
+}
+
+func (r *purchaseOrderRepository) FindByIDAndCompany(
+	id string,
+	companyID uint,
+) (*models.PurchaseOrder, error) {
+	var purchaseOrder models.PurchaseOrder
+
+	err := r.purchaseOrderPreloads(r.db).
+		Where(
+			"purchase_orders.id = ? AND purchase_orders.created_by_company_id = ?",
+			id,
+			companyID,
+		).
+		First(&purchaseOrder).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &purchaseOrder, nil
+}
+
+func (r *purchaseOrderRepository) FindAllByCompany(
+	companyID uint,
+	limit int,
+	offset int,
+) ([]models.PurchaseOrder, int64, error) {
+	var purchaseOrders []models.PurchaseOrder
+	var total int64
+
+	query := r.db.
+		Model(&models.PurchaseOrder{}).
+		Where("created_by_company_id = ?", companyID)
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := r.purchaseOrderPreloads(r.db).
+		Where("created_by_company_id = ?", companyID).
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&purchaseOrders).
+		Error
+
+	return purchaseOrders, total, err
+}
+
+func (r *purchaseOrderRepository) FindByVendorAndCompany(
+	vendorID uint,
+	companyID uint,
+	limit int,
+	offset int,
+) ([]models.PurchaseOrder, int64, error) {
+	var purchaseOrders []models.PurchaseOrder
+	var total int64
+
+	query := r.db.
+		Model(&models.PurchaseOrder{}).
+		Where(
+			"vendor_id = ? AND created_by_company_id = ?",
+			vendorID,
+			companyID,
+		)
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := r.purchaseOrderPreloads(r.db).
+		Where(
+			"vendor_id = ? AND created_by_company_id = ?",
+			vendorID,
+			companyID,
+		).
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&purchaseOrders).
+		Error
+
+	return purchaseOrders, total, err
+}
+
+func (r *purchaseOrderRepository) FindByCustomerAndCompany(
+	customerID uint,
+	companyID uint,
+	limit int,
+	offset int,
+) ([]models.PurchaseOrder, int64, error) {
+	var purchaseOrders []models.PurchaseOrder
+	var total int64
+
+	query := r.db.
+		Model(&models.PurchaseOrder{}).
+		Where(
+			"customer_id = ? AND created_by_company_id = ?",
+			customerID,
+			companyID,
+		)
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := r.purchaseOrderPreloads(r.db).
+		Where(
+			"customer_id = ? AND created_by_company_id = ?",
+			customerID,
+			companyID,
+		).
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&purchaseOrders).
+		Error
+
+	return purchaseOrders, total, err
+}
+
+func (r *purchaseOrderRepository) FindByStatusAndCompany(
+	status string,
+	companyID uint,
+	limit int,
+	offset int,
+) ([]models.PurchaseOrder, int64, error) {
+	var purchaseOrders []models.PurchaseOrder
+	var total int64
+
+	query := r.db.
+		Model(&models.PurchaseOrder{}).
+		Where(
+			"status = ? AND created_by_company_id = ?",
+			status,
+			companyID,
+		)
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := r.purchaseOrderPreloads(r.db).
+		Where(
+			"status = ? AND created_by_company_id = ?",
+			status,
+			companyID,
+		).
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&purchaseOrders).
+		Error
+
+	return purchaseOrders, total, err
+}
+
+func (r *purchaseOrderRepository) UpdateByCompany(
+	id string,
+	companyID uint,
+	purchaseOrder *models.PurchaseOrder,
+) (*models.PurchaseOrder, error) {
+	if purchaseOrder == nil {
+		return nil, gorm.ErrInvalidData
+	}
+
+	var existing models.PurchaseOrder
+	err := r.db.
+		Where(
+			"id = ? AND created_by_company_id = ?",
+			id,
+			companyID,
+		).
+		First(&existing).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	updated, err := r.Update(id, purchaseOrder)
+	if err != nil {
+		return nil, err
+	}
+
+	return updated, nil
+}
+
+func (r *purchaseOrderRepository) DeleteByCompany(
+	id string,
+	companyID uint,
+) error {
+	result := r.db.
+		Where(
+			"id = ? AND created_by_company_id = ?",
+			id,
+			companyID,
+		).
+		Delete(&models.PurchaseOrder{})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
+}
+
+func (r *purchaseOrderRepository) UpdateStatusByCompany(
+	id string,
+	companyID uint,
+	status string,
+) error {
+	result := r.db.
+		Model(&models.PurchaseOrder{}).
+		Where(
+			"id = ? AND created_by_company_id = ?",
+			id,
+			companyID,
+		).
+		Update("status", status)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
+}
+
 func (r *purchaseOrderRepository) FindAll(limit, offset int) ([]models.PurchaseOrder, int64, error) {
 	var pos []models.PurchaseOrder
 	var total int64

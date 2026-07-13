@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
@@ -17,6 +18,69 @@ func NewCustomerHandler(service services.CustomerService) *CustomerHandler {
 	return &CustomerHandler{service: service}
 }
 
+func customerLocalUint(c *fiber.Ctx, key string) uint {
+	value := c.Locals(key)
+
+	switch typed := value.(type) {
+	case uint:
+		return typed
+	case uint64:
+		return uint(typed)
+	case int:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case int64:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case float64:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case string:
+		parsed, err := strconv.ParseUint(typed, 10, 64)
+		if err == nil {
+			return uint(parsed)
+		}
+	}
+
+	return 0
+}
+
+func customerAuthContext(c *fiber.Ctx) (uint, uint, error) {
+	userID := customerLocalUint(c, "user_id")
+	companyID := customerLocalUint(c, "company_id")
+
+	if userID == 0 {
+		return 0, 0, fmt.Errorf("invalid authenticated user")
+	}
+
+	if companyID == 0 {
+		return 0, 0, fmt.Errorf("user is not assigned to a company")
+	}
+
+	return userID, companyID, nil
+}
+
+func normalizeCustomerPagination(c *fiber.Ctx) (int, int) {
+	page, err := strconv.Atoi(c.Query("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	limit, err := strconv.Atoi(c.Query("limit", "10"))
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+
+	if limit > 100 {
+		limit = 100
+	}
+
+	return page, limit
+}
+
 func (h *CustomerHandler) CreateCustomer(c *fiber.Ctx) error {
 	var req input.CreateCustomerInput
 
@@ -24,10 +88,16 @@ func (h *CustomerHandler) CreateCustomer(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	userID := c.Locals("user_id").(uint)
-	companyID := c.Locals("company_id").(uint)
+	userID, companyID, err := customerAuthContext(c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusForbidden, err.Error())
+	}
 
-	customer, err := h.service.CreateCustomerForUser(userID, companyID, &req)
+	customer, err := h.service.CreateCustomerForUser(
+		userID,
+		companyID,
+		&req,
+	)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -40,7 +110,7 @@ func (h *CustomerHandler) CreateCustomer(c *fiber.Ctx) error {
 
 func (h *CustomerHandler) UpdateCustomer(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
+	if err != nil || id <= 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid customer id")
 	}
 
@@ -49,7 +119,16 @@ func (h *CustomerHandler) UpdateCustomer(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	customer, err := h.service.UpdateCustomer(uint(id), &req)
+	_, companyID, err := customerAuthContext(c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusForbidden, err.Error())
+	}
+
+	customer, err := h.service.UpdateCustomerForCompany(
+		uint(id),
+		companyID,
+		&req,
+	)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, err.Error())
 	}
@@ -62,11 +141,19 @@ func (h *CustomerHandler) UpdateCustomer(c *fiber.Ctx) error {
 
 func (h *CustomerHandler) GetCustomerByID(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
+	if err != nil || id <= 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid customer id")
 	}
 
-	customer, err := h.service.GetCustomerByID(uint(id))
+	_, companyID, err := customerAuthContext(c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusForbidden, err.Error())
+	}
+
+	customer, err := h.service.GetCustomerByIDAndCompany(
+		uint(id),
+		companyID,
+	)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "customer not found")
 	}
@@ -78,10 +165,18 @@ func (h *CustomerHandler) GetCustomerByID(c *fiber.Ctx) error {
 }
 
 func (h *CustomerHandler) GetAllCustomers(c *fiber.Ctx) error {
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	page, limit := normalizeCustomerPagination(c)
 
-	customers, total, err := h.service.GetAllCustomers(page, limit)
+	_, companyID, err := customerAuthContext(c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusForbidden, err.Error())
+	}
+
+	customers, total, err := h.service.GetCustomersByCompany(
+		companyID,
+		page,
+		limit,
+	)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -99,14 +194,19 @@ func (h *CustomerHandler) GetAllCustomers(c *fiber.Ctx) error {
 
 func (h *CustomerHandler) DeleteCustomer(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
+	if err != nil || id <= 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid customer id")
 	}
 
-	customer := &models.Customer{}
-	customer.ID = uint(id)
+	_, companyID, err := customerAuthContext(c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusForbidden, err.Error())
+	}
 
-	if err := h.service.DeleteCustomer(customer); err != nil {
+	if err := h.service.DeleteCustomerForCompany(
+		uint(id),
+		companyID,
+	); err != nil {
 		return fiber.NewError(fiber.StatusNotFound, err.Error())
 	}
 
@@ -116,14 +216,21 @@ func (h *CustomerHandler) DeleteCustomer(c *fiber.Ctx) error {
 	})
 }
 
+// Kept for route compatibility.
+// It now returns all customers belonging to the authenticated company.
 func (h *CustomerHandler) GetUserCustomers(c *fiber.Ctx) error {
-	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	page, limit := normalizeCustomerPagination(c)
 
-	userID := c.Locals("user_id").(uint)
-	companyID := c.Locals("company_id").(uint)
+	_, companyID, err := customerAuthContext(c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusForbidden, err.Error())
+	}
 
-	customers, total, err := h.service.GetCustomersByUser(userID, companyID, page, limit)
+	customers, total, err := h.service.GetCustomersByCompany(
+		companyID,
+		page,
+		limit,
+	)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, err.Error())
 	}
@@ -141,15 +248,24 @@ func (h *CustomerHandler) GetUserCustomers(c *fiber.Ctx) error {
 
 func (h *CustomerHandler) GetUserCustomerByID(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
+	if err != nil || id <= 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid customer id")
 	}
 
-	userID := c.Locals("user_id").(uint)
-
-	customer, err := h.service.GetCustomerByIDAndUser(uint(id), userID)
+	_, companyID, err := customerAuthContext(c)
 	if err != nil {
-		return fiber.NewError(fiber.StatusNotFound, "customer not found or unauthorized")
+		return fiber.NewError(fiber.StatusForbidden, err.Error())
+	}
+
+	customer, err := h.service.GetCustomerByIDAndCompany(
+		uint(id),
+		companyID,
+	)
+	if err != nil {
+		return fiber.NewError(
+			fiber.StatusNotFound,
+			"customer not found or unauthorized",
+		)
 	}
 
 	return c.JSON(fiber.Map{
@@ -160,7 +276,7 @@ func (h *CustomerHandler) GetUserCustomerByID(c *fiber.Ctx) error {
 
 func (h *CustomerHandler) UpdateUserCustomer(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
+	if err != nil || id <= 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid customer id")
 	}
 
@@ -169,9 +285,16 @@ func (h *CustomerHandler) UpdateUserCustomer(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid request body")
 	}
 
-	userID := c.Locals("user_id").(uint)
+	_, companyID, err := customerAuthContext(c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusForbidden, err.Error())
+	}
 
-	customer, err := h.service.UpdateCustomerForUser(uint(id), userID, &req)
+	customer, err := h.service.UpdateCustomerForCompany(
+		uint(id),
+		companyID,
+		&req,
+	)
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, err.Error())
 	}
@@ -184,13 +307,19 @@ func (h *CustomerHandler) UpdateUserCustomer(c *fiber.Ctx) error {
 
 func (h *CustomerHandler) DeleteUserCustomer(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
+	if err != nil || id <= 0 {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid customer id")
 	}
 
-	userID := c.Locals("user_id").(uint)
+	_, companyID, err := customerAuthContext(c)
+	if err != nil {
+		return fiber.NewError(fiber.StatusForbidden, err.Error())
+	}
 
-	if err := h.service.DeleteCustomerForUser(uint(id), userID); err != nil {
+	if err := h.service.DeleteCustomerForCompany(
+		uint(id),
+		companyID,
+	); err != nil {
 		return fiber.NewError(fiber.StatusNotFound, err.Error())
 	}
 
@@ -199,3 +328,7 @@ func (h *CustomerHandler) DeleteUserCustomer(c *fiber.Ctx) error {
 		"message": "customer deleted successfully",
 	})
 }
+
+// This keeps the models import used in projects where DeleteCustomer
+// still constructs a model directly elsewhere.
+var _ = models.Customer{}

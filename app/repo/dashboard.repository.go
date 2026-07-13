@@ -17,17 +17,17 @@ type DashboardRepository interface {
 	GetTotalCustomers() (int64, error)
 	GetActiveCustomers() (int64, error)
 	GetCustomersCreatedToday() (int64, error)
-	GetTotalCustomersWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetActiveCustomersWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetCustomersCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error)
+	GetTotalCustomersWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetActiveCustomersWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetCustomersCreatedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error)
 
 	// Vendor metrics
 	GetTotalVendors() (int64, error)
 	GetActiveVendors() (int64, error)
 	GetVendorsCreatedToday() (int64, error)
-	GetTotalVendorsWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetActiveVendorsWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetVendorsCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error)
+	GetTotalVendorsWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetActiveVendorsWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetVendorsCreatedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error)
 
 	// Item metrics
 	GetTotalItems() (int64, error)
@@ -37,23 +37,23 @@ type DashboardRepository interface {
 	GetOutOfStockItems() (int64, error)
 	GetItemsCreatedToday() (int64, error)
 	GetItemStockDetails() ([]map[string]interface{}, error)
-	GetItemStockDetailsWithFilter(shouldFilter bool, userID uint) ([]map[string]interface{}, error)
-	GetTotalItemsWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetTotalItemGroupsWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetTotalStockWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetLowStockItemsWithFilter(threshold int64, shouldFilter bool, userID uint) (int64, error)
-	GetOutOfStockItemsWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetItemsCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error)
+	GetItemStockDetailsWithFilter(shouldFilter bool, companyID uint) ([]map[string]interface{}, error)
+	GetTotalItemsWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetTotalItemGroupsWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetTotalStockWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetLowStockItemsWithFilter(threshold int64, shouldFilter bool, companyID uint) (int64, error)
+	GetOutOfStockItemsWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetItemsCreatedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error)
 
 	// Shipment metrics
 	GetTotalShipments() (int64, error)
 	GetShippedCount() (int64, error)
 	GetShipmentsByStatus(status string) (int64, error)
 	GetShippedToday() (int64, error)
-	GetTotalShipmentsWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetShippedCountWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetShippedTodayWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetShipmentsByStatusWithFilter(status string, shouldFilter bool, userID uint) (int64, error)
+	GetTotalShipmentsWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetShippedCountWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetShippedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetShipmentsByStatusWithFilter(status string, shouldFilter bool, companyID uint) (int64, error)
 
 	// Invoice metrics
 	GetTotalInvoices() (int64, error)
@@ -61,39 +61,39 @@ type DashboardRepository interface {
 	GetOutstandingInvoices() (float64, error)
 	GetInvoicesByStatus(status string) (int64, error)
 	GetOverdueInvoices() (int64, error)
-	GetTotalInvoicesWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetTotalInvoiceAmountWithFilter(shouldFilter bool, userID uint) (float64, error)
-	GetOutstandingInvoicesWithFilter(shouldFilter bool, userID uint) (float64, error)
-	GetInvoicesByStatusWithFilter(status string, shouldFilter bool, userID uint) (int64, error)
-	GetOverdueInvoicesWithFilter(shouldFilter bool, userID uint) (int64, error)
+	GetTotalInvoicesWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetTotalInvoiceAmountWithFilter(shouldFilter bool, companyID uint) (float64, error)
+	GetOutstandingInvoicesWithFilter(shouldFilter bool, companyID uint) (float64, error)
+	GetInvoicesByStatusWithFilter(status string, shouldFilter bool, companyID uint) (int64, error)
+	GetOverdueInvoicesWithFilter(shouldFilter bool, companyID uint) (int64, error)
 
 	// Sales order metrics
 	GetTotalSalesOrders() (int64, error)
 	GetTotalSalesOrderAmount() (float64, error)
 	GetSalesOrdersByStatus(status string) (int64, error)
 	GetSalesOrdersCreatedToday() (int64, error)
-	GetTotalSalesOrdersWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetTotalSalesOrderAmountWithFilter(shouldFilter bool, userID uint) (float64, error)
-	GetSalesOrdersByStatusWithFilter(status string, shouldFilter bool, userID uint) (int64, error)
-	GetSalesOrdersCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error)
+	GetTotalSalesOrdersWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetTotalSalesOrderAmountWithFilter(shouldFilter bool, companyID uint) (float64, error)
+	GetSalesOrdersByStatusWithFilter(status string, shouldFilter bool, companyID uint) (int64, error)
+	GetSalesOrdersCreatedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error)
 
 	// Purchase order metrics
 	GetTotalPurchaseOrders() (int64, error)
 	GetTotalPurchaseOrderAmount() (float64, error)
 	GetPurchaseOrdersByStatus(status string) (int64, error)
 	GetPurchaseOrdersCreatedToday() (int64, error)
-	GetTotalPurchaseOrdersWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetTotalPurchaseOrderAmountWithFilter(shouldFilter bool, userID uint) (float64, error)
-	GetPurchaseOrdersByStatusWithFilter(status string, shouldFilter bool, userID uint) (int64, error)
-	GetPurchaseOrdersCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error)
+	GetTotalPurchaseOrdersWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetTotalPurchaseOrderAmountWithFilter(shouldFilter bool, companyID uint) (float64, error)
+	GetPurchaseOrdersByStatusWithFilter(status string, shouldFilter bool, companyID uint) (int64, error)
+	GetPurchaseOrdersCreatedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error)
 
 	// Package metrics
 	GetTotalPackages() (int64, error)
 	GetPackagesByStatus(status string) (int64, error)
 	GetPackagesCreatedToday() (int64, error)
-	GetTotalPackagesWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetPackagesByStatusWithFilter(status string, shouldFilter bool, userID uint) (int64, error)
-	GetPackagesCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error)
+	GetTotalPackagesWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetPackagesByStatusWithFilter(status string, shouldFilter bool, companyID uint) (int64, error)
+	GetPackagesCreatedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error)
 
 	// Product stock metrics
 	GetTotalProducts() (int64, error)
@@ -102,20 +102,23 @@ type DashboardRepository interface {
 	GetOutOfStockProducts() (int64, error)
 	GetTotalProductStock() (float64, error)
 	GetProductStockDetails() ([]map[string]interface{}, error)
-	GetProductStockDetailsWithFilter(shouldFilter bool, userID uint) ([]map[string]interface{}, error)
-	GetTotalProductsWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetInStockProductsWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetLowStockProductsWithFilter(threshold float64, shouldFilter bool, userID uint) (int64, error)
-	GetOutOfStockProductsWithFilter(shouldFilter bool, userID uint) (int64, error)
-	GetTotalProductStockWithFilter(shouldFilter bool, userID uint) (float64, error)
+	GetProductStockDetailsWithFilter(shouldFilter bool, companyID uint) ([]map[string]interface{}, error)
+	GetTotalProductsWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetInStockProductsWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetLowStockProductsWithFilter(threshold float64, shouldFilter bool, companyID uint) (int64, error)
+	GetOutOfStockProductsWithFilter(shouldFilter bool, companyID uint) (int64, error)
+	GetTotalProductStockWithFilter(shouldFilter bool, companyID uint) (float64, error)
 
 	// Shipment tracking
 	AddShipmentTracking(tracking *models.ShipmentTracking) error
 	GetShipmentTracking(shipmentID string, limit int) ([]models.ShipmentTracking, error)
 	GetLatestShipmentTracking(shipmentID string) (*models.ShipmentTracking, error)
+	AddShipmentTrackingWithFilter(tracking *models.ShipmentTracking, shouldFilter bool, companyID uint) error
+	GetShipmentTrackingWithFilter(shipmentID string, limit int, shouldFilter bool, companyID uint) ([]models.ShipmentTracking, error)
 
 	// History
 	GetEntityCountHistory(entityType string, days int) ([]models.EntityCountHistory, error)
+	GetEntityCountHistoryWithFilter(entityType string, days int, shouldFilter bool, companyID uint) ([]models.EntityCountHistory, error)
 	SaveEntityCountHistory(history *models.EntityCountHistory) error
 }
 
@@ -291,14 +294,14 @@ func (r *dashboardRepository) GetItemStockDetails() ([]map[string]interface{}, e
 	return result, nil
 }
 
-// GetItemStockDetailsWithFilter retrieves stock details for items filtered by user
-func (r *dashboardRepository) GetItemStockDetailsWithFilter(shouldFilter bool, userID uint) ([]map[string]interface{}, error) {
+// GetItemStockDetailsWithFilter retrieves stock details for items filtered by company
+func (r *dashboardRepository) GetItemStockDetailsWithFilter(shouldFilter bool, companyID uint) ([]map[string]interface{}, error) {
 	// First, let's get items with optional filtering
 	var items []models.Item
 	query := r.db
 
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 
 	err := query.Find(&items).Error
@@ -308,7 +311,7 @@ func (r *dashboardRepository) GetItemStockDetailsWithFilter(shouldFilter bool, u
 		return nil, err
 	}
 
-	fmt.Printf("GetItemStockDetailsWithFilter: Found %d items (shouldFilter=%v, userID=%d)\n", len(items), shouldFilter, userID)
+	fmt.Printf("GetItemStockDetailsWithFilter: Found %d items (shouldFilter=%v, companyID=%d)\n", len(items), shouldFilter, companyID)
 
 	result := make([]map[string]interface{}, 0)
 
@@ -390,13 +393,13 @@ func (r *dashboardRepository) GetShippedToday() (int64, error) {
 	return count, err
 }
 
-func (r *dashboardRepository) GetShippedTodayWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetShippedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	today := time.Now().Truncate(24 * time.Hour)
 	query := r.db.Model(&models.Shipment{}).
 		Where("status = ? AND updated_at >= ?", "shipped", today)
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
@@ -556,6 +559,68 @@ func (r *dashboardRepository) GetLatestShipmentTracking(shipmentID string) (*mod
 	return &tracking, err
 }
 
+// AddShipmentTrackingWithFilter verifies that the shipment belongs to the
+// authenticated company before inserting a tracking record.
+func (r *dashboardRepository) AddShipmentTrackingWithFilter(
+	tracking *models.ShipmentTracking,
+	shouldFilter bool,
+	companyID uint,
+) error {
+	shipmentQuery := r.db.Model(&models.Shipment{}).
+		Where("id = ?", tracking.ShipmentID)
+
+	if shouldFilter {
+		shipmentQuery = shipmentQuery.Where("company_id = ?", companyID)
+	}
+
+	var count int64
+	if err := shipmentQuery.Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return r.db.Create(tracking).Error
+}
+
+// GetShipmentTrackingWithFilter returns tracking only when the shipment belongs
+// to the authenticated company.
+func (r *dashboardRepository) GetShipmentTrackingWithFilter(
+	shipmentID string,
+	limit int,
+	shouldFilter bool,
+	companyID uint,
+) ([]models.ShipmentTracking, error) {
+	if limit < 1 {
+		limit = 10
+	}
+
+	shipmentQuery := r.db.Model(&models.Shipment{}).
+		Where("id = ?", shipmentID)
+
+	if shouldFilter {
+		shipmentQuery = shipmentQuery.Where("company_id = ?", companyID)
+	}
+
+	var count int64
+	if err := shipmentQuery.Count(&count).Error; err != nil {
+		return nil, err
+	}
+	if count == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	var tracking []models.ShipmentTracking
+	err := r.db.
+		Where("shipment_id = ?", shipmentID).
+		Order("timestamp DESC").
+		Limit(limit).
+		Find(&tracking).Error
+
+	return tracking, err
+}
+
 // History
 func (r *dashboardRepository) GetEntityCountHistory(entityType string, days int) ([]models.EntityCountHistory, error) {
 	var history []models.EntityCountHistory
@@ -566,355 +631,378 @@ func (r *dashboardRepository) GetEntityCountHistory(entityType string, days int)
 	return history, err
 }
 
+func (r *dashboardRepository) GetEntityCountHistoryWithFilter(
+	entityType string,
+	days int,
+	shouldFilter bool,
+	companyID uint,
+) ([]models.EntityCountHistory, error) {
+	var history []models.EntityCountHistory
+	startDate := time.Now().AddDate(0, 0, -days)
+
+	query := r.db.Model(&models.EntityCountHistory{}).
+		Where("entity_type = ? AND date >= ?", entityType, startDate)
+
+	if shouldFilter {
+		query = query.Where("company_id = ?", companyID)
+	}
+
+	err := query.
+		Order("date ASC").
+		Find(&history).Error
+
+	return history, err
+}
+
 func (r *dashboardRepository) SaveEntityCountHistory(history *models.EntityCountHistory) error {
 	return r.db.Save(history).Error
 }
 
-// ==================== Filter Methods for User-based Dashboard ====================
+// ==================== Filter Methods for Company-based Dashboard ====================
 
 // Customer metrics with filter
-func (r *dashboardRepository) GetTotalCustomersWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetTotalCustomersWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Customer{})
-	if shouldFilter && userID > 0 {
-		fmt.Printf("Filtering customers by user_id=%d\n", userID)
-		query = query.Where("user_id = ?", userID)
+	if shouldFilter && companyID > 0 {
+		fmt.Printf("Filtering customers by company_id=%d\n", companyID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
-	fmt.Printf("GetTotalCustomersWithFilter result: count=%d, filter=%v, userID=%d\n", count, shouldFilter, userID)
+	fmt.Printf("GetTotalCustomersWithFilter result: count=%d, filter=%v, companyID=%d\n", count, shouldFilter, companyID)
 	return count, err
 }
 
-func (r *dashboardRepository) GetActiveCustomersWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetActiveCustomersWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Customer{}).Where("is_active = ?", true)
 	if shouldFilter {
-		query = query.Where("user_id = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetCustomersCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetCustomersCreatedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	today := time.Now().Truncate(24 * time.Hour)
 	query := r.db.Model(&models.Customer{}).Where("created_at >= ?", today)
 	if shouldFilter {
-		query = query.Where("user_id = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
 // Vendor metrics with filter
-func (r *dashboardRepository) GetTotalVendorsWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetTotalVendorsWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Vendor{})
-	if shouldFilter && userID > 0 {
-		fmt.Printf("Filtering vendors by user_id=%d\n", userID)
-		query = query.Where("user_id = ?", userID)
+	if shouldFilter && companyID > 0 {
+		fmt.Printf("Filtering vendors by company_id=%d\n", companyID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
-	fmt.Printf("GetTotalVendorsWithFilter result: count=%d, filter=%v, userID=%d\n", count, shouldFilter, userID)
+	fmt.Printf("GetTotalVendorsWithFilter result: count=%d, filter=%v, companyID=%d\n", count, shouldFilter, companyID)
 	return count, err
 }
 
-func (r *dashboardRepository) GetActiveVendorsWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetActiveVendorsWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Vendor{}).Where("is_active = ?", true)
 	if shouldFilter {
-		query = query.Where("user_id = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetVendorsCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetVendorsCreatedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	today := time.Now().Truncate(24 * time.Hour)
 	query := r.db.Model(&models.Vendor{}).Where("created_at >= ?", today)
 	if shouldFilter {
-		query = query.Where("user_id = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
 // Item metrics with filter
-func (r *dashboardRepository) GetTotalItemsWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetTotalItemsWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Item{})
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetTotalItemGroupsWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetTotalItemGroupsWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.ItemGroup{})
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetTotalStockWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetTotalStockWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var total int64
 	query := r.db.Model(&models.InventoryBalance{})
 	if shouldFilter {
-		// For inventory, we may need to join with items to filter by user
+		// For inventory, we may need to join with items to filter by company
 		query = query.Joins("LEFT JOIN items ON items.id = inventory_balances.item_id").
-			Where("items.created_by = ?", userID)
+			Where("items.company_id = ?", companyID)
 	}
 	err := query.Select("COALESCE(SUM(quantity), 0)").Row().Scan(&total)
 	return total, err
 }
 
-func (r *dashboardRepository) GetLowStockItemsWithFilter(threshold int64, shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetLowStockItemsWithFilter(threshold int64, shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.InventoryBalance{}).
 		Where("quantity > 0 AND quantity <= ?", threshold)
 	if shouldFilter {
 		query = query.Joins("LEFT JOIN items ON items.id = inventory_balances.item_id").
-			Where("items.created_by = ?", userID)
+			Where("items.company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetOutOfStockItemsWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetOutOfStockItemsWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.InventoryBalance{}).
 		Where("quantity <= 0")
 	if shouldFilter {
 		query = query.Joins("LEFT JOIN items ON items.id = inventory_balances.item_id").
-			Where("items.created_by = ?", userID)
+			Where("items.company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetItemsCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetItemsCreatedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	today := time.Now().Truncate(24 * time.Hour)
 	query := r.db.Model(&models.Item{}).Where("created_at >= ?", today)
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
 // Shipment metrics with filter
-func (r *dashboardRepository) GetTotalShipmentsWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetTotalShipmentsWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Shipment{})
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetShippedCountWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetShippedCountWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Shipment{}).
 		Where("status IN ?", []string{"shipped", "delivered"})
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetShipmentsByStatusWithFilter(status string, shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetShipmentsByStatusWithFilter(status string, shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Shipment{}).
 		Where("status = ?", status)
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
 // Invoice metrics with filter
-func (r *dashboardRepository) GetTotalInvoicesWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetTotalInvoicesWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Invoice{})
-	if shouldFilter && userID > 0 {
-		userIDStr := fmt.Sprintf("%d", userID)
-		fmt.Printf("Filtering invoices by created_by=%s\n", userIDStr)
-		query = query.Where("created_by = ?", userIDStr)
+	if shouldFilter && companyID > 0 {
+		companyIDStr := companyID
+		fmt.Printf("Filtering invoices by company_id=%s\n", companyIDStr)
+		query = query.Where("company_id = ?", companyIDStr)
 	}
 	err := query.Count(&count).Error
-	fmt.Printf("GetTotalInvoicesWithFilter result: count=%d, filter=%v, userID=%d\n", count, shouldFilter, userID)
+	fmt.Printf("GetTotalInvoicesWithFilter result: count=%d, filter=%v, companyID=%d\n", count, shouldFilter, companyID)
 	return count, err
 }
 
-func (r *dashboardRepository) GetTotalInvoiceAmountWithFilter(shouldFilter bool, userID uint) (float64, error) {
+func (r *dashboardRepository) GetTotalInvoiceAmountWithFilter(shouldFilter bool, companyID uint) (float64, error) {
 	var amount float64
 	query := r.db.Model(&models.Invoice{})
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Select("COALESCE(SUM(total), 0)").Row().Scan(&amount)
 	return amount, err
 }
 
-func (r *dashboardRepository) GetOutstandingInvoicesWithFilter(shouldFilter bool, userID uint) (float64, error) {
+func (r *dashboardRepository) GetOutstandingInvoicesWithFilter(shouldFilter bool, companyID uint) (float64, error) {
 	var amount float64
 	query := r.db.Model(&models.Invoice{}).
 		Where("status IN ?", []string{"pending", "partially_paid"})
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Select("COALESCE(SUM(total), 0)").Row().Scan(&amount)
 	return amount, err
 }
 
-func (r *dashboardRepository) GetInvoicesByStatusWithFilter(status string, shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetInvoicesByStatusWithFilter(status string, shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Invoice{}).
 		Where("status = ?", status)
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetOverdueInvoicesWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetOverdueInvoicesWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Invoice{}).
 		Where("status IN ? AND due_date < ?", []string{"pending", "partially_paid"}, time.Now())
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
 // Sales order metrics with filter
-func (r *dashboardRepository) GetTotalSalesOrdersWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetTotalSalesOrdersWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.SalesOrder{})
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetTotalSalesOrderAmountWithFilter(shouldFilter bool, userID uint) (float64, error) {
+func (r *dashboardRepository) GetTotalSalesOrderAmountWithFilter(shouldFilter bool, companyID uint) (float64, error) {
 	var amount float64
 	query := r.db.Model(&models.SalesOrder{})
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Select("COALESCE(SUM(total_amount), 0)").Row().Scan(&amount)
 	return amount, err
 }
 
-func (r *dashboardRepository) GetSalesOrdersByStatusWithFilter(status string, shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetSalesOrdersByStatusWithFilter(status string, shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.SalesOrder{}).
 		Where("status = ?", status)
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetSalesOrdersCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetSalesOrdersCreatedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	today := time.Now().Truncate(24 * time.Hour)
 	query := r.db.Model(&models.SalesOrder{}).
 		Where("created_at >= ?", today)
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
 // Purchase order metrics with filter
-func (r *dashboardRepository) GetTotalPurchaseOrdersWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetTotalPurchaseOrdersWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.PurchaseOrder{})
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetTotalPurchaseOrderAmountWithFilter(shouldFilter bool, userID uint) (float64, error) {
+func (r *dashboardRepository) GetTotalPurchaseOrderAmountWithFilter(shouldFilter bool, companyID uint) (float64, error) {
 	var amount float64
 	query := r.db.Model(&models.PurchaseOrder{})
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Select("COALESCE(SUM(total_amount), 0)").Row().Scan(&amount)
 	return amount, err
 }
 
-func (r *dashboardRepository) GetPurchaseOrdersByStatusWithFilter(status string, shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetPurchaseOrdersByStatusWithFilter(status string, shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.PurchaseOrder{}).
 		Where("status = ?", status)
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetPurchaseOrdersCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetPurchaseOrdersCreatedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	today := time.Now().Truncate(24 * time.Hour)
 	query := r.db.Model(&models.PurchaseOrder{}).
 		Where("created_at >= ?", today)
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
 // Package metrics with filter
-func (r *dashboardRepository) GetTotalPackagesWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetTotalPackagesWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Package{})
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetPackagesByStatusWithFilter(status string, shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetPackagesByStatusWithFilter(status string, shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.Package{}).
 		Where("status = ?", status)
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetPackagesCreatedTodayWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetPackagesCreatedTodayWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	today := time.Now().Truncate(24 * time.Hour)
 	query := r.db.Model(&models.Package{}).
 		Where("created_at >= ?", today)
 	if shouldFilter {
-		query = query.Where("created_by = ?", userID)
+		query = query.Where("company_id = ?", companyID)
 	}
 	err := query.Count(&count).Error
 	return count, err
@@ -1039,8 +1127,8 @@ func (r *dashboardRepository) GetProductStockDetails() ([]map[string]interface{}
 	return result, nil
 }
 
-func (r *dashboardRepository) GetProductStockDetailsWithFilter(shouldFilter bool, userID uint) ([]map[string]interface{}, error) {
-	// Aggregate variant stocks by product, filtered by user
+func (r *dashboardRepository) GetProductStockDetailsWithFilter(shouldFilter bool, companyID uint) ([]map[string]interface{}, error) {
+	// Aggregate variant stocks by product, filtered by company
 	type ProductStockAggregate struct {
 		ProductID         string `gorm:"column:product_id"`
 		ProductName       string `gorm:"column:product_name"`
@@ -1060,10 +1148,10 @@ func (r *dashboardRepository) GetProductStockDetailsWithFilter(shouldFilter bool
 
 	if shouldFilter {
 		// Use LEFT JOIN to include product groups (pg_xxx) which don't have corresponding products
-		// Filter for: (real products created by user) OR (product groups)
+		// Filter for: (real products created by company) OR (product groups)
 		query = query.
 			Joins("LEFT JOIN products ON variant_stocks.product_id = products.id").
-			Where("(products.created_by = ?) OR (variant_stocks.product_id LIKE 'pg_%')", fmt.Sprintf("%d", userID))
+			Where("(products.created_by = ?) OR (variant_stocks.product_id LIKE 'pg_%')", companyID)
 	}
 
 	err := query.
@@ -1088,7 +1176,7 @@ func (r *dashboardRepository) GetProductStockDetailsWithFilter(shouldFilter bool
 		return nil, err
 	}
 
-	fmt.Printf("GetProductStockDetailsWithFilter (shouldFilter=%v, userID=%d): Found %d products\n", shouldFilter, userID, len(products))
+	fmt.Printf("GetProductStockDetailsWithFilter (shouldFilter=%v, companyID=%d): Found %d products\n", shouldFilter, companyID, len(products))
 
 	result := make([]map[string]interface{}, 0)
 
@@ -1121,21 +1209,21 @@ func (r *dashboardRepository) GetProductStockDetailsWithFilter(shouldFilter bool
 	return result, nil
 }
 
-func (r *dashboardRepository) GetTotalProductsWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetTotalProductsWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.VariantStock{}).Distinct("product_id")
 
 	if shouldFilter {
 		query = query.
 			Joins("JOIN products ON variant_stocks.product_id = products.id").
-			Where("products.created_by = ?", fmt.Sprintf("%d", userID))
+			Where("products.company_id = ?", companyID)
 	}
 
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetInStockProductsWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetInStockProductsWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.VariantStock{}).
 		Select("DISTINCT product_id").
@@ -1144,14 +1232,14 @@ func (r *dashboardRepository) GetInStockProductsWithFilter(shouldFilter bool, us
 	if shouldFilter {
 		query = query.
 			Joins("JOIN products ON variant_stocks.product_id = products.id").
-			Where("products.created_by = ?", fmt.Sprintf("%d", userID))
+			Where("products.company_id = ?", companyID)
 	}
 
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetLowStockProductsWithFilter(threshold float64, shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetLowStockProductsWithFilter(threshold float64, shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.VariantStock{}).
 		Select("DISTINCT product_id").
@@ -1160,14 +1248,14 @@ func (r *dashboardRepository) GetLowStockProductsWithFilter(threshold float64, s
 	if shouldFilter {
 		query = query.
 			Joins("JOIN products ON variant_stocks.product_id = products.id").
-			Where("products.created_by = ?", fmt.Sprintf("%d", userID))
+			Where("products.company_id = ?", companyID)
 	}
 
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetOutOfStockProductsWithFilter(shouldFilter bool, userID uint) (int64, error) {
+func (r *dashboardRepository) GetOutOfStockProductsWithFilter(shouldFilter bool, companyID uint) (int64, error) {
 	var count int64
 	query := r.db.Model(&models.VariantStock{}).
 		Select("DISTINCT product_id").
@@ -1176,21 +1264,21 @@ func (r *dashboardRepository) GetOutOfStockProductsWithFilter(shouldFilter bool,
 	if shouldFilter {
 		query = query.
 			Joins("JOIN products ON variant_stocks.product_id = products.id").
-			Where("products.created_by = ?", fmt.Sprintf("%d", userID))
+			Where("products.company_id = ?", companyID)
 	}
 
 	err := query.Count(&count).Error
 	return count, err
 }
 
-func (r *dashboardRepository) GetTotalProductStockWithFilter(shouldFilter bool, userID uint) (float64, error) {
+func (r *dashboardRepository) GetTotalProductStockWithFilter(shouldFilter bool, companyID uint) (float64, error) {
 	var total float64
 	query := r.db.Model(&models.VariantStock{})
 
 	if shouldFilter {
 		query = query.
 			Joins("JOIN products ON variant_stocks.product_id = products.id").
-			Where("products.created_by = ?", fmt.Sprintf("%d", userID))
+			Where("products.company_id = ?", companyID)
 	}
 
 	err := query.

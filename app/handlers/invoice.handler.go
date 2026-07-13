@@ -24,29 +24,101 @@ func NewInvoiceHandler(service services.InvoiceService) *InvoiceHandler {
 	}
 }
 
-func (h *InvoiceHandler) CreateInvoice(c *fiber.Ctx) error {
-	var input input.CreateInvoiceInput
+func invoiceLocalUint(c *fiber.Ctx, key string) uint {
+	value := c.Locals(key)
 
-	if err := c.BodyParser(&input); err != nil {
+	switch typed := value.(type) {
+	case uint:
+		return typed
+	case uint64:
+		return uint(typed)
+	case int:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case int64:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case float64:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case string:
+		parsed, err := strconv.ParseUint(typed, 10, 64)
+		if err == nil {
+			return uint(parsed)
+		}
+	}
+
+	return 0
+}
+
+func invoiceAuthContext(c *fiber.Ctx) (string, uint, error) {
+	userID := invoiceLocalUint(c, "user_id")
+	companyID := invoiceLocalUint(c, "company_id")
+
+	if userID == 0 {
+		return "", 0, fmt.Errorf("invalid authenticated user")
+	}
+
+	if companyID == 0 {
+		return "", 0, fmt.Errorf("user is not assigned to a company")
+	}
+
+	return strconv.FormatUint(uint64(userID), 10), companyID, nil
+}
+
+func invoicePagination(c *fiber.Ctx) (int, int) {
+	limit, err := strconv.Atoi(c.Query("limit", "10"))
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset, err := strconv.Atoi(c.Query("offset", "0"))
+	if err != nil || offset < 0 {
+		offset = 0
+	}
+
+	return limit, offset
+}
+
+func invoiceContextError(c *fiber.Ctx, err error) error {
+	return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+		"error": err.Error(),
+	})
+}
+
+func (h *InvoiceHandler) CreateInvoice(c *fiber.Ctx) error {
+	var req input.CreateInvoiceInput
+
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
 	}
 
-	if err := h.validate.Struct(input); err != nil {
+	if err := h.validate.Struct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	userID, companyID, err := invoiceAuthContext(c)
+	if err != nil {
+		return invoiceContextError(c, err)
 	}
 
-	invoice, err := h.service.CreateInvoice(&input, userID)
+	invoice, err := h.service.CreateInvoiceForCompany(
+		&req,
+		userID,
+		companyID,
+	)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
@@ -57,7 +129,12 @@ func (h *InvoiceHandler) CreateInvoice(c *fiber.Ctx) error {
 func (h *InvoiceHandler) GetInvoice(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	invoice, err := h.service.GetInvoice(id)
+	_, companyID, err := invoiceAuthContext(c)
+	if err != nil {
+		return invoiceContextError(c, err)
+	}
+
+	invoice, err := h.service.GetInvoiceByCompany(id, companyID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Invoice not found",
@@ -68,10 +145,18 @@ func (h *InvoiceHandler) GetInvoice(c *fiber.Ctx) error {
 }
 
 func (h *InvoiceHandler) GetAllInvoices(c *fiber.Ctx) error {
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	offset, _ := strconv.Atoi(c.Query("offset", "0"))
+	limit, offset := invoicePagination(c)
 
-	invoices, err := h.service.GetAllInvoices(limit, offset)
+	_, companyID, err := invoiceAuthContext(c)
+	if err != nil {
+		return invoiceContextError(c, err)
+	}
+
+	invoices, err := h.service.GetAllInvoicesByCompany(
+		companyID,
+		limit,
+		offset,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -84,28 +169,32 @@ func (h *InvoiceHandler) GetAllInvoices(c *fiber.Ctx) error {
 func (h *InvoiceHandler) UpdateInvoice(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	var input input.UpdateInvoiceInput
-
-	if err := c.BodyParser(&input); err != nil {
+	var req input.UpdateInvoiceInput
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
 	}
 
-	if err := h.validate.Struct(input); err != nil {
+	if err := h.validate.Struct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	userID, companyID, err := invoiceAuthContext(c)
+	if err != nil {
+		return invoiceContextError(c, err)
 	}
 
-	invoice, err := h.service.UpdateInvoice(id, &input, userID)
+	invoice, err := h.service.UpdateInvoiceForCompany(
+		id,
+		&req,
+		userID,
+		companyID,
+	)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
@@ -116,8 +205,13 @@ func (h *InvoiceHandler) UpdateInvoice(c *fiber.Ctx) error {
 func (h *InvoiceHandler) DeleteInvoice(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	if err := h.service.DeleteInvoice(id); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	_, companyID, err := invoiceAuthContext(c)
+	if err != nil {
+		return invoiceContextError(c, err)
+	}
+
+	if err := h.service.DeleteInvoiceForCompany(id, companyID); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
@@ -128,11 +222,30 @@ func (h *InvoiceHandler) DeleteInvoice(c *fiber.Ctx) error {
 }
 
 func (h *InvoiceHandler) GetInvoicesByCustomer(c *fiber.Ctx) error {
-	customerID := c.Params("customerId")
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	offset, _ := strconv.Atoi(c.Query("offset", "0"))
+	customerID64, err := strconv.ParseUint(
+		c.Params("customerId"),
+		10,
+		32,
+	)
+	if err != nil || customerID64 == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid customer ID",
+		})
+	}
 
-	invoices, err := h.service.GetInvoicesByCustomer(customerID, limit, offset)
+	limit, offset := invoicePagination(c)
+
+	_, companyID, err := invoiceAuthContext(c)
+	if err != nil {
+		return invoiceContextError(c, err)
+	}
+
+	invoices, err := h.service.GetInvoicesByCustomerAndCompany(
+		uint(customerID64),
+		companyID,
+		limit,
+		offset,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -144,10 +257,19 @@ func (h *InvoiceHandler) GetInvoicesByCustomer(c *fiber.Ctx) error {
 
 func (h *InvoiceHandler) GetInvoicesByStatus(c *fiber.Ctx) error {
 	status := c.Params("status")
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	offset, _ := strconv.Atoi(c.Query("offset", "0"))
+	limit, offset := invoicePagination(c)
 
-	invoices, err := h.service.GetInvoicesByStatus(status, limit, offset)
+	_, companyID, err := invoiceAuthContext(c)
+	if err != nil {
+		return invoiceContextError(c, err)
+	}
+
+	invoices, err := h.service.GetInvoicesByStatusAndCompany(
+		status,
+		companyID,
+		limit,
+		offset,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -160,23 +282,32 @@ func (h *InvoiceHandler) GetInvoicesByStatus(c *fiber.Ctx) error {
 func (h *InvoiceHandler) UpdateInvoiceStatus(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	var input input.InvoiceStatusUpdateInput
-
-	if err := c.BodyParser(&input); err != nil {
+	var req input.InvoiceStatusUpdateInput
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
 	}
 
-	if err := h.validate.Struct(input); err != nil {
+	if err := h.validate.Struct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	invoice, err := h.service.UpdateInvoiceStatus(id, input.Status)
+	userID, companyID, err := invoiceAuthContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return invoiceContextError(c, err)
+	}
+
+	invoice, err := h.service.UpdateInvoiceStatusForCompany(
+		id,
+		req.Status,
+		userID,
+		companyID,
+	)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
@@ -437,28 +568,32 @@ func NewPaymentHandler(service services.PaymentService) *PaymentHandler {
 }
 
 func (h *PaymentHandler) CreatePayment(c *fiber.Ctx) error {
-	var input input.CreatePaymentInput
+	var req input.CreatePaymentInput
 
-	if err := c.BodyParser(&input); err != nil {
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
 	}
 
-	if err := h.validate.Struct(input); err != nil {
+	if err := h.validate.Struct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	userID, companyID, err := invoiceAuthContext(c)
+	if err != nil {
+		return invoiceContextError(c, err)
 	}
 
-	payment, err := h.service.CreatePayment(&input, userID)
+	payment, err := h.service.CreatePaymentForCompany(
+		&req,
+		userID,
+		companyID,
+	)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
@@ -468,13 +603,21 @@ func (h *PaymentHandler) CreatePayment(c *fiber.Ctx) error {
 
 func (h *PaymentHandler) GetPayment(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil {
+	if err != nil || id == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid payment ID",
 		})
 	}
 
-	payment, err := h.service.GetPayment(uint(id))
+	_, companyID, err := invoiceAuthContext(c)
+	if err != nil {
+		return invoiceContextError(c, err)
+	}
+
+	payment, err := h.service.GetPaymentForCompany(
+		uint(id),
+		companyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Payment not found",
@@ -487,7 +630,15 @@ func (h *PaymentHandler) GetPayment(c *fiber.Ctx) error {
 func (h *PaymentHandler) GetPaymentsByInvoice(c *fiber.Ctx) error {
 	invoiceID := c.Params("invoiceId")
 
-	payments, err := h.service.GetPaymentsByInvoice(invoiceID)
+	_, companyID, err := invoiceAuthContext(c)
+	if err != nil {
+		return invoiceContextError(c, err)
+	}
+
+	payments, err := h.service.GetPaymentsByInvoiceForCompany(
+		invoiceID,
+		companyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -499,14 +650,22 @@ func (h *PaymentHandler) GetPaymentsByInvoice(c *fiber.Ctx) error {
 
 func (h *PaymentHandler) DeletePayment(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
-	if err != nil {
+	if err != nil || id == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid payment ID",
 		})
 	}
 
-	if err := h.service.DeletePayment(uint(id)); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	_, companyID, err := invoiceAuthContext(c)
+	if err != nil {
+		return invoiceContextError(c, err)
+	}
+
+	if err := h.service.DeletePaymentForCompany(
+		uint(id),
+		companyID,
+	); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
@@ -516,7 +675,8 @@ func (h *PaymentHandler) DeletePayment(c *fiber.Ctx) error {
 	})
 }
 
-// CreateInvoiceFromVariants creates an invoice from sales order variants
+// CreateInvoiceFromVariants creates an invoice preview from variants.
+// It validates that the customer and products belong to the authenticated company.
 func (h *InvoiceHandler) CreateInvoiceFromVariants(c *fiber.Ctx) error {
 	var invoiceInput input.CreateInvoiceInput
 
@@ -531,13 +691,40 @@ func (h *InvoiceHandler) CreateInvoiceFromVariants(c *fiber.Ctx) error {
 			"error": err.Error(),
 		})
 	}
-	// Generate invoice number
-	importTime := time.Now()
-	invoiceNo := fmt.Sprintf("INV-%d-%05d", importTime.Year(), c.Locals("request_id"))
+
+	_, companyID, err := invoiceAuthContext(c)
+	if err != nil {
+		return invoiceContextError(c, err)
+	}
+
+	if err := h.service.ValidateInvoiceInputForCompany(
+		&invoiceInput,
+		companyID,
+	); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	invoiceNo := fmt.Sprintf(
+		"INV-%d-%d",
+		time.Now().Year(),
+		time.Now().UnixNano(),
+	)
+
 	var subTotal float64
-	lineItems := make([]output.InvoiceLineItemOutput, len(invoiceInput.LineItems))
+	lineItems := make(
+		[]output.InvoiceLineItemOutput,
+		len(invoiceInput.LineItems),
+	)
 
 	for i, item := range invoiceInput.LineItems {
+		if item.ProductID == nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "product_id is required",
+			})
+		}
+
 		amount := item.Quantity * item.Rate
 		subTotal += amount
 
@@ -552,19 +739,19 @@ func (h *InvoiceHandler) CreateInvoiceFromVariants(c *fiber.Ctx) error {
 		}
 	}
 
-	// Calculate totals
-	total := subTotal + invoiceInput.ShippingCharges + invoiceInput.Adjustment
+	total := subTotal +
+		invoiceInput.ShippingCharges +
+		invoiceInput.Adjustment
 
-	// Create invoice output
 	invoiceOutput := output.CreateInvoiceVariantOutput(
 		invoiceNo,
 		invoiceInput.SalesOrderID,
 		invoiceInput.CustomerID,
-		"", // Fetch customer name from DB
+		"",
 		lineItems,
 		subTotal,
 		invoiceInput.ShippingCharges,
-		0, // totalTax
+		0,
 		total,
 	)
 

@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/models"
@@ -62,6 +63,154 @@ func (r *productStockRepository) GetAll(offset, limit int) ([]models.ProductStoc
 
 	return stocks, total, nil
 }
+
+// GetByProductIDAndCompany keeps the existing GetByProductID method untouched.
+// Normal admins are filtered through products.created_by_company_id.
+// Superadmin calls this with shouldFilter=false.
+func (r *productStockRepository) GetByProductIDAndCompany(
+	productID string,
+	companyID uint,
+	shouldFilter bool,
+) (*models.ProductStock, error) {
+	var stock models.ProductStock
+
+	query := r.db.
+		Model(&models.ProductStock{}).
+		Joins("JOIN products ON products.id = product_stocks.product_id").
+		Where("product_stocks.product_id = ?", productID)
+
+	if shouldFilter {
+		query = query.Where(
+			"products.created_by_company_id = ?",
+			companyID,
+		)
+	}
+
+	if err := query.Preload("Product").First(&stock).Error; err != nil {
+		return nil, err
+	}
+
+	return &stock, nil
+}
+
+// GetAllByCompanyWithRawFilter returns every product stock belonging to the
+// company, regardless of which user in that company created the product.
+func (r *productStockRepository) GetAllByCompanyWithRawFilter(
+	companyID uint,
+	shouldFilter bool,
+	offset int,
+	limit int,
+	includeRaw bool,
+) ([]models.ProductStock, int64, error) {
+	var stocks []models.ProductStock
+	var total int64
+
+	query := r.db.
+		Model(&models.ProductStock{}).
+		Joins("JOIN products ON products.id = product_stocks.product_id").
+		Where("products.is_raw = ?", includeRaw)
+
+	if shouldFilter {
+		query = query.Where(
+			"products.created_by_company_id = ?",
+			companyID,
+		)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := query.
+		Preload("Product").
+		Offset(offset).
+		Limit(limit).
+		Order("product_stocks.created_at DESC").
+		Find(&stocks).
+		Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return stocks, total, nil
+}
+
+// UpdateByCompany validates ownership before using the existing update logic.
+func (r *productStockRepository) UpdateByCompany(
+	stock *models.ProductStock,
+	companyID uint,
+	shouldFilter bool,
+) error {
+	if stock == nil {
+		return gorm.ErrInvalidData
+	}
+
+	if shouldFilter {
+		var count int64
+
+		err := r.db.
+			Model(&models.Product{}).
+			Where(
+				"id = ? AND created_by_company_id = ?",
+				stock.ProductID,
+				companyID,
+			).
+			Count(&count).
+			Error
+
+		if err != nil {
+			return err
+		}
+
+		if count == 0 {
+			return gorm.ErrRecordNotFound
+		}
+	}
+
+	return r.Update(stock)
+}
+
+func (r *productStockRepository) GetDamagedProductsByCompany(
+	companyID uint,
+	shouldFilter bool,
+	offset int,
+	limit int,
+) ([]models.ProductStock, int64, error) {
+	var stocks []models.ProductStock
+	var total int64
+
+	query := r.db.
+		Model(&models.ProductStock{}).
+		Joins("JOIN products ON products.id = product_stocks.product_id").
+		Where("product_stocks.damaged_stock > ?", 0)
+
+	if shouldFilter {
+		query = query.Where(
+			"products.created_by_company_id = ?",
+			companyID,
+		)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := query.
+		Preload("Product").
+		Offset(offset).
+		Limit(limit).
+		Order("product_stocks.damaged_at DESC").
+		Find(&stocks).
+		Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return stocks, total, nil
+}
+
 
 func (r *productStockRepository) GetByProductIDs(productIDs []string) ([]models.ProductStock, error) {
 	var stocks []models.ProductStock
@@ -213,6 +362,83 @@ func (r *stockLedgerRepository) GetByID(id uint) (*models.StockLedger, error) {
 	}
 	return &ledger, nil
 }
+
+// CreateForCompany validates the product before preserving the existing Create.
+func (r *stockLedgerRepository) CreateForCompany(
+	ledger *models.StockLedger,
+	companyID uint,
+	shouldFilter bool,
+) error {
+	if ledger == nil {
+		return gorm.ErrInvalidData
+	}
+
+	if shouldFilter {
+		var count int64
+
+		err := r.db.
+			Model(&models.Product{}).
+			Where(
+				"id = ? AND created_by_company_id = ?",
+				ledger.ProductID,
+				companyID,
+			).
+			Count(&count).
+			Error
+
+		if err != nil {
+			return err
+		}
+
+		if count == 0 {
+			return fmt.Errorf("product does not belong to company")
+		}
+	}
+
+	return r.Create(ledger)
+}
+
+func (r *stockLedgerRepository) GetProductMovementHistoryByCompany(
+	productID string,
+	companyID uint,
+	shouldFilter bool,
+	offset int,
+	limit int,
+) ([]models.StockLedger, int64, error) {
+	var ledgers []models.StockLedger
+	var total int64
+
+	query := r.db.
+		Model(&models.StockLedger{}).
+		Joins("JOIN products ON products.id = stock_ledgers.product_id").
+		Where("stock_ledgers.product_id = ?", productID)
+
+	if shouldFilter {
+		query = query.Where(
+			"products.created_by_company_id = ?",
+			companyID,
+		)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := query.
+		Preload("Product").
+		Offset(offset).
+		Limit(limit).
+		Order("stock_ledgers.created_at DESC").
+		Find(&ledgers).
+		Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return ledgers, total, nil
+}
+
 
 func (r *stockLedgerRepository) GetByProductID(productID string, offset, limit int) ([]models.StockLedger, int64, error) {
 	var ledgers []models.StockLedger

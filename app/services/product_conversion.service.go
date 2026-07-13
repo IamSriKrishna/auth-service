@@ -30,7 +30,23 @@ type ProductConversionService interface {
 	GetConversionRecord(recordID string) (*output.ProductConversionRecordOutput, error)
 	ListConversionRecords(offset, limit int) (*output.ProductConversionRecordListOutput, error)
 	ListConversionRecordsByRule(conversionID string, offset, limit int) (*output.ProductConversionRecordListOutput, error)
+
 	ListConversionRecordsByDateRange(fromDate, toDate time.Time, offset, limit int) (*output.ProductConversionRecordListOutput, error)
+
+	// Company-scoped methods.
+	CreateConversionForCompany(*input.CreateProductConversionInput, string, uint, string, string) (*output.ProductConversionOutput, error)
+	UpdateConversionForCompany(string, *input.UpdateProductConversionInput, string, string, uint) (*output.ProductConversionOutput, error)
+	DeleteConversionForCompany(string, uint) error
+	GetConversionForCompany(string, uint) (*output.ProductConversionOutput, error)
+	ListConversionsForCompany(uint, int, int) (*output.ProductConversionListOutput, error)
+	ListActiveConversionsForCompany(uint, int, int) (*output.ProductConversionListOutput, error)
+	GetConversionsByRawProductForCompany(string, uint, int, int) (*output.ProductConversionListOutput, error)
+	GetConversionsByFinishedProductForCompany(string, uint, int, int) (*output.ProductConversionListOutput, error)
+	ExecuteConversionForCompany(*input.CreateProductConversionRecordInput, string, uint, string, string) (*output.ConversionExecutionOutput, error)
+	GetConversionRecordForCompany(string, uint) (*output.ProductConversionRecordOutput, error)
+	ListConversionRecordsForCompany(uint, int, int) (*output.ProductConversionRecordListOutput, error)
+	ListConversionRecordsByRuleForCompany(string, uint, int, int) (*output.ProductConversionRecordListOutput, error)
+	ListConversionRecordsByDateRangeForCompany(time.Time, time.Time, uint, int, int) (*output.ProductConversionRecordListOutput, error)
 }
 
 type productConversionService struct {
@@ -41,6 +57,7 @@ type productConversionService struct {
 	stockManagementSvc StockManagementService
 	variantStockMgmt   VariantStockManagementService
 	rawMaterialBagSvc  RawMaterialBagService
+	userRepo           repo.UserRepository
 }
 
 func NewProductConversionService(
@@ -51,6 +68,7 @@ func NewProductConversionService(
 	stockManagementSvc StockManagementService,
 	variantStockMgmt VariantStockManagementService,
 	rawMaterialBagSvc RawMaterialBagService,
+	userRepo repo.UserRepository,
 ) ProductConversionService {
 	return &productConversionService{
 		conversionRepo:     conversionRepo,
@@ -60,6 +78,7 @@ func NewProductConversionService(
 		stockManagementSvc: stockManagementSvc,
 		variantStockMgmt:   variantStockMgmt,
 		rawMaterialBagSvc:  rawMaterialBagSvc,
+		userRepo:           userRepo,
 	}
 }
 
@@ -654,4 +673,210 @@ func (s *productConversionService) mapRecordToOutput(record *models.ProductConve
 		BagsUsed:                 bagOutputs,
 		CreatedAt:                record.CreatedAt,
 	}
+}
+
+func (s *productConversionService) validateConversionUser(userID string, companyID uint) error {
+	var id uint
+	if _, err := fmt.Sscanf(userID, "%d", &id); err != nil || id == 0 {
+		return errors.New("invalid authenticated user")
+	}
+	user, err := s.userRepo.GetByIDAndCompanyID(id, companyID)
+	if err != nil || user == nil {
+		return errors.New("user does not belong to the company")
+	}
+	return nil
+}
+
+func conversionListOutput(items []models.ProductConversion, total int64, offset, limit int, mapper func(*models.ProductConversion) *output.ProductConversionOutput) *output.ProductConversionListOutput {
+	results := make([]output.ProductConversionOutput, len(items))
+	for i := range items {
+		results[i] = *mapper(&items[i])
+	}
+	page := 1
+	if limit > 0 {
+		page = offset/limit + 1
+	}
+	return &output.ProductConversionListOutput{Conversions: results, Total: total, Page: page, Limit: limit}
+}
+
+func recordListOutput(items []models.ProductConversionRecord, total int64, offset, limit int, mapper func(*models.ProductConversionRecord) *output.ProductConversionRecordOutput) *output.ProductConversionRecordListOutput {
+	results := make([]output.ProductConversionRecordOutput, len(items))
+	for i := range items {
+		results[i] = *mapper(&items[i])
+	}
+	page := 1
+	if limit > 0 {
+		page = offset/limit + 1
+	}
+	return &output.ProductConversionRecordListOutput{Records: results, Total: total, Page: page, Limit: limit}
+}
+
+func (s *productConversionService) CreateConversionForCompany(in *input.CreateProductConversionInput, userID string, companyID uint, userName, companyName string) (*output.ProductConversionOutput, error) {
+	if in == nil {
+		return nil, errors.New("input cannot be nil")
+	}
+	if err := s.validateConversionUser(userID, companyID); err != nil {
+		return nil, err
+	}
+	raw, err := s.productRepo.FindByIDAndCompany(in.RawProductID, companyID)
+	if err != nil || raw == nil {
+		return nil, errors.New("raw product not found in your company")
+	}
+	finished, err := s.productRepo.FindByIDAndCompany(in.FinishedProductID, companyID)
+	if err != nil || finished == nil {
+		return nil, errors.New("finished product not found in your company")
+	}
+	existing, err := s.conversionRepo.GetByProductPairAndCompany(in.RawProductID, in.FinishedProductID, companyID)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, errors.New("conversion rule already exists for this product pair in your company")
+	}
+	conversion := &models.ProductConversion{
+		ID: uuid.New().String(), RawProductID: in.RawProductID, RawProductName: raw.Name,
+		RawProductSpec: raw.RawSpecification, FinishedProductID: in.FinishedProductID,
+		FinishedProductName: finished.Name, FinishedVariantSKU: in.FinishedVariantSKU,
+		ConversionRatio: in.ConversionRatio, LossPercentage: in.LossPercentage, IsActive: in.IsActive,
+		Notes: in.Notes, CreatedBy: userID, CreatedByUserName: userName,
+		CreatedByCompanyID: companyID, CreatedByCompanyName: companyName,
+		CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+	if err := s.conversionRepo.CreateForCompany(conversion, companyID); err != nil {
+		return nil, err
+	}
+	return s.mapConversionToOutput(conversion), nil
+}
+
+func (s *productConversionService) UpdateConversionForCompany(id string, in *input.UpdateProductConversionInput, userID, userName string, companyID uint) (*output.ProductConversionOutput, error) {
+	if err := s.validateConversionUser(userID, companyID); err != nil {
+		return nil, err
+	}
+	c, err := s.conversionRepo.GetByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, errors.New("conversion not found")
+	}
+	if in.ConversionRatio != nil {
+		c.ConversionRatio = *in.ConversionRatio
+	}
+	if in.LossPercentage != nil {
+		c.LossPercentage = *in.LossPercentage
+	}
+	if in.IsActive != nil {
+		c.IsActive = *in.IsActive
+	}
+	if in.FinishedVariantSKU != nil {
+		c.FinishedVariantSKU = *in.FinishedVariantSKU
+	}
+	if in.Notes != nil {
+		c.Notes = *in.Notes
+	}
+	c.UpdatedBy, c.UpdatedByUserName, c.UpdatedAt = userID, userName, time.Now()
+	if err := s.conversionRepo.UpdateByCompany(c, companyID); err != nil {
+		return nil, err
+	}
+	return s.mapConversionToOutput(c), nil
+}
+
+func (s *productConversionService) DeleteConversionForCompany(id string, companyID uint) error {
+	return s.conversionRepo.DeleteByCompany(id, companyID)
+}
+func (s *productConversionService) GetConversionForCompany(id string, companyID uint) (*output.ProductConversionOutput, error) {
+	c, err := s.conversionRepo.GetByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, err
+	}
+	return s.mapConversionToOutput(c), nil
+}
+func (s *productConversionService) ListConversionsForCompany(companyID uint, offset, limit int) (*output.ProductConversionListOutput, error) {
+	items, total, err := s.conversionRepo.GetAllByCompany(companyID, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	return conversionListOutput(items, total, offset, limit, s.mapConversionToOutput), nil
+}
+func (s *productConversionService) ListActiveConversionsForCompany(companyID uint, offset, limit int) (*output.ProductConversionListOutput, error) {
+	items, total, err := s.conversionRepo.GetActiveConversionsByCompany(companyID, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	return conversionListOutput(items, total, offset, limit, s.mapConversionToOutput), nil
+}
+func (s *productConversionService) GetConversionsByRawProductForCompany(productID string, companyID uint, offset, limit int) (*output.ProductConversionListOutput, error) {
+	if _, err := s.productRepo.FindByIDAndCompany(productID, companyID); err != nil {
+		return nil, errors.New("raw product not found in your company")
+	}
+	items, total, err := s.conversionRepo.GetByRawProductIDAndCompany(productID, companyID, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	return conversionListOutput(items, total, offset, limit, s.mapConversionToOutput), nil
+}
+func (s *productConversionService) GetConversionsByFinishedProductForCompany(productID string, companyID uint, offset, limit int) (*output.ProductConversionListOutput, error) {
+	if _, err := s.productRepo.FindByIDAndCompany(productID, companyID); err != nil {
+		return nil, errors.New("finished product not found in your company")
+	}
+	items, total, err := s.conversionRepo.GetByFinishedProductIDAndCompany(productID, companyID, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	return conversionListOutput(items, total, offset, limit, s.mapConversionToOutput), nil
+}
+
+func (s *productConversionService) ExecuteConversionForCompany(in *input.CreateProductConversionRecordInput, userID string, companyID uint, userName, companyName string) (*output.ConversionExecutionOutput, error) {
+	if in == nil {
+		return nil, errors.New("input cannot be nil")
+	}
+	if err := s.validateConversionUser(userID, companyID); err != nil {
+		return nil, err
+	}
+	conversion, err := s.conversionRepo.GetByIDAndCompany(in.ConversionID, companyID)
+	if err != nil || conversion == nil {
+		return nil, errors.New("conversion not found")
+	}
+	if _, err = s.productRepo.FindByIDAndCompany(conversion.RawProductID, companyID); err != nil {
+		return nil, errors.New("raw product not found in your company")
+	}
+	if _, err = s.productRepo.FindByIDAndCompany(conversion.FinishedProductID, companyID); err != nil {
+		return nil, errors.New("finished product not found in your company")
+	}
+	for _, bag := range in.RawMaterialBags {
+		if _, err := s.rawMaterialBagSvc.GetByIDForCompany(bag.BagID, companyID); err != nil {
+			return nil, fmt.Errorf("bag %s not found in your company", bag.BagID)
+		}
+	}
+	// Existing execution logic is retained after all company ownership checks.
+	return s.ExecuteConversion(in, userID, companyID, userName, companyName)
+}
+
+func (s *productConversionService) GetConversionRecordForCompany(id string, companyID uint) (*output.ProductConversionRecordOutput, error) {
+	r, err := s.recordRepo.GetByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, err
+	}
+	return s.mapRecordToOutput(r), nil
+}
+func (s *productConversionService) ListConversionRecordsForCompany(companyID uint, offset, limit int) (*output.ProductConversionRecordListOutput, error) {
+	items, total, err := s.recordRepo.GetAllByCompany(companyID, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	return recordListOutput(items, total, offset, limit, s.mapRecordToOutput), nil
+}
+func (s *productConversionService) ListConversionRecordsByRuleForCompany(conversionID string, companyID uint, offset, limit int) (*output.ProductConversionRecordListOutput, error) {
+	if _, err := s.conversionRepo.GetByIDAndCompany(conversionID, companyID); err != nil {
+		return nil, errors.New("conversion not found")
+	}
+	items, total, err := s.recordRepo.GetByConversionIDAndCompany(conversionID, companyID, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	return recordListOutput(items, total, offset, limit, s.mapRecordToOutput), nil
+}
+func (s *productConversionService) ListConversionRecordsByDateRangeForCompany(from, to time.Time, companyID uint, offset, limit int) (*output.ProductConversionRecordListOutput, error) {
+	items, total, err := s.recordRepo.GetByDateRangeAndCompany(from, to, companyID, offset, limit)
+	if err != nil {
+		return nil, err
+	}
+	return recordListOutput(items, total, offset, limit, s.mapRecordToOutput), nil
 }

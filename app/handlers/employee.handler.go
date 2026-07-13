@@ -20,11 +20,55 @@ func NewEmployeeHandler(employeeService services.EmployeeService) *EmployeeHandl
 	}
 }
 
+func employeeLocalUint(c *fiber.Ctx, key string) uint {
+	value := c.Locals(key)
+
+	switch typed := value.(type) {
+	case uint:
+		return typed
+	case uint64:
+		return uint(typed)
+	case int:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case int64:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case float64:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case string:
+		parsed, err := strconv.ParseUint(typed, 10, 64)
+		if err == nil {
+			return uint(parsed)
+		}
+	}
+
+	return 0
+}
+
+func employeeAuthContext(c *fiber.Ctx) (uint, uint, error) {
+	userID := employeeLocalUint(c, "user_id")
+	companyID := employeeLocalUint(c, "company_id")
+
+	if userID == 0 {
+		return 0, 0, fmt.Errorf("invalid authenticated user")
+	}
+
+	if companyID == 0 {
+		return 0, 0, fmt.Errorf("user is not assigned to a company")
+	}
+
+	return userID, companyID, nil
+}
+
 func (h *EmployeeHandler) CreateEmployee(c *fiber.Ctx) error {
 	var req input.CreateEmployeeRequest
 
-	// Parse form data
-	if err := c.FormValue("name"); err == "" {
+	if c.FormValue("name") == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 			Error:   true,
 			Message: "Name is required",
@@ -38,7 +82,6 @@ func (h *EmployeeHandler) CreateEmployee(c *fiber.Ctx) error {
 	req.EmployeeType = c.FormValue("employee_type")
 	req.SalaryType = c.FormValue("salary_type")
 
-	// Validate salary_type
 	if req.SalaryType == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 			Error:   true,
@@ -53,44 +96,46 @@ func (h *EmployeeHandler) CreateEmployee(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse salary based on salary_type
 	if req.SalaryType == "monthly" {
-		monthlySalaryStr := c.FormValue("monthly_salary")
-		if monthlySalaryStr == "" {
+		monthlySalaryString := c.FormValue("monthly_salary")
+		if monthlySalaryString == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 				Error:   true,
 				Message: "Monthly salary is required",
 			})
 		}
 
-		var monthlySalary float64
-		if _, err := fmt.Sscanf(monthlySalaryStr, "%f", &monthlySalary); err != nil {
+		monthlySalary, err := strconv.ParseFloat(monthlySalaryString, 64)
+		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 				Error:   true,
 				Message: "Invalid monthly salary format",
 			})
 		}
+
 		req.MonthlySalary = monthlySalary
-	} else if req.SalaryType == "weekly" {
-		weeklySalaryStr := c.FormValue("weekly_salary")
-		if weeklySalaryStr == "" {
+	}
+
+	if req.SalaryType == "weekly" {
+		weeklySalaryString := c.FormValue("weekly_salary")
+		if weeklySalaryString == "" {
 			return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 				Error:   true,
 				Message: "Weekly salary is required",
 			})
 		}
 
-		var weeklySalary float64
-		if _, err := fmt.Sscanf(weeklySalaryStr, "%f", &weeklySalary); err != nil {
+		weeklySalary, err := strconv.ParseFloat(weeklySalaryString, 64)
+		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 				Error:   true,
 				Message: "Invalid weekly salary format",
 			})
 		}
+
 		req.WeeklySalary = weeklySalary
 	}
 
-	// Get file from form
 	file, err := c.FormFile("document")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
@@ -99,10 +144,21 @@ func (h *EmployeeHandler) CreateEmployee(c *fiber.Ctx) error {
 		})
 	}
 
-	createdByID := c.Locals("user_id").(uint)
-	companyID := c.Locals("company_id").(uint)
+	createdByID, companyID, err := employeeAuthContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(output.ErrorResponse{
+			Error:   true,
+			Message: err.Error(),
+		})
+	}
 
-	resp, err := h.employeeService.CreateEmployeeWithFile(c.Context(), createdByID, companyID, &req, file)
+	response, err := h.employeeService.CreateEmployeeWithFile(
+		c.Context(),
+		createdByID,
+		companyID,
+		&req,
+		file,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 			Error:   true,
@@ -112,7 +168,7 @@ func (h *EmployeeHandler) CreateEmployee(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusCreated).JSON(output.SuccessResponse{
 		Success: true,
-		Data:    resp,
+		Data:    response,
 	})
 }
 
@@ -125,9 +181,19 @@ func (h *EmployeeHandler) GetEmployee(c *fiber.Ctx) error {
 		})
 	}
 
-	createdByID := c.Locals("user_id").(uint)
+	_, companyID, err := employeeAuthContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(output.ErrorResponse{
+			Error:   true,
+			Message: err.Error(),
+		})
+	}
 
-	resp, err := h.employeeService.GetEmployeeByID(c.Context(), uint(employeeID), createdByID)
+	response, err := h.employeeService.GetEmployeeByID(
+		c.Context(),
+		uint(employeeID),
+		companyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(output.ErrorResponse{
 			Error:   true,
@@ -137,25 +203,39 @@ func (h *EmployeeHandler) GetEmployee(c *fiber.Ctx) error {
 
 	return c.JSON(output.SuccessResponse{
 		Success: true,
-		Data:    resp,
+		Data:    response,
 	})
 }
 
 func (h *EmployeeHandler) GetEmployees(c *fiber.Ctx) error {
 	page, err := strconv.Atoi(c.Query("page", "1"))
-	if err != nil {
+	if err != nil || page < 1 {
 		page = 1
 	}
 
 	limit, err := strconv.Atoi(c.Query("limit", "10"))
-	if err != nil {
+	if err != nil || limit < 1 {
 		limit = 10
 	}
 
-	createdByID := c.Locals("user_id").(uint)
-	companyID := c.Locals("company_id").(uint)
+	if limit > 100 {
+		limit = 100
+	}
 
-	resp, err := h.employeeService.GetEmployeesByUser(c.Context(), createdByID, companyID, page, limit)
+	_, companyID, err := employeeAuthContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(output.ErrorResponse{
+			Error:   true,
+			Message: err.Error(),
+		})
+	}
+
+	response, err := h.employeeService.GetEmployeesByCompany(
+		c.Context(),
+		companyID,
+		page,
+		limit,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 			Error:   true,
@@ -163,7 +243,7 @@ func (h *EmployeeHandler) GetEmployees(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(resp)
+	return c.JSON(response)
 }
 
 func (h *EmployeeHandler) UpdateEmployee(c *fiber.Ctx) error {
@@ -183,9 +263,20 @@ func (h *EmployeeHandler) UpdateEmployee(c *fiber.Ctx) error {
 		})
 	}
 
-	createdByID := c.Locals("user_id").(uint)
+	_, companyID, err := employeeAuthContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(output.ErrorResponse{
+			Error:   true,
+			Message: err.Error(),
+		})
+	}
 
-	resp, err := h.employeeService.UpdateEmployee(c.Context(), uint(employeeID), createdByID, &req)
+	response, err := h.employeeService.UpdateEmployee(
+		c.Context(),
+		uint(employeeID),
+		companyID,
+		&req,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 			Error:   true,
@@ -195,7 +286,7 @@ func (h *EmployeeHandler) UpdateEmployee(c *fiber.Ctx) error {
 
 	return c.JSON(output.SuccessResponse{
 		Success: true,
-		Data:    resp,
+		Data:    response,
 	})
 }
 
@@ -208,10 +299,19 @@ func (h *EmployeeHandler) DeleteEmployee(c *fiber.Ctx) error {
 		})
 	}
 
-	createdByID := c.Locals("user_id").(uint)
-
-	err = h.employeeService.DeleteEmployee(c.Context(), uint(employeeID), createdByID)
+	_, companyID, err := employeeAuthContext(c)
 	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(output.ErrorResponse{
+			Error:   true,
+			Message: err.Error(),
+		})
+	}
+
+	if err := h.employeeService.DeleteEmployee(
+		c.Context(),
+		uint(employeeID),
+		companyID,
+	); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(output.ErrorResponse{
 			Error:   true,
 			Message: err.Error(),

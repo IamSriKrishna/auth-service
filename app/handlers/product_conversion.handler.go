@@ -23,6 +23,66 @@ func NewProductConversionHandler(service services.ProductConversionService) *Pro
 	}
 }
 
+func productConversionLocalUint(c *fiber.Ctx, key string) uint {
+	value := c.Locals(key)
+
+	switch typed := value.(type) {
+	case uint:
+		return typed
+	case uint64:
+		return uint(typed)
+	case int:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case int64:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case float64:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case string:
+		parsed, err := strconv.ParseUint(typed, 10, 64)
+		if err == nil {
+			return uint(parsed)
+		}
+	}
+
+	return 0
+}
+
+func productConversionAuthContext(c *fiber.Ctx) (string, uint, string, string, error) {
+	userID := productConversionLocalUint(c, "user_id")
+	companyID := productConversionLocalUint(c, "company_id")
+
+	if userID == 0 {
+		return "", 0, "", "", fmt.Errorf("invalid authenticated user")
+	}
+	if companyID == 0 {
+		return "", 0, "", "", fmt.Errorf("user is not assigned to a company")
+	}
+
+	userName := ""
+	if value := c.Locals("user_name"); value != nil {
+		userName = fmt.Sprintf("%v", value)
+	} else if value := c.Locals("user_email"); value != nil {
+		userName = fmt.Sprintf("%v", value)
+	}
+
+	companyName := ""
+	if value := c.Locals("company_name"); value != nil {
+		companyName = fmt.Sprintf("%v", value)
+	}
+
+	return strconv.FormatUint(uint64(userID), 10), companyID, userName, companyName, nil
+}
+
+func productConversionContextError(c *fiber.Ctx, err error) error {
+	return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": err.Error()})
+}
+
 // CreateConversion creates a new conversion rule
 func (h *ProductConversionHandler) CreateConversion(c *fiber.Ctx) error {
 	var conversionInput input.CreateProductConversionInput
@@ -39,27 +99,12 @@ func (h *ProductConversionHandler) CreateConversion(c *fiber.Ctx) error {
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	userID, companyID, userName, companyName, err := productConversionAuthContext(c)
+	if err != nil {
+		return productConversionContextError(c, err)
 	}
 
-	userName := ""
-	if un := c.Locals("user_name"); un != nil {
-		userName = fmt.Sprintf("%v", un)
-	}
-
-	companyID := uint(0)
-	if cid := c.Locals("company_id"); cid != nil {
-		companyID = cid.(uint)
-	}
-
-	companyName := ""
-	if cn := c.Locals("company_name"); cn != nil {
-		companyName = fmt.Sprintf("%v", cn)
-	}
-
-	conversion, err := h.service.CreateConversion(&conversionInput, userID, companyID, userName, companyName)
+	conversion, err := h.service.CreateConversionForCompany(&conversionInput, userID, companyID, userName, companyName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -80,17 +125,12 @@ func (h *ProductConversionHandler) UpdateConversion(c *fiber.Ctx) error {
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	userID, companyID, userName, _, err := productConversionAuthContext(c)
+	if err != nil {
+		return productConversionContextError(c, err)
 	}
 
-	userName := ""
-	if un := c.Locals("user_name"); un != nil {
-		userName = fmt.Sprintf("%v", un)
-	}
-
-	conversion, err := h.service.UpdateConversion(conversionID, &updateInput, userID, userName)
+	conversion, err := h.service.UpdateConversionForCompany(conversionID, &updateInput, userID, userName, companyID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -104,7 +144,12 @@ func (h *ProductConversionHandler) UpdateConversion(c *fiber.Ctx) error {
 func (h *ProductConversionHandler) DeleteConversion(c *fiber.Ctx) error {
 	conversionID := c.Params("id")
 
-	if err := h.service.DeleteConversion(conversionID); err != nil {
+	_, companyID, _, _, authErr := productConversionAuthContext(c)
+	if authErr != nil {
+		return productConversionContextError(c, authErr)
+	}
+
+	if err := h.service.DeleteConversionForCompany(conversionID, companyID); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
@@ -119,7 +164,12 @@ func (h *ProductConversionHandler) DeleteConversion(c *fiber.Ctx) error {
 func (h *ProductConversionHandler) GetConversion(c *fiber.Ctx) error {
 	conversionID := c.Params("id")
 
-	conversion, err := h.service.GetConversion(conversionID)
+	_, companyID, _, _, authErr := productConversionAuthContext(c)
+	if authErr != nil {
+		return productConversionContextError(c, authErr)
+	}
+
+	conversion, err := h.service.GetConversionForCompany(conversionID, companyID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -152,7 +202,12 @@ func (h *ProductConversionHandler) ListConversions(c *fiber.Ctx) error {
 
 	offset := (pageNum - 1) * limitNum
 
-	conversions, err := h.service.ListConversions(offset, limitNum)
+	_, companyID, _, _, authErr := productConversionAuthContext(c)
+	if authErr != nil {
+		return productConversionContextError(c, authErr)
+	}
+
+	conversions, err := h.service.ListConversionsForCompany(companyID, offset, limitNum)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -179,7 +234,12 @@ func (h *ProductConversionHandler) ListActiveConversions(c *fiber.Ctx) error {
 
 	offset := (pageNum - 1) * limitNum
 
-	conversions, err := h.service.ListActiveConversions(offset, limitNum)
+	_, companyID, _, _, authErr := productConversionAuthContext(c)
+	if authErr != nil {
+		return productConversionContextError(c, authErr)
+	}
+
+	conversions, err := h.service.ListActiveConversionsForCompany(companyID, offset, limitNum)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -213,7 +273,12 @@ func (h *ProductConversionHandler) GetConversionsByRawProduct(c *fiber.Ctx) erro
 
 	offset := (pageNum - 1) * limitNum
 
-	conversions, err := h.service.GetConversionsByRawProduct(rawProductID, offset, limitNum)
+	_, companyID, _, _, authErr := productConversionAuthContext(c)
+	if authErr != nil {
+		return productConversionContextError(c, authErr)
+	}
+
+	conversions, err := h.service.GetConversionsByRawProductForCompany(rawProductID, companyID, offset, limitNum)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -247,7 +312,12 @@ func (h *ProductConversionHandler) GetConversionsByFinishedProduct(c *fiber.Ctx)
 
 	offset := (pageNum - 1) * limitNum
 
-	conversions, err := h.service.GetConversionsByFinishedProduct(finishedProductID, offset, limitNum)
+	_, companyID, _, _, authErr := productConversionAuthContext(c)
+	if authErr != nil {
+		return productConversionContextError(c, authErr)
+	}
+
+	conversions, err := h.service.GetConversionsByFinishedProductForCompany(finishedProductID, companyID, offset, limitNum)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -273,27 +343,12 @@ func (h *ProductConversionHandler) ExecuteConversion(c *fiber.Ctx) error {
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	userID, companyID, userName, companyName, err := productConversionAuthContext(c)
+	if err != nil {
+		return productConversionContextError(c, err)
 	}
 
-	userName := ""
-	if un := c.Locals("user_name"); un != nil {
-		userName = fmt.Sprintf("%v", un)
-	}
-
-	companyID := uint(0)
-	if cid := c.Locals("company_id"); cid != nil {
-		companyID = cid.(uint)
-	}
-
-	companyName := ""
-	if cn := c.Locals("company_name"); cn != nil {
-		companyName = fmt.Sprintf("%v", cn)
-	}
-
-	result, err := h.service.ExecuteConversion(&conversionRecordInput, userID, companyID, userName, companyName)
+	result, err := h.service.ExecuteConversionForCompany(&conversionRecordInput, userID, companyID, userName, companyName)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -307,7 +362,12 @@ func (h *ProductConversionHandler) ExecuteConversion(c *fiber.Ctx) error {
 func (h *ProductConversionHandler) GetConversionRecord(c *fiber.Ctx) error {
 	recordID := c.Params("record_id")
 
-	record, err := h.service.GetConversionRecord(recordID)
+	_, companyID, _, _, authErr := productConversionAuthContext(c)
+	if authErr != nil {
+		return productConversionContextError(c, authErr)
+	}
+
+	record, err := h.service.GetConversionRecordForCompany(recordID, companyID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -340,7 +400,12 @@ func (h *ProductConversionHandler) ListConversionRecords(c *fiber.Ctx) error {
 
 	offset := (pageNum - 1) * limitNum
 
-	records, err := h.service.ListConversionRecords(offset, limitNum)
+	_, companyID, _, _, authErr := productConversionAuthContext(c)
+	if authErr != nil {
+		return productConversionContextError(c, authErr)
+	}
+
+	records, err := h.service.ListConversionRecordsForCompany(companyID, offset, limitNum)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -374,7 +439,12 @@ func (h *ProductConversionHandler) ListConversionRecordsByRule(c *fiber.Ctx) err
 
 	offset := (pageNum - 1) * limitNum
 
-	records, err := h.service.ListConversionRecordsByRule(conversionID, offset, limitNum)
+	_, companyID, _, _, authErr := productConversionAuthContext(c)
+	if authErr != nil {
+		return productConversionContextError(c, authErr)
+	}
+
+	records, err := h.service.ListConversionRecordsByRuleForCompany(conversionID, companyID, offset, limitNum)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -424,7 +494,12 @@ func (h *ProductConversionHandler) ListConversionRecordsByDateRange(c *fiber.Ctx
 
 	offset := (pageNum - 1) * limitNum
 
-	records, err := h.service.ListConversionRecordsByDateRange(fromDate, toDate.AddDate(0, 0, 1), offset, limitNum)
+	_, companyID, _, _, authErr := productConversionAuthContext(c)
+	if authErr != nil {
+		return productConversionContextError(c, authErr)
+	}
+
+	records, err := h.service.ListConversionRecordsByDateRangeForCompany(fromDate, toDate.AddDate(0, 0, 1), companyID, offset, limitNum)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),

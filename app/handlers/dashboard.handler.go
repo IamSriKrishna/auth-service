@@ -15,157 +15,223 @@ type DashboardHandler struct {
 	userRepo repo.UserRepository
 }
 
-func NewDashboardHandler(service services.DashboardService, userRepo repo.UserRepository) *DashboardHandler {
+func NewDashboardHandler(
+	service services.DashboardService,
+	userRepo repo.UserRepository,
+) *DashboardHandler {
 	return &DashboardHandler{
 		service:  service,
 		userRepo: userRepo,
 	}
 }
 
-// extractUserContext extracts and validates user context from JWT and query parameters
-func (h *DashboardHandler) extractUserContext(c *fiber.Ctx) (userID uint, userType string, email string, companyID uint, err error) {
-	authenticatedUserID := uint(0)
-	authenticatedUserType := "superadmin"
-	authenticatedEmail := ""
-	authenticatedCompanyID := uint(0)
+func (h *DashboardHandler) extractUserContext(
+	c *fiber.Ctx,
+) (
+	userID uint,
+	userType string,
+	email string,
+	companyID uint,
+	err error,
+) {
+	userID = getUintLocal(c, "user_id")
+	companyID = getUintLocal(c, "company_id")
 
-	// Extract authenticated user information from context (from JWT)
-	if id := c.Locals("user_id"); id != nil {
-		switch v := id.(type) {
-		case uint:
-			authenticatedUserID = v
-		case int:
-			authenticatedUserID = uint(v)
-		case float64:
-			authenticatedUserID = uint(v)
-		case string:
-			fmt.Sscanf(v, "%d", &authenticatedUserID)
-		}
+	if value := c.Locals("user_type"); value != nil {
+		userType, _ = value.(string)
 	}
 
-	if ut := c.Locals("user_type"); ut != nil {
-		if userTypeStr, ok := ut.(string); ok {
-			authenticatedUserType = userTypeStr
-		}
+	if value := c.Locals("user_email"); value != nil {
+		email, _ = value.(string)
 	}
 
-	if e := c.Locals("user_email"); e != nil {
-		if emailStr, ok := e.(string); ok {
-			authenticatedEmail = emailStr
-		}
+	if userID == 0 {
+		return 0, "", "", 0, fmt.Errorf("invalid authenticated user")
 	}
 
-	if cid := c.Locals("company_id"); cid != nil {
-		switch v := cid.(type) {
-		case uint:
-			authenticatedCompanyID = v
-		case int:
-			authenticatedCompanyID = uint(v)
-		case float64:
-			authenticatedCompanyID = uint(v)
-		}
+	if userType == "" {
+		return 0, "", "", 0, fmt.Errorf("invalid authenticated user type")
 	}
 
-	userID = authenticatedUserID
-	userType = authenticatedUserType
-	email = authenticatedEmail
-	companyID = authenticatedCompanyID
+	if userType != "superadmin" && companyID == 0 {
+		return 0, "", "", 0, fmt.Errorf("user is not assigned to a company")
+	}
 
-	// Check if view_user_id is provided in query parameters
-	viewUserIDStr := c.Query("view_user_id")
-	if viewUserIDStr != "" {
-		var viewUserID uint64
-		_, parseErr := fmt.Sscanf(viewUserIDStr, "%d", &viewUserID)
-		if parseErr != nil || viewUserID <= 0 {
-			return 0, "", "", 0, fmt.Errorf("invalid view_user_id parameter")
+	viewUserIDString := c.Query("view_user_id")
+	if viewUserIDString == "" {
+		return userID, userType, email, companyID, nil
+	}
+
+	viewUserID64, parseErr := strconv.ParseUint(viewUserIDString, 10, 64)
+	if parseErr != nil || viewUserID64 == 0 {
+		return 0, "", "", 0, fmt.Errorf("invalid view_user_id parameter")
+	}
+
+	if h.userRepo == nil {
+		return 0, "", "", 0, fmt.Errorf("user repository is unavailable")
+	}
+
+	viewUserID := uint(viewUserID64)
+
+	if userType == "superadmin" {
+		selectedUser, getErr := h.userRepo.GetByID(viewUserID)
+		if getErr != nil || selectedUser == nil {
+			return 0, "", "", 0, fmt.Errorf("user not found with id: %d", viewUserID)
 		}
 
-		// Permission check: Only superadmin can view any user's dashboard, others can only view their own
-		if authenticatedUserType != "superadmin" && uint(viewUserID) != authenticatedUserID {
-			return 0, "", "", 0, fmt.Errorf("unauthorized: cannot view another user's dashboard")
+		userID = selectedUser.ID
+		userType = string(selectedUser.UserType)
+
+		if selectedUser.CompanyID == nil || *selectedUser.CompanyID == 0 {
+			return 0, "", "", 0, fmt.Errorf("selected user is not assigned to a company")
+		}
+		companyID = *selectedUser.CompanyID
+
+		if selectedUser.Email != nil {
+			email = *selectedUser.Email
 		}
 
-		// Validate that the user exists
-		if h.userRepo != nil {
-			user, getErr := h.userRepo.GetByID(uint(viewUserID))
-			if getErr != nil || user == nil {
-				return 0, "", "", 0, fmt.Errorf("user not found with id: %d", viewUserID)
-			}
+		if companyID == 0 {
+			return 0, "", "", 0, fmt.Errorf("selected user is not assigned to a company")
 		}
 
-		// Set the userID to the requested view_user_id
-		userID = uint(viewUserID)
-		// If viewing another user and authenticated user is superadmin, treat context as admin
-		if uint(viewUserID) != authenticatedUserID && authenticatedUserType == "superadmin" {
-			userType = "admin"
-		}
+		return userID, userType, email, companyID, nil
+	}
+
+	selectedUser, getErr := h.userRepo.GetByIDAndCompanyID(
+		viewUserID,
+		companyID,
+	)
+	if getErr != nil || selectedUser == nil {
+		return 0, "", "", 0, fmt.Errorf("user not found in your company")
+	}
+
+	userID = selectedUser.ID
+	userType = string(selectedUser.UserType)
+
+	if selectedUser.CompanyID == nil || *selectedUser.CompanyID != companyID {
+		return 0, "", "", 0, fmt.Errorf("user does not belong to your company")
+	}
+
+	if selectedUser.Email != nil {
+		email = *selectedUser.Email
 	}
 
 	return userID, userType, email, companyID, nil
 }
 
-// GetDashboard returns all dashboard metrics
-// @Summary Get Dashboard Metrics
-// @Description Retrieve all dashboard metrics including customers, vendors, items, shipments, invoices, orders
-// @Tags Dashboard
-// @Produce json
-// @Success 200 {object} output.DashboardMetricsOutput
-// @Router /dashboard [get]
+func getUintLocal(c *fiber.Ctx, key string) uint {
+	value := c.Locals(key)
+
+	switch typedValue := value.(type) {
+	case uint:
+		return typedValue
+	case uint64:
+		return uint(typedValue)
+	case int:
+		if typedValue > 0 {
+			return uint(typedValue)
+		}
+	case int64:
+		if typedValue > 0 {
+			return uint(typedValue)
+		}
+	case float64:
+		if typedValue > 0 {
+			return uint(typedValue)
+		}
+	case string:
+		parsedValue, err := strconv.ParseUint(typedValue, 10, 64)
+		if err == nil {
+			return uint(parsedValue)
+		}
+	}
+
+	return 0
+}
+
+func dashboardContextError(c *fiber.Ctx, err error) error {
+	return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+		"error":   true,
+		"message": err.Error(),
+	})
+}
+
+// GetDashboard returns company-scoped dashboard metrics.
 func (h *DashboardHandler) GetDashboard(c *fiber.Ctx) error {
 	userID, userType, email, companyID, err := h.extractUserContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return dashboardContextError(c, err)
 	}
 
-	metrics, err := h.service.GetDashboardMetricsWithUserContext(userID, userType, email, companyID)
+	metrics, err := h.service.GetDashboardMetricsWithUserContext(
+		userID,
+		userType,
+		email,
+		companyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error":   true,
+			"message": err.Error(),
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(metrics)
 }
 
-// GetShipmentTracking returns shipment tracking details
-// @Summary Get Shipment Tracking
-// @Description Retrieve tracking details for a specific shipment
-// @Tags Dashboard
-// @Produce json
-// @Param shipment_id path string true "Shipment ID"
-// @Param limit query int false "Limit (default: 10)"
-// @Success 200 {object} output.ShipmentTrackingListOutput
-// @Router /dashboard/shipment/{shipment_id}/tracking [get]
+// GetShipmentTracking returns company-scoped shipment tracking.
 func (h *DashboardHandler) GetShipmentTracking(c *fiber.Ctx) error {
-	shipmentID := c.Params("shipment_id")
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	_, userType, _, companyID, err := h.extractUserContext(c)
+	if err != nil {
+		return dashboardContextError(c, err)
+	}
 
-	tracking, err := h.service.GetShipmentTracking(shipmentID, limit)
+	shipmentID := c.Params("shipment_id")
+	if shipmentID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "shipment_id is required",
+		})
+	}
+
+	limit, parseErr := strconv.Atoi(c.Query("limit", "10"))
+	if parseErr != nil || limit < 1 {
+		limit = 10
+	}
+
+	tracking, err := h.service.GetShipmentTracking(
+		shipmentID,
+		limit,
+		companyID,
+		userType,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error":   true,
+			"message": err.Error(),
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(tracking)
 }
 
-// AddShipmentTracking adds a new shipment tracking record
-// @Summary Add Shipment Tracking
-// @Description Add a new tracking record for a shipment
-// @Tags Dashboard
-// @Accept json
-// @Produce json
-// @Param shipment_id path string true "Shipment ID"
-// @Param request body map[string]interface{} true "Tracking details"
-// @Success 201 {object} map[string]string
-// @Router /dashboard/shipment/{shipment_id}/tracking [post]
+// AddShipmentTracking adds tracking only to the authenticated company.
 func (h *DashboardHandler) AddShipmentTracking(c *fiber.Ctx) error {
-	shipmentID := c.Params("shipment_id")
+	_, userType, _, companyID, err := h.extractUserContext(c)
+	if err != nil {
+		return dashboardContextError(c, err)
+	}
 
-	var req struct {
+	shipmentID := c.Params("shipment_id")
+	if shipmentID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   true,
+			"message": "shipment_id is required",
+		})
+	}
+
+	var request struct {
 		Status    string  `json:"status"`
 		Location  string  `json:"location"`
 		Latitude  float64 `json:"latitude"`
@@ -173,145 +239,154 @@ func (h *DashboardHandler) AddShipmentTracking(c *fiber.Ctx) error {
 		Notes     string  `json:"notes"`
 	}
 
-	if err := c.BodyParser(&req); err != nil {
+	if err := c.BodyParser(&request); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+			"error":   true,
+			"message": "Invalid request body",
 		})
 	}
 
-	err := h.service.AddShipmentTracking(shipmentID, req.Status, req.Location, req.Latitude, req.Longitude, req.Notes)
+	err = h.service.AddShipmentTracking(
+		shipmentID,
+		request.Status,
+		request.Location,
+		request.Latitude,
+		request.Longitude,
+		request.Notes,
+		companyID,
+		userType,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error":   true,
+			"message": err.Error(),
 		})
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"error":   false,
 		"message": "Tracking record added successfully",
 	})
 }
 
-// GetStockSummary returns stock summary
-// @Summary Get Stock Summary
-// @Description Retrieve stock information including in-stock, low stock, and out of stock items
-// @Tags Dashboard
-// @Produce json
-// @Success 200 {object} output.StockListOutput
-// @Router /dashboard/stock [get]
+// GetStockSummary returns company-scoped stock.
 func (h *DashboardHandler) GetStockSummary(c *fiber.Ctx) error {
-	userID, userType, _, _, err := h.extractUserContext(c)
+	userID, userType, _, companyID, err := h.extractUserContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return dashboardContextError(c, err)
 	}
 
-	stock, err := h.service.GetStockSummaryWithUserContext(userID, userType)
+	stock, err := h.service.GetStockSummaryWithUserContext(
+		userID,
+		userType,
+		companyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error":   true,
+			"message": err.Error(),
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(stock)
 }
 
-// GetEntityTrends returns trend data for an entity
-// @Summary Get Entity Trends
-// @Description Retrieve historical trend data for a specific entity
-// @Tags Dashboard
-// @Produce json
-// @Param entity_type path string true "Entity type (customer, vendor, item, etc.)"
-// @Param days query int false "Number of days (default: 30)"
-// @Success 200 {object} output.EntityTrendOutput
-// @Router /dashboard/trends/{entity_type} [get]
+// GetEntityTrends returns company-scoped trends.
 func (h *DashboardHandler) GetEntityTrends(c *fiber.Ctx) error {
-	entityType := c.Params("entity_type")
-	days, _ := strconv.Atoi(c.Query("days", "30"))
+	_, userType, _, companyID, err := h.extractUserContext(c)
+	if err != nil {
+		return dashboardContextError(c, err)
+	}
 
-	trends, err := h.service.GetEntityTrends(entityType, days)
+	entityType := c.Params("entity_type")
+
+	days, parseErr := strconv.Atoi(c.Query("days", "30"))
+	if parseErr != nil || days < 1 {
+		days = 30
+	}
+
+	trends, err := h.service.GetEntityTrends(
+		entityType,
+		days,
+		companyID,
+		userType,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error":   true,
+			"message": err.Error(),
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(trends)
 }
 
-// GetActivitySummary returns today's activity summary
-// @Summary Get Activity Summary
-// @Description Retrieve today's activity including created items, shipments, orders
-// @Tags Dashboard
-// @Produce json
-// @Success 200 {object} output.ActivitySummaryOutput
-// @Router /dashboard/activity [get]
+// GetActivitySummary returns company-scoped activity.
 func (h *DashboardHandler) GetActivitySummary(c *fiber.Ctx) error {
-	userID, userType, _, _, err := h.extractUserContext(c)
+	userID, userType, _, companyID, err := h.extractUserContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return dashboardContextError(c, err)
 	}
 
-	activity, err := h.service.GetActivitySummaryWithUserContext(userID, userType)
+	activity, err := h.service.GetActivitySummaryWithUserContext(
+		userID,
+		userType,
+		companyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error":   true,
+			"message": err.Error(),
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(activity)
 }
 
-// RefreshMetrics triggers a refresh of dashboard metrics
-// @Summary Refresh Dashboard Metrics
-// @Description Manually trigger a refresh of all dashboard metrics
-// @Tags Dashboard
-// @Produce json
-// @Success 200 {object} map[string]string
-// @Router /dashboard/refresh [post]
+// RefreshMetrics keeps the existing global refresh method.
+// Protect this route using SuperAdminMiddleware.
 func (h *DashboardHandler) RefreshMetrics(c *fiber.Ctx) error {
-	err := h.service.RefreshDashboardMetrics()
-	if err != nil {
+	if err := h.service.RefreshDashboardMetrics(); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error":   true,
+			"message": err.Error(),
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"error":   false,
 		"message": "Dashboard metrics refreshed successfully",
 	})
 }
 
-// GetDiagnosticReport handler - GET /dashboard/diagnose
+// GetDiagnosticReport returns company-scoped diagnostics.
 func (h *DashboardHandler) GetDiagnosticReport(c *fiber.Ctx) error {
-	report, err := h.service.GetDiagnosticReport()
+	_, userType, _, companyID, err := h.extractUserContext(c)
+	if err != nil {
+		return dashboardContextError(c, err)
+	}
+
+	report, err := h.service.GetDiagnosticReport(companyID, userType)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to generate diagnostic report",
+			"error":   true,
+			"message": "Failed to generate diagnostic report",
 		})
 	}
 
 	return c.Status(fiber.StatusOK).JSON(report)
 }
 
-// GetPublicLiveStatus returns live status of all data (customers, vendors, products, stock) - PUBLIC endpoint
-// @Summary Get Public Live Status
-// @Description Retrieve live status about all customers, vendors, products, and stock (public access, no authentication required)
-// @Tags Dashboard
-// @Produce json
-// @Success 200 {object} output.PublicLiveStatusOutput
-// @Router /public/live-status [get]
+// GetPublicLiveStatus remains global because this route is public.
 func (h *DashboardHandler) GetPublicLiveStatus(c *fiber.Ctx) error {
 	metrics, err := h.service.GetDashboardMetrics()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
+			"error":   true,
+			"message": err.Error(),
 		})
 	}
 
-	// Return simplified public status focused on customers, vendors, products, and stock
 	publicStatus := output.PublicLiveStatusOutput{
 		Customers: output.PublicCustomerStatus{
 			Total:  metrics.CustomerMetrics.Total,

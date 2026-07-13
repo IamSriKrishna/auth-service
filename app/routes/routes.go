@@ -106,7 +106,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	vendorService := services.NewVendorService(vendorRepo, companyRepo)
 	customerService := services.NewCustomerService(customerRepo)
 	openStockService := services.NewOpeningStockService(openStockRepo, itemRepo, inventoryBalanceRepo)
-	invoiceService := services.NewInvoiceService(invoiceRepo, itemRepo, customerRepo, salespersonRepo, taxRepo, paymentRepo, productRepo, productStockRepo, stockLedgerRepo, "./pdf_outputs")
+	invoiceService := services.NewInvoiceService(invoiceRepo, itemRepo, customerRepo, salespersonRepo, taxRepo, paymentRepo, productRepo, productStockRepo, stockLedgerRepo, userRepo, "./pdf_outputs")
 	salespersonService := services.NewSalespersonService(salespersonRepo)
 	taxService := services.NewTaxService(taxRepo)
 	paymentService := services.NewPaymentService(paymentRepo, invoiceRepo)
@@ -132,7 +132,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo, inventoryBalanceRepo, stockMovementService, productStockRepo, stockLedgerRepo, variantStockManagementService, stockManagementService, productGroupInventoryService)
 	packageService := services.NewPackageService(packageRepo, salesOrderRepo, customerRepo, itemRepo, stockMovementService)
 	shipmentService := services.NewShipmentService(shipmentRepo, packageRepo, salesOrderRepo, customerRepo, inventoryBalanceRepo, stockMovementService)
-	billService := services.NewBillService(billRepo, vendorRepo, productRepo, taxRepo)
+	billService := services.NewBillService(billRepo, vendorRepo, productRepo, taxRepo, userRepo)
 	bankService := services.NewBankService(bankRepo)
 	itemGroupService := services.NewItemGroupService(itemGroupRepo, itemRepo)
 	productGroupService := services.NewProductGroupServiceWithStockMgmt(productGroupRepo, productRepo, variantStockManagementService, productGroupInventoryService, stockManagementService, productStockRepo)
@@ -141,7 +141,9 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	attendanceService := services.NewEmployeeAttendanceService(attendanceRepo, employeeRepo)
 	salaryService := services.NewSalaryService(salaryRepo, employeeRepo, attendanceRepo)
 	customerPricingService := services.NewCustomerPricingService(customerPricingRepo)
-	productConversionService := services.NewProductConversionService(productConversionRepo, productConversionRecordRepo, conversionRecordBagUsageRepo, productRepo, stockManagementService, variantStockManagementService, rawBagService)
+	productConversionService := services.NewProductConversionService(
+		productConversionRepo, productConversionRecordRepo, conversionRecordBagUsageRepo, productRepo,
+		stockManagementService, variantStockManagementService, rawBagService, userRepo)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	adminHandler := handlers.NewAdminHandler(adminService)

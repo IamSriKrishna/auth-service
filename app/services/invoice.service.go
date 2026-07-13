@@ -14,7 +14,7 @@ import (
 )
 
 type InvoiceService interface {
-	// Basic CRUD Operations
+	// Existing methods retained.
 	CreateInvoice(input *input.CreateInvoiceInput, userID string) (*output.InvoiceOutput, error)
 	GetInvoice(id string) (*output.InvoiceOutput, error)
 	GetAllInvoices(limit, offset int) (*output.InvoiceListOutput, error)
@@ -22,10 +22,63 @@ type InvoiceService interface {
 	DeleteInvoice(id string) error
 	GetInvoicesByCustomer(customerID string, limit, offset int) (*output.InvoiceListOutput, error)
 	GetInvoicesByStatus(status string, limit, offset int) (*output.InvoiceListOutput, error)
-
-	// Step 4: Selling to Customers - Invoice & Payment Collection
-	// Send invoices to customers for payment collection
 	UpdateInvoiceStatus(id string, status domain.InvoiceStatus) (*output.InvoiceOutput, error)
+
+	// Company-scoped methods.
+	CreateInvoiceForCompany(
+		input *input.CreateInvoiceInput,
+		userID string,
+		companyID uint,
+	) (*output.InvoiceOutput, error)
+
+	GetInvoiceByCompany(
+		id string,
+		companyID uint,
+	) (*output.InvoiceOutput, error)
+
+	GetAllInvoicesByCompany(
+		companyID uint,
+		limit int,
+		offset int,
+	) (*output.InvoiceListOutput, error)
+
+	UpdateInvoiceForCompany(
+		id string,
+		input *input.UpdateInvoiceInput,
+		userID string,
+		companyID uint,
+	) (*output.InvoiceOutput, error)
+
+	DeleteInvoiceForCompany(
+		id string,
+		companyID uint,
+	) error
+
+	GetInvoicesByCustomerAndCompany(
+		customerID uint,
+		companyID uint,
+		limit int,
+		offset int,
+	) (*output.InvoiceListOutput, error)
+
+	GetInvoicesByStatusAndCompany(
+		status string,
+		companyID uint,
+		limit int,
+		offset int,
+	) (*output.InvoiceListOutput, error)
+
+	UpdateInvoiceStatusForCompany(
+		id string,
+		status domain.InvoiceStatus,
+		userID string,
+		companyID uint,
+	) (*output.InvoiceOutput, error)
+
+	ValidateInvoiceInputForCompany(
+		input *input.CreateInvoiceInput,
+		companyID uint,
+	) error
 }
 
 type SalespersonService interface {
@@ -45,14 +98,33 @@ type TaxService interface {
 }
 
 type PaymentService interface {
-	// Record payments from customers
+	// Existing methods retained.
 	CreatePayment(input *input.CreatePaymentInput, userID string) (*output.PaymentOutput, error)
 	GetPayment(id uint) (*output.PaymentOutput, error)
 	GetPaymentsByInvoice(invoiceID string) (*output.PaymentListOutput, error)
-
-	// Step 5: Finalizing the Loop - Payment Recording
-	// Record payments received from customers and payments made to vendors
 	DeletePayment(id uint) error
+
+	// Company-scoped methods.
+	CreatePaymentForCompany(
+		input *input.CreatePaymentInput,
+		userID string,
+		companyID uint,
+	) (*output.PaymentOutput, error)
+
+	GetPaymentForCompany(
+		id uint,
+		companyID uint,
+	) (*output.PaymentOutput, error)
+
+	GetPaymentsByInvoiceForCompany(
+		invoiceID string,
+		companyID uint,
+	) (*output.PaymentListOutput, error)
+
+	DeletePaymentForCompany(
+		id uint,
+		companyID uint,
+	) error
 }
 
 type invoiceService struct {
@@ -65,6 +137,7 @@ type invoiceService struct {
 	productRepo      repo.ProductRepository
 	productStockRepo repo.ProductStockRepository
 	stockLedgerRepo  repo.StockLedgerRepository
+	userRepo         repo.UserRepository
 }
 
 func NewInvoiceService(
@@ -77,6 +150,7 @@ func NewInvoiceService(
 	productRepo repo.ProductRepository,
 	productStockRepo repo.ProductStockRepository,
 	stockLedgerRepo repo.StockLedgerRepository,
+	userRepo repo.UserRepository,
 	pdfOutputDir string,
 ) InvoiceService {
 	return &invoiceService{
@@ -89,6 +163,7 @@ func NewInvoiceService(
 		productRepo:      productRepo,
 		productStockRepo: productStockRepo,
 		stockLedgerRepo:  stockLedgerRepo,
+		userRepo:         userRepo,
 	}
 }
 
@@ -485,6 +560,374 @@ func (s *invoiceService) UpdateInvoiceStatus(id string, status domain.InvoiceSta
 	return output.ToInvoiceOutput(updatedInvoice)
 }
 
+func parseInvoiceUserID(userID string) (uint, error) {
+	var parsed uint
+	if _, err := fmt.Sscanf(userID, "%d", &parsed); err != nil || parsed == 0 {
+		return 0, errors.New("invalid authenticated user")
+	}
+	return parsed, nil
+}
+
+func (s *invoiceService) ValidateInvoiceInputForCompany(
+	invoiceInput *input.CreateInvoiceInput,
+	companyID uint,
+) error {
+	if invoiceInput == nil {
+		return errors.New("input cannot be nil")
+	}
+	if companyID == 0 {
+		return errors.New("invalid company")
+	}
+
+	if _, err := s.customerRepo.FindByIDAndCompany(
+		invoiceInput.CustomerID,
+		companyID,
+	); err != nil {
+		return errors.New("customer not found in your company")
+	}
+
+	for _, lineItem := range invoiceInput.LineItems {
+		if lineItem.ProductID == nil || *lineItem.ProductID == "" {
+			return errors.New("product_id is required for each line item")
+		}
+		if _, err := s.productRepo.FindByIDAndCompany(
+			*lineItem.ProductID,
+			companyID,
+		); err != nil {
+			return fmt.Errorf(
+				"product %s not found in your company",
+				*lineItem.ProductID,
+			)
+		}
+	}
+
+	return nil
+}
+
+func (s *invoiceService) validateInvoiceUpdateForCompany(
+	invoiceInput *input.UpdateInvoiceInput,
+	companyID uint,
+) error {
+	if invoiceInput == nil {
+		return errors.New("input cannot be nil")
+	}
+
+	if invoiceInput.CustomerID != nil {
+		if _, err := s.customerRepo.FindByIDAndCompany(
+			*invoiceInput.CustomerID,
+			companyID,
+		); err != nil {
+			return errors.New("customer not found in your company")
+		}
+	}
+
+	for _, lineItem := range invoiceInput.LineItems {
+		if lineItem.ProductID == nil || *lineItem.ProductID == "" {
+			return errors.New("product_id is required for each line item")
+		}
+		if _, err := s.productRepo.FindByIDAndCompany(
+			*lineItem.ProductID,
+			companyID,
+		); err != nil {
+			return fmt.Errorf(
+				"product %s not found in your company",
+				*lineItem.ProductID,
+			)
+		}
+	}
+
+	return nil
+}
+
+func (s *invoiceService) CreateInvoiceForCompany(
+	invoiceInput *input.CreateInvoiceInput,
+	userID string,
+	companyID uint,
+) (*output.InvoiceOutput, error) {
+	if err := s.ValidateInvoiceInputForCompany(
+		invoiceInput,
+		companyID,
+	); err != nil {
+		return nil, err
+	}
+
+	userIDUint, err := parseInvoiceUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.userRepo.GetByIDAndCompanyID(
+		userIDUint,
+		companyID,
+	)
+	if err != nil || user == nil {
+		return nil, errors.New("user does not belong to the company")
+	}
+
+	createdInvoice, err := s.CreateInvoice(invoiceInput, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetInvoiceByCompany(
+		createdInvoice.ID,
+		companyID,
+	)
+}
+
+func (s *invoiceService) GetInvoiceByCompany(
+	id string,
+	companyID uint,
+) (*output.InvoiceOutput, error) {
+	invoice, err := s.invoiceRepo.FindByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, errors.New("invoice not found")
+	}
+
+	return output.ToInvoiceOutput(invoice)
+}
+
+func (s *invoiceService) GetAllInvoicesByCompany(
+	companyID uint,
+	limit int,
+	offset int,
+) (*output.InvoiceListOutput, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	invoices, total, err := s.invoiceRepo.FindAllByCompany(
+		companyID,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return output.ToInvoiceListOutput(invoices, total)
+}
+
+func (s *invoiceService) UpdateInvoiceForCompany(
+	id string,
+	invoiceInput *input.UpdateInvoiceInput,
+	userID string,
+	companyID uint,
+) (*output.InvoiceOutput, error) {
+	if _, err := s.invoiceRepo.FindByIDAndCompany(
+		id,
+		companyID,
+	); err != nil {
+		return nil, errors.New("invoice not found")
+	}
+
+	if err := s.validateInvoiceUpdateForCompany(
+		invoiceInput,
+		companyID,
+	); err != nil {
+		return nil, err
+	}
+
+	updatedInvoice, err := s.UpdateInvoice(
+		id,
+		invoiceInput,
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetInvoiceByCompany(
+		updatedInvoice.ID,
+		companyID,
+	)
+}
+
+func (s *invoiceService) DeleteInvoiceForCompany(
+	id string,
+	companyID uint,
+) error {
+	invoice, err := s.invoiceRepo.FindByIDAndCompany(id, companyID)
+	if err != nil {
+		return errors.New("invoice not found")
+	}
+
+	if invoice.Status == domain.InvoiceStatusIssued ||
+		invoice.Status == domain.InvoiceStatusSent ||
+		invoice.Status == domain.InvoiceStatusPaid {
+		return fmt.Errorf(
+			"cannot delete invoice with status %s",
+			invoice.Status,
+		)
+	}
+
+	return s.invoiceRepo.DeleteByCompany(id, companyID)
+}
+
+func (s *invoiceService) GetInvoicesByCustomerAndCompany(
+	customerID uint,
+	companyID uint,
+	limit int,
+	offset int,
+) (*output.InvoiceListOutput, error) {
+	if _, err := s.customerRepo.FindByIDAndCompany(
+		customerID,
+		companyID,
+	); err != nil {
+		return nil, errors.New("customer not found in your company")
+	}
+
+	invoices, total, err := s.invoiceRepo.FindByCustomerIDAndCompany(
+		customerID,
+		companyID,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return output.ToInvoiceListOutput(invoices, total)
+}
+
+func (s *invoiceService) GetInvoicesByStatusAndCompany(
+	status string,
+	companyID uint,
+	limit int,
+	offset int,
+) (*output.InvoiceListOutput, error) {
+	invoices, total, err := s.invoiceRepo.FindByStatusAndCompany(
+		status,
+		companyID,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return output.ToInvoiceListOutput(invoices, total)
+}
+
+func (s *invoiceService) UpdateInvoiceStatusForCompany(
+	id string,
+	status domain.InvoiceStatus,
+	userID string,
+	companyID uint,
+) (*output.InvoiceOutput, error) {
+	invoice, err := s.invoiceRepo.FindByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, errors.New("invoice not found")
+	}
+
+	shouldFilter := companyID > 0
+
+	if status == domain.InvoiceStatusIssued &&
+		invoice.Status != domain.InvoiceStatusIssued {
+		for _, lineItem := range invoice.LineItems {
+			if lineItem.ProductID == nil {
+				continue
+			}
+
+			if _, err := s.productRepo.FindByIDAndCompany(
+				*lineItem.ProductID,
+				companyID,
+			); err != nil {
+				return nil, fmt.Errorf(
+					"product %s not found in your company",
+					*lineItem.ProductID,
+				)
+			}
+
+			productStock, err :=
+				s.productStockRepo.GetByProductIDAndCompany(
+					*lineItem.ProductID,
+					companyID,
+					shouldFilter,
+				)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"failed to get stock for product %s: %w",
+					*lineItem.ProductID,
+					err,
+				)
+			}
+
+			if productStock.CurrentStock < lineItem.Quantity {
+				return nil, fmt.Errorf(
+					"insufficient stock for product %s. Required: %f, Available: %f",
+					*lineItem.ProductID,
+					lineItem.Quantity,
+					productStock.CurrentStock,
+				)
+			}
+
+			beforeQuantity := productStock.CurrentStock
+			productStock.CurrentStock -= lineItem.Quantity
+			productStock.AvailableStock -= lineItem.Quantity
+			productStock.SoldStock += lineItem.Quantity
+			now := time.Now()
+			productStock.LastSoldDate = &now
+			productStock.UpdatedAt = now
+
+			if err := s.productStockRepo.UpdateByCompany(
+				productStock,
+				companyID,
+				shouldFilter,
+			); err != nil {
+				return nil, fmt.Errorf(
+					"failed to update stock for product %s: %w",
+					*lineItem.ProductID,
+					err,
+				)
+			}
+
+			ledgerEntry := &models.StockLedger{
+				ProductID:        *lineItem.ProductID,
+				MovementType:     "SALES_INVOICE",
+				Quantity:         -lineItem.Quantity,
+				Rate:             productStock.AverageCost,
+				Amount:           -lineItem.Quantity * productStock.AverageCost,
+				ReferenceType:    "INVOICE",
+				ReferenceID:      invoice.ID,
+				ReferenceNumber:  invoice.InvoiceNumber,
+				BalanceBeforeQty: beforeQuantity,
+				BalanceAfterQty:  productStock.CurrentStock,
+				Notes:            fmt.Sprintf("Invoice %s issued", invoice.InvoiceNumber),
+				CreatedAt:        now,
+				CreatedBy:        userID,
+			}
+
+			if err := s.stockLedgerRepo.CreateForCompany(
+				ledgerEntry,
+				companyID,
+				shouldFilter,
+			); err != nil {
+				return nil, fmt.Errorf(
+					"failed to create stock ledger entry: %w",
+					err,
+				)
+			}
+		}
+	}
+
+	invoice.Status = status
+	invoice.UpdatedAt = time.Now()
+	invoice.UpdatedBy = userID
+
+	if err := s.invoiceRepo.UpdateByCompany(
+		invoice,
+		companyID,
+	); err != nil {
+		return nil, err
+	}
+
+	return s.GetInvoiceByCompany(id, companyID)
+}
+
 type salespersonService struct {
 	repo repo.SalespersonRepository
 }
@@ -772,4 +1215,157 @@ func (s *paymentService) DeletePayment(id uint) error {
 	invoice.UpdatedAt = time.Now()
 
 	return s.invoiceRepo.Update(invoice)
+}
+
+func (s *paymentService) CreatePaymentForCompany(
+	paymentInput *input.CreatePaymentInput,
+	userID string,
+	companyID uint,
+) (*output.PaymentOutput, error) {
+	invoice, err := s.invoiceRepo.FindByIDAndCompany(
+		paymentInput.InvoiceID,
+		companyID,
+	)
+	if err != nil {
+		return nil, errors.New("invoice not found")
+	}
+
+	existingPayments, err := s.paymentRepo.FindByInvoiceID(
+		paymentInput.InvoiceID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var totalPaid float64
+	for _, payment := range existingPayments {
+		totalPaid += payment.Amount
+	}
+
+	if totalPaid+paymentInput.Amount > invoice.Total {
+		return nil, errors.New(
+			"payment amount exceeds remaining invoice balance",
+		)
+	}
+
+	payment := &models.Payment{
+		InvoiceID:   paymentInput.InvoiceID,
+		PaymentDate: paymentInput.PaymentDate,
+		Amount:      paymentInput.Amount,
+		PaymentMode: paymentInput.PaymentMode,
+		Reference:   paymentInput.Reference,
+		Notes:       paymentInput.Notes,
+		CreatedAt:   time.Now(),
+		CreatedBy:   userID,
+	}
+
+	if err := s.paymentRepo.Create(payment); err != nil {
+		return nil, err
+	}
+
+	totalPaid += paymentInput.Amount
+	if totalPaid >= invoice.Total {
+		invoice.Status = domain.InvoiceStatusPaid
+	} else {
+		invoice.Status = domain.InvoiceStatusPartial
+	}
+	invoice.UpdatedAt = time.Now()
+	invoice.UpdatedBy = userID
+
+	if err := s.invoiceRepo.UpdateByCompany(
+		invoice,
+		companyID,
+	); err != nil {
+		return nil, err
+	}
+
+	return output.ToPaymentOutput(payment), nil
+}
+
+func (s *paymentService) GetPaymentForCompany(
+	id uint,
+	companyID uint,
+) (*output.PaymentOutput, error) {
+	payment, err := s.paymentRepo.FindByID(id)
+	if err != nil {
+		return nil, errors.New("payment not found")
+	}
+
+	if _, err := s.invoiceRepo.FindByIDAndCompany(
+		payment.InvoiceID,
+		companyID,
+	); err != nil {
+		return nil, errors.New("payment not found")
+	}
+
+	return output.ToPaymentOutput(payment), nil
+}
+
+func (s *paymentService) GetPaymentsByInvoiceForCompany(
+	invoiceID string,
+	companyID uint,
+) (*output.PaymentListOutput, error) {
+	if _, err := s.invoiceRepo.FindByIDAndCompany(
+		invoiceID,
+		companyID,
+	); err != nil {
+		return nil, errors.New("invoice not found")
+	}
+
+	payments, err := s.paymentRepo.FindByInvoiceID(invoiceID)
+	if err != nil {
+		return nil, err
+	}
+
+	return output.ToPaymentListOutput(
+		payments,
+		int64(len(payments)),
+	), nil
+}
+
+func (s *paymentService) DeletePaymentForCompany(
+	id uint,
+	companyID uint,
+) error {
+	payment, err := s.paymentRepo.FindByID(id)
+	if err != nil {
+		return errors.New("payment not found")
+	}
+
+	invoice, err := s.invoiceRepo.FindByIDAndCompany(
+		payment.InvoiceID,
+		companyID,
+	)
+	if err != nil {
+		return errors.New("payment not found")
+	}
+
+	if err := s.paymentRepo.Delete(id); err != nil {
+		return err
+	}
+
+	payments, err := s.paymentRepo.FindByInvoiceID(
+		payment.InvoiceID,
+	)
+	if err != nil {
+		return err
+	}
+
+	var totalPaid float64
+	for _, existingPayment := range payments {
+		totalPaid += existingPayment.Amount
+	}
+
+	if totalPaid == 0 {
+		invoice.Status = domain.InvoiceStatusSent
+	} else if totalPaid < invoice.Total {
+		invoice.Status = domain.InvoiceStatusPartial
+	}
+
+	invoice.UpdatedAt = time.Now()
+
+	return s.invoiceRepo.UpdateByCompany(
+		invoice,
+		companyID,
+	)
 }

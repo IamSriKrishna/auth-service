@@ -11,28 +11,62 @@ import (
 )
 
 type DashboardService interface {
-	// Get dashboard metrics
 	GetDashboardMetrics() (*output.DashboardMetricsOutput, error)
-	GetDashboardMetricsWithUserContext(userID uint, userType string, email string, companyID uint) (*output.DashboardMetricsOutput, error)
+
+	GetDashboardMetricsWithUserContext(
+		userID uint,
+		userType string,
+		email string,
+		companyID uint,
+	) (*output.DashboardMetricsOutput, error)
+
 	RefreshDashboardMetrics() error
 
-	// Shipment tracking
-	AddShipmentTracking(shipmentID, status, location string, latitude, longitude float64, notes string) error
-	GetShipmentTracking(shipmentID string, limit int) (*output.ShipmentTrackingListOutput, error)
+	AddShipmentTracking(
+		shipmentID string,
+		status string,
+		location string,
+		latitude float64,
+		longitude float64,
+		notes string,
+		companyID uint,
+		userType string,
+	) error
 
-	// Stock information
+	GetShipmentTracking(
+		shipmentID string,
+		limit int,
+		companyID uint,
+		userType string,
+	) (*output.ShipmentTrackingListOutput, error)
+
 	GetStockSummary() (*output.StockListOutput, error)
-	GetStockSummaryWithUserContext(userID uint, userType string) (*output.StockListOutput, error)
 
-	// Trends
-	GetEntityTrends(entityType string, days int) (*output.EntityTrendOutput, error)
+	GetStockSummaryWithUserContext(
+		userID uint,
+		userType string,
+		companyID uint,
+	) (*output.StockListOutput, error)
 
-	// Activity
+	GetEntityTrends(
+		entityType string,
+		days int,
+		companyID uint,
+		userType string,
+	) (*output.EntityTrendOutput, error)
+
 	GetActivitySummary() (*output.ActivitySummaryOutput, error)
-	GetActivitySummaryWithUserContext(userID uint, userType string) (*output.ActivitySummaryOutput, error)
 
-	// Diagnostics
-	GetDiagnosticReport() (*output.DiagnosticReportOutput, error)
+	GetActivitySummaryWithUserContext(
+		userID uint,
+		userType string,
+		companyID uint,
+	) (*output.ActivitySummaryOutput, error)
+
+	GetDiagnosticReport(
+		companyID uint,
+		userType string,
+	) (*output.DiagnosticReportOutput, error)
 }
 
 type dashboardService struct {
@@ -41,7 +75,11 @@ type dashboardService struct {
 	companyRepo repo.CompanyRepository
 }
 
-func NewDashboardService(dashRepo repo.DashboardRepository, userRepo repo.UserRepository, companyRepo repo.CompanyRepository) DashboardService {
+func NewDashboardService(
+	dashRepo repo.DashboardRepository,
+	userRepo repo.UserRepository,
+	companyRepo repo.CompanyRepository,
+) DashboardService {
 	return &dashboardService{
 		repo:        dashRepo,
 		userRepo:    userRepo,
@@ -49,199 +87,80 @@ func NewDashboardService(dashRepo repo.DashboardRepository, userRepo repo.UserRe
 	}
 }
 
-// GetDashboardMetrics returns current dashboard metrics
-func (s *dashboardService) GetDashboardMetrics() (*output.DashboardMetricsOutput, error) {
-	// Customer metrics
-	totalCustomers, _ := s.repo.GetTotalCustomers()
-	activeCustomers, _ := s.repo.GetActiveCustomers()
-	customersCreatedToday, _ := s.repo.GetCustomersCreatedToday()
-
-	// Vendor metrics
-	totalVendors, _ := s.repo.GetTotalVendors()
-	activeVendors, _ := s.repo.GetActiveVendors()
-	vendorsCreatedToday, _ := s.repo.GetVendorsCreatedToday()
-
-	// Item metrics
-	totalItems, _ := s.repo.GetTotalItems()
-	totalItemGroups, _ := s.repo.GetTotalItemGroups()
-	totalStock, _ := s.repo.GetTotalStock()
-	lowStockItems, _ := s.repo.GetLowStockItems(100)
-	outOfStockItems, _ := s.repo.GetOutOfStockItems()
-	itemsCreatedToday, _ := s.repo.GetItemsCreatedToday()
-
-	// Shipment metrics
-	totalShipments, _ := s.repo.GetTotalShipments()
-	shippedCount, _ := s.repo.GetShippedCount()
-	pendingShipments, _ := s.repo.GetShipmentsByStatus("pending")
-	deliveredShipments, _ := s.repo.GetShipmentsByStatus("delivered")
-	inTransitShipments, _ := s.repo.GetShipmentsByStatus("in_transit")
-
-	// Invoice metrics
-	totalInvoices, _ := s.repo.GetTotalInvoices()
-	totalInvoiceAmount, _ := s.repo.GetTotalInvoiceAmount()
-	outstandingInvoices, _ := s.repo.GetOutstandingInvoices()
-	paidInvoices, _ := s.repo.GetInvoicesByStatus("paid")
-	pendingInvoices, _ := s.repo.GetInvoicesByStatus("pending")
-	overdueInvoices, _ := s.repo.GetOverdueInvoices()
-
-	// Sales order metrics
-	totalSalesOrders, _ := s.repo.GetTotalSalesOrders()
-	totalSalesOrderAmount, _ := s.repo.GetTotalSalesOrderAmount()
-	completedSalesOrders, _ := s.repo.GetSalesOrdersByStatus("completed")
-	pendingSalesOrders, _ := s.repo.GetSalesOrdersByStatus("pending")
-	cancelledSalesOrders, _ := s.repo.GetSalesOrdersByStatus("cancelled")
-	salesOrdersCreatedToday, _ := s.repo.GetSalesOrdersCreatedToday()
-
-	// Purchase order metrics
-	totalPurchaseOrders, _ := s.repo.GetTotalPurchaseOrders()
-	totalPurchaseOrderAmount, _ := s.repo.GetTotalPurchaseOrderAmount()
-	completedPurchaseOrders, _ := s.repo.GetPurchaseOrdersByStatus("completed")
-	pendingPurchaseOrders, _ := s.repo.GetPurchaseOrdersByStatus("pending")
-	cancelledPurchaseOrders, _ := s.repo.GetPurchaseOrdersByStatus("cancelled")
-	purchaseOrdersCreatedToday, _ := s.repo.GetPurchaseOrdersCreatedToday()
-
-	// Package metrics
-	totalPackages, _ := s.repo.GetTotalPackages()
-	shippedPackages, _ := s.repo.GetPackagesByStatus("shipped")
-	pendingPackages, _ := s.repo.GetPackagesByStatus("pending")
-	inTransitPackages, _ := s.repo.GetPackagesByStatus("in_transit")
-	deliveredPackages, _ := s.repo.GetPackagesByStatus("delivered")
-	packagesCreatedToday, _ := s.repo.GetPackagesCreatedToday()
-
-	return &output.DashboardMetricsOutput{
-		CustomerMetrics: output.CustomerMetricsOutput{
-			Total:        int(totalCustomers),
-			Active:       int(activeCustomers),
-			Inactive:     int(totalCustomers - activeCustomers),
-			CreatedToday: int(customersCreatedToday),
-		},
-		VendorMetrics: output.VendorMetricsOutput{
-			Total:        int(totalVendors),
-			Active:       int(activeVendors),
-			Inactive:     int(totalVendors - activeVendors),
-			CreatedToday: int(vendorsCreatedToday),
-		},
-		ItemMetrics: output.ItemMetricsOutput{
-			Total:          int(totalItems),
-			TotalStock:     totalStock,
-			LowStockItems:  int(lowStockItems),
-			ItemGroups:     int(totalItemGroups),
-			CreatedToday:   int(itemsCreatedToday),
-			OutOfStockItem: int(outOfStockItems),
-		},
-		ShipmentMetrics: output.ShipmentMetricsOutput{
-			Total:            int(totalShipments),
-			Shipped:          int(shippedCount),
-			Pending:          int(pendingShipments),
-			InTransit:        int(inTransitShipments),
-			Delivered:        int(deliveredShipments),
-			CancelledShipped: 0,
-			AverageTime:      0,
-		},
-		InvoiceMetrics: output.InvoiceMetricsOutput{
-			Total:       int(totalInvoices),
-			TotalAmount: totalInvoiceAmount,
-			Outstanding: outstandingInvoices,
-			Paid:        int(paidInvoices),
-			Pending:     int(pendingInvoices),
-			Overdue:     int(overdueInvoices),
-		},
-		SalesOrderMetrics: output.SalesOrderMetricsOutput{
-			Total:        int(totalSalesOrders),
-			TotalAmount:  totalSalesOrderAmount,
-			Completed:    int(completedSalesOrders),
-			Pending:      int(pendingSalesOrders),
-			Cancelled:    int(cancelledSalesOrders),
-			CreatedToday: int(salesOrdersCreatedToday),
-		},
-		PurchaseOrderMetrics: output.PurchaseOrderMetricsOutput{
-			Total:        int(totalPurchaseOrders),
-			TotalAmount:  totalPurchaseOrderAmount,
-			Completed:    int(completedPurchaseOrders),
-			Pending:      int(pendingPurchaseOrders),
-			Cancelled:    int(cancelledPurchaseOrders),
-			CreatedToday: int(purchaseOrdersCreatedToday),
-		},
-		PackageMetrics: output.PackageMetricsOutput{
-			Total:        int(totalPackages),
-			Shipped:      int(shippedPackages),
-			Pending:      int(pendingPackages),
-			InTransit:    int(inTransitPackages),
-			Delivered:    int(deliveredPackages),
-			CreatedToday: int(packagesCreatedToday),
-		},
-		LastUpdatedAt: time.Now(),
-		GeneratedAt:   time.Now(),
-	}, nil
+func shouldFilterByCompany(userType string, companyID uint) bool {
+	return userType != "superadmin" && companyID > 0
 }
 
-// GetDashboardMetricsWithUserContext returns dashboard metrics filtered by user role
-func (s *dashboardService) GetDashboardMetricsWithUserContext(userID uint, userType string, email string, companyID uint) (*output.DashboardMetricsOutput, error) {
-	// For superadmin, show all data; for admin, filter by user ID
-	shouldFilter := userType == "admin" && userID > 0
+// GetDashboardMetrics returns global metrics.
+// Keep this only for public or superadmin usage.
+func (s *dashboardService) GetDashboardMetrics() (*output.DashboardMetricsOutput, error) {
+	return s.GetDashboardMetricsWithUserContext(
+		0,
+		"superadmin",
+		"",
+		0,
+	)
+}
 
-	fmt.Printf("Service Debug - UserID: %d, UserType: %s, ShouldFilter: %v, CompanyID: %d\n", userID, userType, shouldFilter, companyID)
+// GetDashboardMetricsWithUserContext returns global data for superadmin
+// and company-scoped data for every other user.
+func (s *dashboardService) GetDashboardMetricsWithUserContext(
+	userID uint,
+	userType string,
+	email string,
+	companyID uint,
+) (*output.DashboardMetricsOutput, error) {
+	shouldFilter := shouldFilterByCompany(userType, companyID)
 
-	// Customer metrics
-	totalCustomers, _ := s.repo.GetTotalCustomersWithFilter(shouldFilter, userID)
-	activeCustomers, _ := s.repo.GetActiveCustomersWithFilter(shouldFilter, userID)
-	customersCreatedToday, _ := s.repo.GetCustomersCreatedTodayWithFilter(shouldFilter, userID)
+	totalCustomers, _ := s.repo.GetTotalCustomersWithFilter(shouldFilter, companyID)
+	activeCustomers, _ := s.repo.GetActiveCustomersWithFilter(shouldFilter, companyID)
+	customersCreatedToday, _ := s.repo.GetCustomersCreatedTodayWithFilter(shouldFilter, companyID)
 
-	fmt.Printf("Customer metrics - Total: %d (should filter:%v)\n", totalCustomers, shouldFilter)
+	totalVendors, _ := s.repo.GetTotalVendorsWithFilter(shouldFilter, companyID)
+	activeVendors, _ := s.repo.GetActiveVendorsWithFilter(shouldFilter, companyID)
+	vendorsCreatedToday, _ := s.repo.GetVendorsCreatedTodayWithFilter(shouldFilter, companyID)
 
-	// Vendor metrics
-	totalVendors, _ := s.repo.GetTotalVendorsWithFilter(shouldFilter, userID)
-	activeVendors, _ := s.repo.GetActiveVendorsWithFilter(shouldFilter, userID)
-	vendorsCreatedToday, _ := s.repo.GetVendorsCreatedTodayWithFilter(shouldFilter, userID)
+	totalItems, _ := s.repo.GetTotalItemsWithFilter(shouldFilter, companyID)
+	totalItemGroups, _ := s.repo.GetTotalItemGroupsWithFilter(shouldFilter, companyID)
+	totalStock, _ := s.repo.GetTotalStockWithFilter(shouldFilter, companyID)
+	lowStockItems, _ := s.repo.GetLowStockItemsWithFilter(100, shouldFilter, companyID)
+	outOfStockItems, _ := s.repo.GetOutOfStockItemsWithFilter(shouldFilter, companyID)
+	itemsCreatedToday, _ := s.repo.GetItemsCreatedTodayWithFilter(shouldFilter, companyID)
 
-	// Item metrics
-	totalItems, _ := s.repo.GetTotalItemsWithFilter(shouldFilter, userID)
-	totalItemGroups, _ := s.repo.GetTotalItemGroupsWithFilter(shouldFilter, userID)
-	totalStock, _ := s.repo.GetTotalStockWithFilter(shouldFilter, userID)
-	lowStockItems, _ := s.repo.GetLowStockItemsWithFilter(100, shouldFilter, userID)
-	outOfStockItems, _ := s.repo.GetOutOfStockItemsWithFilter(shouldFilter, userID)
-	itemsCreatedToday, _ := s.repo.GetItemsCreatedTodayWithFilter(shouldFilter, userID)
+	totalShipments, _ := s.repo.GetTotalShipmentsWithFilter(shouldFilter, companyID)
+	shippedCount, _ := s.repo.GetShippedCountWithFilter(shouldFilter, companyID)
+	pendingShipments, _ := s.repo.GetShipmentsByStatusWithFilter("pending", shouldFilter, companyID)
+	deliveredShipments, _ := s.repo.GetShipmentsByStatusWithFilter("delivered", shouldFilter, companyID)
+	inTransitShipments, _ := s.repo.GetShipmentsByStatusWithFilter("in_transit", shouldFilter, companyID)
 
-	// Shipment metrics
-	totalShipments, _ := s.repo.GetTotalShipmentsWithFilter(shouldFilter, userID)
-	shippedCount, _ := s.repo.GetShippedCountWithFilter(shouldFilter, userID)
-	pendingShipments, _ := s.repo.GetShipmentsByStatusWithFilter("pending", shouldFilter, userID)
-	deliveredShipments, _ := s.repo.GetShipmentsByStatusWithFilter("delivered", shouldFilter, userID)
-	inTransitShipments, _ := s.repo.GetShipmentsByStatusWithFilter("in_transit", shouldFilter, userID)
+	totalInvoices, _ := s.repo.GetTotalInvoicesWithFilter(shouldFilter, companyID)
+	totalInvoiceAmount, _ := s.repo.GetTotalInvoiceAmountWithFilter(shouldFilter, companyID)
+	outstandingInvoices, _ := s.repo.GetOutstandingInvoicesWithFilter(shouldFilter, companyID)
+	paidInvoices, _ := s.repo.GetInvoicesByStatusWithFilter("paid", shouldFilter, companyID)
+	pendingInvoices, _ := s.repo.GetInvoicesByStatusWithFilter("pending", shouldFilter, companyID)
+	overdueInvoices, _ := s.repo.GetOverdueInvoicesWithFilter(shouldFilter, companyID)
 
-	// Invoice metrics
-	totalInvoices, _ := s.repo.GetTotalInvoicesWithFilter(shouldFilter, userID)
-	totalInvoiceAmount, _ := s.repo.GetTotalInvoiceAmountWithFilter(shouldFilter, userID)
-	outstandingInvoices, _ := s.repo.GetOutstandingInvoicesWithFilter(shouldFilter, userID)
-	paidInvoices, _ := s.repo.GetInvoicesByStatusWithFilter("paid", shouldFilter, userID)
-	pendingInvoices, _ := s.repo.GetInvoicesByStatusWithFilter("pending", shouldFilter, userID)
-	overdueInvoices, _ := s.repo.GetOverdueInvoicesWithFilter(shouldFilter, userID)
+	totalSalesOrders, _ := s.repo.GetTotalSalesOrdersWithFilter(shouldFilter, companyID)
+	totalSalesOrderAmount, _ := s.repo.GetTotalSalesOrderAmountWithFilter(shouldFilter, companyID)
+	completedSalesOrders, _ := s.repo.GetSalesOrdersByStatusWithFilter("completed", shouldFilter, companyID)
+	pendingSalesOrders, _ := s.repo.GetSalesOrdersByStatusWithFilter("pending", shouldFilter, companyID)
+	cancelledSalesOrders, _ := s.repo.GetSalesOrdersByStatusWithFilter("cancelled", shouldFilter, companyID)
+	salesOrdersCreatedToday, _ := s.repo.GetSalesOrdersCreatedTodayWithFilter(shouldFilter, companyID)
 
-	// Sales order metrics
-	totalSalesOrders, _ := s.repo.GetTotalSalesOrdersWithFilter(shouldFilter, userID)
-	totalSalesOrderAmount, _ := s.repo.GetTotalSalesOrderAmountWithFilter(shouldFilter, userID)
-	completedSalesOrders, _ := s.repo.GetSalesOrdersByStatusWithFilter("completed", shouldFilter, userID)
-	pendingSalesOrders, _ := s.repo.GetSalesOrdersByStatusWithFilter("pending", shouldFilter, userID)
-	cancelledSalesOrders, _ := s.repo.GetSalesOrdersByStatusWithFilter("cancelled", shouldFilter, userID)
-	salesOrdersCreatedToday, _ := s.repo.GetSalesOrdersCreatedTodayWithFilter(shouldFilter, userID)
+	totalPurchaseOrders, _ := s.repo.GetTotalPurchaseOrdersWithFilter(shouldFilter, companyID)
+	totalPurchaseOrderAmount, _ := s.repo.GetTotalPurchaseOrderAmountWithFilter(shouldFilter, companyID)
+	completedPurchaseOrders, _ := s.repo.GetPurchaseOrdersByStatusWithFilter("completed", shouldFilter, companyID)
+	pendingPurchaseOrders, _ := s.repo.GetPurchaseOrdersByStatusWithFilter("pending", shouldFilter, companyID)
+	cancelledPurchaseOrders, _ := s.repo.GetPurchaseOrdersByStatusWithFilter("cancelled", shouldFilter, companyID)
+	purchaseOrdersCreatedToday, _ := s.repo.GetPurchaseOrdersCreatedTodayWithFilter(shouldFilter, companyID)
 
-	// Purchase order metrics
-	totalPurchaseOrders, _ := s.repo.GetTotalPurchaseOrdersWithFilter(shouldFilter, userID)
-	totalPurchaseOrderAmount, _ := s.repo.GetTotalPurchaseOrderAmountWithFilter(shouldFilter, userID)
-	completedPurchaseOrders, _ := s.repo.GetPurchaseOrdersByStatusWithFilter("completed", shouldFilter, userID)
-	pendingPurchaseOrders, _ := s.repo.GetPurchaseOrdersByStatusWithFilter("pending", shouldFilter, userID)
-	cancelledPurchaseOrders, _ := s.repo.GetPurchaseOrdersByStatusWithFilter("cancelled", shouldFilter, userID)
-	purchaseOrdersCreatedToday, _ := s.repo.GetPurchaseOrdersCreatedTodayWithFilter(shouldFilter, userID)
+	totalPackages, _ := s.repo.GetTotalPackagesWithFilter(shouldFilter, companyID)
+	shippedPackages, _ := s.repo.GetPackagesByStatusWithFilter("shipped", shouldFilter, companyID)
+	pendingPackages, _ := s.repo.GetPackagesByStatusWithFilter("pending", shouldFilter, companyID)
+	inTransitPackages, _ := s.repo.GetPackagesByStatusWithFilter("in_transit", shouldFilter, companyID)
+	deliveredPackages, _ := s.repo.GetPackagesByStatusWithFilter("delivered", shouldFilter, companyID)
+	packagesCreatedToday, _ := s.repo.GetPackagesCreatedTodayWithFilter(shouldFilter, companyID)
 
-	// Package metrics
-	totalPackages, _ := s.repo.GetTotalPackagesWithFilter(shouldFilter, userID)
-	shippedPackages, _ := s.repo.GetPackagesByStatusWithFilter("shipped", shouldFilter, userID)
-	pendingPackages, _ := s.repo.GetPackagesByStatusWithFilter("pending", shouldFilter, userID)
-	inTransitPackages, _ := s.repo.GetPackagesByStatusWithFilter("in_transit", shouldFilter, userID)
-	deliveredPackages, _ := s.repo.GetPackagesByStatusWithFilter("delivered", shouldFilter, userID)
-	packagesCreatedToday, _ := s.repo.GetPackagesCreatedTodayWithFilter(shouldFilter, userID)
-
-	// Prepare user info by fetching from database
 	userInfo := output.UserInfoOutput{
 		UserID:      userID,
 		UserRole:    userType,
@@ -251,67 +170,43 @@ func (s *dashboardService) GetDashboardMetricsWithUserContext(userID uint, userT
 		Email:       email,
 	}
 
-	fmt.Printf("\n=== Service: Fetching User Info ===\n")
-	fmt.Printf("UserID: %d, UserType: %s, CompanyID: %d\n", userID, userType, companyID)
-
-	// Fetch actual user data from database
 	if userID > 0 && s.userRepo != nil {
-		fmt.Printf("Attempting to fetch user %d from database\n", userID)
 		user, err := s.userRepo.GetByID(userID)
-		if err != nil {
-			fmt.Printf("Error fetching user: %v\n", err)
-		} else if user != nil {
-			fmt.Printf("User found: %+v\n", user)
+		if err == nil && user != nil {
 			if user.Username != nil {
 				userInfo.UserName = *user.Username
-				fmt.Printf("Set username: %s\n", userInfo.UserName)
 			}
+
 			if user.Email != nil {
 				userInfo.Email = *user.Email
-				fmt.Printf("Set email: %s\n", userInfo.Email)
 			}
-		} else {
-			fmt.Println("User is nil")
 		}
-	} else {
-		fmt.Printf("Skipping user fetch: userID=%d, userRepo=%v\n", userID, s.userRepo != nil)
 	}
 
-	// Fetch company data from database
 	if companyID > 0 && s.companyRepo != nil {
-		fmt.Printf("Attempting to fetch company %d from database\n", companyID)
 		company, err := s.companyRepo.FindByID(companyID)
-		if err != nil {
-			fmt.Printf("Error fetching company: %v\n", err)
-		} else if company != nil {
-			fmt.Printf("Company found: %+v\n", company)
+		if err == nil && company != nil {
 			userInfo.CompanyName = company.CompanyName
-			fmt.Printf("Set company name: %s\n", userInfo.CompanyName)
-		} else {
-			fmt.Println("Company is nil")
 		}
-	} else {
-		fmt.Printf("Skipping company fetch: companyID=%d, companyRepo=%v\n", companyID, s.companyRepo != nil)
 	}
-
-	fmt.Printf("=== Final User Info ===\n")
-	fmt.Printf("UserID: %d, UserName: %s, UserRole: %s, CompanyID: %d, CompanyName: %s, Email: %s\n\n",
-		userInfo.UserID, userInfo.UserName, userInfo.UserRole, userInfo.CompanyID, userInfo.CompanyName, userInfo.Email)
 
 	return &output.DashboardMetricsOutput{
 		UserInfo: userInfo,
+
 		CustomerMetrics: output.CustomerMetricsOutput{
 			Total:        int(totalCustomers),
 			Active:       int(activeCustomers),
 			Inactive:     int(totalCustomers - activeCustomers),
 			CreatedToday: int(customersCreatedToday),
 		},
+
 		VendorMetrics: output.VendorMetricsOutput{
 			Total:        int(totalVendors),
 			Active:       int(activeVendors),
 			Inactive:     int(totalVendors - activeVendors),
 			CreatedToday: int(vendorsCreatedToday),
 		},
+
 		ItemMetrics: output.ItemMetricsOutput{
 			Total:          int(totalItems),
 			TotalStock:     totalStock,
@@ -320,6 +215,7 @@ func (s *dashboardService) GetDashboardMetricsWithUserContext(userID uint, userT
 			CreatedToday:   int(itemsCreatedToday),
 			OutOfStockItem: int(outOfStockItems),
 		},
+
 		ShipmentMetrics: output.ShipmentMetricsOutput{
 			Total:            int(totalShipments),
 			Shipped:          int(shippedCount),
@@ -329,6 +225,7 @@ func (s *dashboardService) GetDashboardMetricsWithUserContext(userID uint, userT
 			CancelledShipped: 0,
 			AverageTime:      0,
 		},
+
 		InvoiceMetrics: output.InvoiceMetricsOutput{
 			Total:       int(totalInvoices),
 			TotalAmount: totalInvoiceAmount,
@@ -337,6 +234,7 @@ func (s *dashboardService) GetDashboardMetricsWithUserContext(userID uint, userT
 			Pending:     int(pendingInvoices),
 			Overdue:     int(overdueInvoices),
 		},
+
 		SalesOrderMetrics: output.SalesOrderMetricsOutput{
 			Total:        int(totalSalesOrders),
 			TotalAmount:  totalSalesOrderAmount,
@@ -345,6 +243,7 @@ func (s *dashboardService) GetDashboardMetricsWithUserContext(userID uint, userT
 			Cancelled:    int(cancelledSalesOrders),
 			CreatedToday: int(salesOrdersCreatedToday),
 		},
+
 		PurchaseOrderMetrics: output.PurchaseOrderMetricsOutput{
 			Total:        int(totalPurchaseOrders),
 			TotalAmount:  totalPurchaseOrderAmount,
@@ -353,6 +252,7 @@ func (s *dashboardService) GetDashboardMetricsWithUserContext(userID uint, userT
 			Cancelled:    int(cancelledPurchaseOrders),
 			CreatedToday: int(purchaseOrdersCreatedToday),
 		},
+
 		PackageMetrics: output.PackageMetricsOutput{
 			Total:        int(totalPackages),
 			Shipped:      int(shippedPackages),
@@ -361,12 +261,14 @@ func (s *dashboardService) GetDashboardMetricsWithUserContext(userID uint, userT
 			Delivered:    int(deliveredPackages),
 			CreatedToday: int(packagesCreatedToday),
 		},
+
 		LastUpdatedAt: time.Now(),
 		GeneratedAt:   time.Now(),
 	}, nil
 }
 
-// RefreshDashboardMetrics refreshes the cached metrics
+// RefreshDashboardMetrics remains global.
+// Apply SuperAdminMiddleware to its route.
 func (s *dashboardService) RefreshDashboardMetrics() error {
 	totalCustomers, _ := s.repo.GetTotalCustomers()
 	activeCustomers, _ := s.repo.GetActiveCustomers()
@@ -417,8 +319,18 @@ func (s *dashboardService) RefreshDashboardMetrics() error {
 	return s.repo.SaveDashboardMetrics(metrics)
 }
 
-// AddShipmentTracking adds a shipment tracking record
-func (s *dashboardService) AddShipmentTracking(shipmentID, status, location string, latitude, longitude float64, notes string) error {
+func (s *dashboardService) AddShipmentTracking(
+	shipmentID string,
+	status string,
+	location string,
+	latitude float64,
+	longitude float64,
+	notes string,
+	companyID uint,
+	userType string,
+) error {
+	shouldFilter := shouldFilterByCompany(userType, companyID)
+
 	tracking := &models.ShipmentTracking{
 		ID:         uuid.New().String(),
 		ShipmentID: shipmentID,
@@ -429,15 +341,32 @@ func (s *dashboardService) AddShipmentTracking(shipmentID, status, location stri
 		Notes:      notes,
 		Timestamp:  time.Now(),
 	}
-	return s.repo.AddShipmentTracking(tracking)
+
+	return s.repo.AddShipmentTrackingWithFilter(
+		tracking,
+		shouldFilter,
+		companyID,
+	)
 }
 
-// GetShipmentTracking retrieves shipment tracking records
-func (s *dashboardService) GetShipmentTracking(shipmentID string, limit int) (*output.ShipmentTrackingListOutput, error) {
-	if limit == 0 {
+func (s *dashboardService) GetShipmentTracking(
+	shipmentID string,
+	limit int,
+	companyID uint,
+	userType string,
+) (*output.ShipmentTrackingListOutput, error) {
+	if limit < 1 {
 		limit = 10
 	}
-	tracking, err := s.repo.GetShipmentTracking(shipmentID, limit)
+
+	shouldFilter := shouldFilterByCompany(userType, companyID)
+
+	tracking, err := s.repo.GetShipmentTrackingWithFilter(
+		shipmentID,
+		limit,
+		shouldFilter,
+		companyID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -447,37 +376,53 @@ func (s *dashboardService) GetShipmentTracking(shipmentID string, limit int) (*o
 		Total: len(tracking),
 	}
 
-	for i, t := range tracking {
-		result.Data[i] = output.ShipmentTrackingOutput{
-			ID:         t.ID,
-			ShipmentID: t.ShipmentID,
-			Status:     t.Status,
-			Location:   t.Location,
-			Latitude:   t.Latitude,
-			Longitude:  t.Longitude,
-			Notes:      t.Notes,
-			Timestamp:  t.Timestamp,
+	for index, item := range tracking {
+		result.Data[index] = output.ShipmentTrackingOutput{
+			ID:         item.ID,
+			ShipmentID: item.ShipmentID,
+			Status:     item.Status,
+			Location:   item.Location,
+			Latitude:   item.Latitude,
+			Longitude:  item.Longitude,
+			Notes:      item.Notes,
+			Timestamp:  item.Timestamp,
 		}
 	}
 
 	return result, nil
 }
 
-// GetStockSummary retrieves the product stock summary
 func (s *dashboardService) GetStockSummary() (*output.StockListOutput, error) {
-	inStock, _ := s.repo.GetInStockProducts()
-	lowStock, _ := s.repo.GetLowStockProducts(100)
-	outOfStock, _ := s.repo.GetOutOfStockProducts()
-	totalStock, _ := s.repo.GetTotalProductStock()
+	return s.GetStockSummaryWithUserContext(
+		0,
+		"superadmin",
+		0,
+	)
+}
 
-	// Get detailed product stock information
-	productStockDetails, err := s.repo.GetProductStockDetails()
+func (s *dashboardService) GetStockSummaryWithUserContext(
+	userID uint,
+	userType string,
+	companyID uint,
+) (*output.StockListOutput, error) {
+	_ = userID
+
+	shouldFilter := shouldFilterByCompany(userType, companyID)
+
+	inStock, _ := s.repo.GetInStockProductsWithFilter(shouldFilter, companyID)
+	lowStock, _ := s.repo.GetLowStockProductsWithFilter(100, shouldFilter, companyID)
+	outOfStock, _ := s.repo.GetOutOfStockProductsWithFilter(shouldFilter, companyID)
+	totalStock, _ := s.repo.GetTotalProductStockWithFilter(shouldFilter, companyID)
+
+	productStockDetails, err := s.repo.GetProductStockDetailsWithFilter(
+		shouldFilter,
+		companyID,
+	)
 	if err != nil {
-		fmt.Printf("Error getting product stock details: %v\n", err)
 		return &output.StockListOutput{
-			Data:            make([]output.ProductStockDetailOutput, 0),
+			Data:            []output.ProductStockDetailOutput{},
 			TotalProducts:   int(inStock),
-			InStockCount:    int(inStock) - int(lowStock) - int(outOfStock),
+			InStockCount:    int(inStock - lowStock - outOfStock),
 			LowStockCount:   int(lowStock),
 			OutOfStockCount: int(outOfStock),
 			TotalQuantity:   totalStock,
@@ -485,161 +430,71 @@ func (s *dashboardService) GetStockSummary() (*output.StockListOutput, error) {
 	}
 
 	stockDetails := make([]output.ProductStockDetailOutput, 0)
-	fmt.Printf("DEBUG: productStockDetails count: %d, nil: %v\n", len(productStockDetails), productStockDetails == nil)
 
-	if len(productStockDetails) > 0 {
-		for _, product := range productStockDetails {
-			fmt.Printf("DEBUG: Processing product: %v\n", product)
+	for _, product := range productStockDetails {
+		lastPurchasedDate, _ := product["last_purchased_date"].(*time.Time)
+		lastSoldDate, _ := product["last_sold_date"].(*time.Time)
 
-			lastPurchasedDate, _ := product["last_purchased_date"].(*time.Time)
-			lastSoldDate, _ := product["last_sold_date"].(*time.Time)
-
-			stockDetails = append(stockDetails, output.ProductStockDetailOutput{
-				ProductID:         product["product_id"].(string),
-				ProductName:       product["product_name"].(string),
-				SKU:               product["sku"].(string),
-				CurrentStock:      product["current_stock"].(float64),
-				AvailableStock:    product["available_stock"].(float64),
-				ReservedStock:     product["reserved_stock"].(float64),
-				PurchasedStock:    product["purchased_stock"].(float64),
-				SoldStock:         product["sold_stock"].(float64),
-				AverageCost:       product["average_cost"].(float64),
-				RevaluationAmount: product["revaluation_amount"].(float64),
-				LastPurchasedDate: lastPurchasedDate,
-				LastSoldDate:      lastSoldDate,
-				Status:            product["status"].(string),
-			})
+		rawMaterialUnit := ""
+		if value, ok := product["raw_material_unit"]; ok && value != nil {
+			rawMaterialUnit, _ = value.(string)
 		}
-	}
 
-	fmt.Printf("DEBUG: Final stockDetails count: %d\n", len(stockDetails))
+		productName, _ := product["product_name"].(string)
+
+		if isRaw, ok := product["is_raw"].(bool); ok && isRaw {
+			rawName, _ := product["raw_name"].(string)
+			rawSpecification, _ := product["raw_specification"].(string)
+
+			if rawName != "" && rawSpecification != "" {
+				productName = rawName + "_" + rawSpecification
+			} else if rawName != "" {
+				productName = rawName
+			}
+		}
+
+		stockDetails = append(stockDetails, output.ProductStockDetailOutput{
+			ProductID:         stringValue(product, "product_id"),
+			ProductName:       productName,
+			SKU:               stringValue(product, "sku"),
+			CurrentStock:      floatValue(product, "current_stock"),
+			AvailableStock:    floatValue(product, "available_stock"),
+			ReservedStock:     floatValue(product, "reserved_stock"),
+			PurchasedStock:    floatValue(product, "purchased_stock"),
+			SoldStock:         floatValue(product, "sold_stock"),
+			AverageCost:       floatValue(product, "average_cost"),
+			RevaluationAmount: floatValue(product, "revaluation_amount"),
+			LastPurchasedDate: lastPurchasedDate,
+			LastSoldDate:      lastSoldDate,
+			Status:            stringValue(product, "status"),
+			RawMaterialUnit:   rawMaterialUnit,
+		})
+	}
 
 	return &output.StockListOutput{
 		Data:            stockDetails,
 		TotalProducts:   int(inStock),
-		InStockCount:    int(inStock) - int(lowStock) - int(outOfStock),
+		InStockCount:    int(inStock - lowStock - outOfStock),
 		LowStockCount:   int(lowStock),
 		OutOfStockCount: int(outOfStock),
 		TotalQuantity:   totalStock,
 	}, nil
 }
 
-// GetStockSummaryWithUserContext retrieves product stock summary with user filtering
-func (s *dashboardService) GetStockSummaryWithUserContext(userID uint, userType string) (*output.StockListOutput, error) {
-	shouldFilter := userType == "admin" && userID > 0
+func (s *dashboardService) GetEntityTrends(
+	entityType string,
+	days int,
+	companyID uint,
+	userType string,
+) (*output.EntityTrendOutput, error) {
+	shouldFilter := shouldFilterByCompany(userType, companyID)
 
-	var inStock, lowStock, outOfStock int64
-	var totalStock float64
-	var err error
-
-	if shouldFilter {
-		inStock, _ = s.repo.GetInStockProductsWithFilter(shouldFilter, userID)
-		lowStock, _ = s.repo.GetLowStockProductsWithFilter(100, shouldFilter, userID)
-		outOfStock, _ = s.repo.GetOutOfStockProductsWithFilter(shouldFilter, userID)
-		totalStock, _ = s.repo.GetTotalProductStockWithFilter(shouldFilter, userID)
-	} else {
-		inStock, _ = s.repo.GetInStockProducts()
-		lowStock, _ = s.repo.GetLowStockProducts(100)
-		outOfStock, _ = s.repo.GetOutOfStockProducts()
-		totalStock, _ = s.repo.GetTotalProductStock()
-	}
-
-	// Get detailed product stock information
-	var productStockDetails []map[string]interface{}
-
-	if shouldFilter {
-		productStockDetails, err = s.repo.GetProductStockDetailsWithFilter(shouldFilter, userID)
-	} else {
-		productStockDetails, err = s.repo.GetProductStockDetails()
-	}
-
-	if err != nil {
-		fmt.Printf("Error getting product stock details: %v\n", err)
-		return &output.StockListOutput{
-			Data:            make([]output.ProductStockDetailOutput, 0),
-			TotalProducts:   int(inStock),
-			InStockCount:    int(inStock) - int(lowStock) - int(outOfStock),
-			LowStockCount:   int(lowStock),
-			OutOfStockCount: int(outOfStock),
-			TotalQuantity:   totalStock,
-		}, nil
-	}
-
-	stockDetails := make([]output.ProductStockDetailOutput, 0)
-	fmt.Printf("DEBUG: productStockDetails count: %d, nil: %v\n", len(productStockDetails), productStockDetails == nil)
-
-	if len(productStockDetails) > 0 {
-		for _, product := range productStockDetails {
-			fmt.Printf("DEBUG: Processing product: %v\n", product)
-
-			lastPurchasedDate, _ := product["last_purchased_date"].(*time.Time)
-			lastSoldDate, _ := product["last_sold_date"].(*time.Time)
-
-			rawMaterialUnit := ""
-			if unit, ok := product["raw_material_unit"]; ok && unit != nil {
-				if unitStr, ok := unit.(string); ok {
-					rawMaterialUnit = unitStr
-				}
-			}
-
-			// Format product name for raw materials as "raw_name_raw_specification"
-			productName := product["product_name"].(string)
-			if isRaw, ok := product["is_raw"]; ok && isRaw != nil {
-				if isRawBool, ok := isRaw.(bool); ok && isRawBool {
-					rawName := ""
-					rawSpec := ""
-					if rn, ok := product["raw_name"]; ok && rn != nil {
-						if rnStr, ok := rn.(string); ok {
-							rawName = rnStr
-						}
-					}
-					if rs, ok := product["raw_specification"]; ok && rs != nil {
-						if rsStr, ok := rs.(string); ok {
-							rawSpec = rsStr
-						}
-					}
-					if rawName != "" && rawSpec != "" {
-						productName = rawName + "_" + rawSpec
-					} else if rawName != "" {
-						productName = rawName
-					}
-				}
-			}
-
-			stockDetails = append(stockDetails, output.ProductStockDetailOutput{
-				ProductID:         product["product_id"].(string),
-				ProductName:       productName,
-				SKU:               product["sku"].(string),
-				CurrentStock:      product["current_stock"].(float64),
-				AvailableStock:    product["available_stock"].(float64),
-				ReservedStock:     product["reserved_stock"].(float64),
-				PurchasedStock:    product["purchased_stock"].(float64),
-				SoldStock:         product["sold_stock"].(float64),
-				AverageCost:       product["average_cost"].(float64),
-				RevaluationAmount: product["revaluation_amount"].(float64),
-				LastPurchasedDate: lastPurchasedDate,
-				LastSoldDate:      lastSoldDate,
-				Status:            product["status"].(string),
-				RawMaterialUnit:   rawMaterialUnit,
-			})
-		}
-	}
-
-	fmt.Printf("DEBUG: Final stockDetails count: %d\n", len(stockDetails))
-
-	return &output.StockListOutput{
-		Data:            stockDetails,
-		TotalProducts:   int(inStock),
-		InStockCount:    int(inStock) - int(lowStock) - int(outOfStock),
-		LowStockCount:   int(lowStock),
-		OutOfStockCount: int(outOfStock),
-		TotalQuantity:   totalStock,
-	}, nil
-}
-
-// GetEntityTrends retrieves trend data for an entity
-func (s *dashboardService) GetEntityTrends(entityType string, days int) (*output.EntityTrendOutput, error) {
-	history, err := s.repo.GetEntityCountHistory(entityType, days)
+	history, err := s.repo.GetEntityCountHistoryWithFilter(
+		entityType,
+		days,
+		shouldFilter,
+		companyID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -649,27 +504,42 @@ func (s *dashboardService) GetEntityTrends(entityType string, days int) (*output
 		Data:       make([]output.TrendPoint, len(history)),
 	}
 
-	for i, h := range history {
-		result.Data[i] = output.TrendPoint{
-			Date:        h.Date,
-			Count:       h.Count,
-			ActiveCount: h.ActiveCount,
-			NewToday:    h.CreatedToday,
+	for index, item := range history {
+		result.Data[index] = output.TrendPoint{
+			Date:        item.Date,
+			Count:       item.Count,
+			ActiveCount: item.ActiveCount,
+			NewToday:    item.CreatedToday,
 		}
 	}
 
 	return result, nil
 }
 
-// GetActivitySummary retrieves activity summary for today
 func (s *dashboardService) GetActivitySummary() (*output.ActivitySummaryOutput, error) {
-	customersCreatedToday, _ := s.repo.GetCustomersCreatedToday()
-	vendorsCreatedToday, _ := s.repo.GetVendorsCreatedToday()
-	itemsCreatedToday, _ := s.repo.GetItemsCreatedToday()
-	salesOrdersCreatedToday, _ := s.repo.GetSalesOrdersCreatedToday()
-	purchaseOrdersCreatedToday, _ := s.repo.GetPurchaseOrdersCreatedToday()
-	shippedToday, _ := s.repo.GetShippedToday()
-	deliveredToday, _ := s.repo.GetShipmentsByStatus("delivered")
+	return s.GetActivitySummaryWithUserContext(
+		0,
+		"superadmin",
+		0,
+	)
+}
+
+func (s *dashboardService) GetActivitySummaryWithUserContext(
+	userID uint,
+	userType string,
+	companyID uint,
+) (*output.ActivitySummaryOutput, error) {
+	_ = userID
+
+	shouldFilter := shouldFilterByCompany(userType, companyID)
+
+	customersCreatedToday, _ := s.repo.GetCustomersCreatedTodayWithFilter(shouldFilter, companyID)
+	vendorsCreatedToday, _ := s.repo.GetVendorsCreatedTodayWithFilter(shouldFilter, companyID)
+	itemsCreatedToday, _ := s.repo.GetItemsCreatedTodayWithFilter(shouldFilter, companyID)
+	salesOrdersCreatedToday, _ := s.repo.GetSalesOrdersCreatedTodayWithFilter(shouldFilter, companyID)
+	purchaseOrdersCreatedToday, _ := s.repo.GetPurchaseOrdersCreatedTodayWithFilter(shouldFilter, companyID)
+	shippedToday, _ := s.repo.GetShippedTodayWithFilter(shouldFilter, companyID)
+	deliveredToday, _ := s.repo.GetShipmentsByStatusWithFilter("delivered", shouldFilter, companyID)
 
 	return &output.ActivitySummaryOutput{
 		CreatedCustomersToday:      int(customersCreatedToday),
@@ -682,138 +552,132 @@ func (s *dashboardService) GetActivitySummary() (*output.ActivitySummaryOutput, 
 	}, nil
 }
 
-// GetActivitySummaryWithUserContext retrieves activity summary for today with user filtering
-func (s *dashboardService) GetActivitySummaryWithUserContext(userID uint, userType string) (*output.ActivitySummaryOutput, error) {
-	shouldFilter := userType == "admin" && userID > 0
+func (s *dashboardService) GetDiagnosticReport(
+	companyID uint,
+	userType string,
+) (*output.DiagnosticReportOutput, error) {
+	shouldFilter := shouldFilterByCompany(userType, companyID)
 
-	var customersCreatedToday, vendorsCreatedToday, itemsCreatedToday int64
-	var salesOrdersCreatedToday, purchaseOrdersCreatedToday, shippedToday, deliveredToday int64
-
-	if shouldFilter {
-		customersCreatedToday, _ = s.repo.GetCustomersCreatedTodayWithFilter(shouldFilter, userID)
-		vendorsCreatedToday, _ = s.repo.GetVendorsCreatedTodayWithFilter(shouldFilter, userID)
-		itemsCreatedToday, _ = s.repo.GetItemsCreatedTodayWithFilter(shouldFilter, userID)
-		salesOrdersCreatedToday, _ = s.repo.GetSalesOrdersCreatedTodayWithFilter(shouldFilter, userID)
-		purchaseOrdersCreatedToday, _ = s.repo.GetPurchaseOrdersCreatedTodayWithFilter(shouldFilter, userID)
-		shippedToday, _ = s.repo.GetShippedTodayWithFilter(shouldFilter, userID)
-		deliveredToday, _ = s.repo.GetShipmentsByStatusWithFilter("delivered", shouldFilter, userID)
-	} else {
-		customersCreatedToday, _ = s.repo.GetCustomersCreatedToday()
-		vendorsCreatedToday, _ = s.repo.GetVendorsCreatedToday()
-		itemsCreatedToday, _ = s.repo.GetItemsCreatedToday()
-		salesOrdersCreatedToday, _ = s.repo.GetSalesOrdersCreatedToday()
-		purchaseOrdersCreatedToday, _ = s.repo.GetPurchaseOrdersCreatedToday()
-		shippedToday, _ = s.repo.GetShippedToday()
-		deliveredToday, _ = s.repo.GetShipmentsByStatus("delivered")
-	}
-
-	return &output.ActivitySummaryOutput{
-		CreatedCustomersToday:      int(customersCreatedToday),
-		CreatedVendorsToday:        int(vendorsCreatedToday),
-		CreatedItemsToday:          int(itemsCreatedToday),
-		CreatedSalesOrdersToday:    int(salesOrdersCreatedToday),
-		CreatedPurchaseOrdersToday: int(purchaseOrdersCreatedToday),
-		ShippedToday:               int(shippedToday),
-		DeliveredToday:             int(deliveredToday),
-	}, nil
-}
-
-// GetDiagnosticReport generates a diagnostic report for data quality
-func (s *dashboardService) GetDiagnosticReport() (*output.DiagnosticReportOutput, error) {
 	issues := []string{}
 	diagnostics := make(map[string]output.DiagnosticItem)
 
-	// Check customer data
-	totalCustomers, _ := s.repo.GetTotalCustomers()
-	activeCustomers, _ := s.repo.GetActiveCustomers()
+	totalCustomers, _ := s.repo.GetTotalCustomersWithFilter(shouldFilter, companyID)
+	activeCustomers, _ := s.repo.GetActiveCustomersWithFilter(shouldFilter, companyID)
+
 	if totalCustomers > 0 && activeCustomers == 0 {
 		issues = append(issues, "No active customers found - check is_active field")
 	}
+
 	diagnostics["customers"] = output.DiagnosticItem{
-		Label:       "Customers",
-		Value:       map[string]interface{}{"total": totalCustomers, "active": activeCustomers},
+		Label: "Customers",
+		Value: map[string]interface{}{
+			"total":  totalCustomers,
+			"active": activeCustomers,
+		},
 		Status:      statusCheck(activeCustomers, totalCustomers),
 		Description: "Total vs Active customers",
 	}
 
-	// Check vendor data
-	totalVendors, _ := s.repo.GetTotalVendors()
-	activeVendors, _ := s.repo.GetActiveVendors()
+	totalVendors, _ := s.repo.GetTotalVendorsWithFilter(shouldFilter, companyID)
+	activeVendors, _ := s.repo.GetActiveVendorsWithFilter(shouldFilter, companyID)
+
 	if totalVendors > 0 && activeVendors == 0 {
 		issues = append(issues, "No active vendors found - check is_active field")
 	}
+
 	diagnostics["vendors"] = output.DiagnosticItem{
-		Label:       "Vendors",
-		Value:       map[string]interface{}{"total": totalVendors, "active": activeVendors},
+		Label: "Vendors",
+		Value: map[string]interface{}{
+			"total":  totalVendors,
+			"active": activeVendors,
+		},
 		Status:      statusCheck(activeVendors, totalVendors),
 		Description: "Total vs Active vendors",
 	}
 
-	// Check inventory balance
-	totalItems, _ := s.repo.GetTotalItems()
-	totalStock, _ := s.repo.GetTotalStock()
+	totalItems, _ := s.repo.GetTotalItemsWithFilter(shouldFilter, companyID)
+	totalStock, _ := s.repo.GetTotalStockWithFilter(shouldFilter, companyID)
+
 	if totalItems > 0 && totalStock == 0 {
 		issues = append(issues, "No inventory balance records - inventory_balance table may be empty")
 	}
+
 	diagnostics["inventory"] = output.DiagnosticItem{
-		Label:       "Inventory",
-		Value:       map[string]interface{}{"total_items": totalItems, "total_stock": totalStock},
+		Label: "Inventory",
+		Value: map[string]interface{}{
+			"total_items": totalItems,
+			"total_stock": totalStock,
+		},
 		Status:      statusCheck(totalStock, totalItems),
 		Description: "Items with inventory tracking",
 	}
 
-	// Check invoice amounts
-	totalInvoices, _ := s.repo.GetTotalInvoices()
-	totalInvoiceAmount, _ := s.repo.GetTotalInvoiceAmount()
+	totalInvoices, _ := s.repo.GetTotalInvoicesWithFilter(shouldFilter, companyID)
+	totalInvoiceAmount, _ := s.repo.GetTotalInvoiceAmountWithFilter(shouldFilter, companyID)
+
 	if totalInvoices > 0 && totalInvoiceAmount == 0 {
 		issues = append(issues, "Invoice amounts are zero - check invoice.total_amount field")
 	}
+
 	diagnostics["invoices"] = output.DiagnosticItem{
-		Label:       "Invoices",
-		Value:       map[string]interface{}{"total": totalInvoices, "total_amount": totalInvoiceAmount},
+		Label: "Invoices",
+		Value: map[string]interface{}{
+			"total":        totalInvoices,
+			"total_amount": totalInvoiceAmount,
+		},
 		Status:      statusCheck(totalInvoiceAmount, totalInvoices),
 		Description: "Total invoices with amounts",
 	}
 
-	// Check sales order amounts
-	totalSalesOrders, _ := s.repo.GetTotalSalesOrders()
-	totalSOAmount, _ := s.repo.GetTotalSalesOrderAmount()
-	if totalSalesOrders > 0 && totalSOAmount == 0 {
+	totalSalesOrders, _ := s.repo.GetTotalSalesOrdersWithFilter(shouldFilter, companyID)
+	totalSalesOrderAmount, _ := s.repo.GetTotalSalesOrderAmountWithFilter(shouldFilter, companyID)
+
+	if totalSalesOrders > 0 && totalSalesOrderAmount == 0 {
 		issues = append(issues, "Sales order amounts are zero - check sales_order.total_amount field")
 	}
+
 	diagnostics["sales_orders"] = output.DiagnosticItem{
-		Label:       "Sales Orders",
-		Value:       map[string]interface{}{"total": totalSalesOrders, "total_amount": totalSOAmount},
-		Status:      statusCheck(totalSOAmount, totalSalesOrders),
+		Label: "Sales Orders",
+		Value: map[string]interface{}{
+			"total":        totalSalesOrders,
+			"total_amount": totalSalesOrderAmount,
+		},
+		Status:      statusCheck(totalSalesOrderAmount, totalSalesOrders),
 		Description: "Total sales orders with amounts",
 	}
 
-	// Check purchase order amounts
-	totalPurchaseOrders, _ := s.repo.GetTotalPurchaseOrders()
-	totalPOAmount, _ := s.repo.GetTotalPurchaseOrderAmount()
-	if totalPurchaseOrders > 0 && totalPOAmount == 0 {
+	totalPurchaseOrders, _ := s.repo.GetTotalPurchaseOrdersWithFilter(shouldFilter, companyID)
+	totalPurchaseOrderAmount, _ := s.repo.GetTotalPurchaseOrderAmountWithFilter(shouldFilter, companyID)
+
+	if totalPurchaseOrders > 0 && totalPurchaseOrderAmount == 0 {
 		issues = append(issues, "Purchase order amounts are zero - check purchase_order.total_amount field")
 	}
+
 	diagnostics["purchase_orders"] = output.DiagnosticItem{
-		Label:       "Purchase Orders",
-		Value:       map[string]interface{}{"total": totalPurchaseOrders, "total_amount": totalPOAmount},
-		Status:      statusCheck(totalPOAmount, totalPurchaseOrders),
+		Label: "Purchase Orders",
+		Value: map[string]interface{}{
+			"total":        totalPurchaseOrders,
+			"total_amount": totalPurchaseOrderAmount,
+		},
+		Status:      statusCheck(totalPurchaseOrderAmount, totalPurchaseOrders),
 		Description: "Total purchase orders with amounts",
 	}
 
-	// Check shipments
-	totalShipments, _ := s.repo.GetTotalShipments()
-	diagnostics["shipments"] = output.DiagnosticItem{
-		Label:       "Shipments",
-		Value:       map[string]interface{}{"total": totalShipments},
-		Status:      statusCheck(totalShipments, 1),
-		Description: "Total shipments in database",
-	}
+	totalShipments, _ := s.repo.GetTotalShipmentsWithFilter(shouldFilter, companyID)
+
 	if totalShipments == 0 {
 		issues = append(issues, "No shipments found - shipment tracking not available")
 	}
 
-	// Create summary
+	diagnostics["shipments"] = output.DiagnosticItem{
+		Label: "Shipments",
+		Value: map[string]interface{}{
+			"total": totalShipments,
+		},
+		Status:      statusCheck(totalShipments, 1),
+		Description: "Total shipments in database",
+	}
+
 	summary := "✓ All systems operational"
 	if len(issues) > 0 {
 		summary = fmt.Sprintf("⚠️ %d data quality issues detected", len(issues))
@@ -826,30 +690,60 @@ func (s *dashboardService) GetDiagnosticReport() (*output.DiagnosticReportOutput
 	}, nil
 }
 
-func statusCheck(actual, expected interface{}) string {
-	actualVal := getValue(actual)
-	expectedVal := getValue(expected)
+func stringValue(data map[string]interface{}, key string) string {
+	if value, ok := data[key]; ok && value != nil {
+		if result, ok := value.(string); ok {
+			return result
+		}
+	}
 
-	if actualVal == expectedVal && actualVal > 0 {
+	return ""
+}
+
+func floatValue(data map[string]interface{}, key string) float64 {
+	if value, ok := data[key]; ok && value != nil {
+		switch typedValue := value.(type) {
+		case float64:
+			return typedValue
+		case float32:
+			return float64(typedValue)
+		case int:
+			return float64(typedValue)
+		case int64:
+			return float64(typedValue)
+		}
+	}
+
+	return 0
+}
+
+func statusCheck(actual interface{}, expected interface{}) string {
+	actualValue := getValue(actual)
+	expectedValue := getValue(expected)
+
+	if actualValue == expectedValue && actualValue > 0 {
 		return "ok"
 	}
-	if actualVal > 0 {
+
+	if actualValue > 0 {
 		return "warning"
 	}
-	if expectedVal > 0 {
+
+	if expectedValue > 0 {
 		return "error"
 	}
+
 	return "ok"
 }
 
-func getValue(v interface{}) int {
-	switch val := v.(type) {
+func getValue(value interface{}) int {
+	switch typedValue := value.(type) {
 	case int:
-		return val
+		return typedValue
 	case int64:
-		return int(val)
+		return int(typedValue)
 	case float64:
-		return int(val)
+		return int(typedValue)
 	default:
 		return 0
 	}

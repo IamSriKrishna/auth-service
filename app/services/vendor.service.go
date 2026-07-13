@@ -7,25 +7,70 @@ import (
 	"github.com/bbapp-org/auth-service/app/dto/input"
 	"github.com/bbapp-org/auth-service/app/dto/output"
 	"github.com/bbapp-org/auth-service/app/helper"
+	"github.com/bbapp-org/auth-service/app/models"
 	"github.com/bbapp-org/auth-service/app/repo"
 	"gorm.io/gorm"
 )
 
 type VendorService interface {
-	// Step 1: Set Up Your Contacts - Vendors
-	// Define your suppliers, their tax details, and currency information
+	// Existing methods retained for compatibility.
 	CreateVendor(input *input.CreateVendorInput) (*output.VendorOutput, error)
 	UpdateVendor(id uint, input *input.UpdateVendorInput) (*output.VendorOutput, error)
 	GetVendorByID(id uint) (*output.VendorOutput, error)
 	GetAllVendors(page, limit int) ([]output.VendorListOutput, int64, error)
 	DeleteVendor(id uint) error
 
-	// User-specific vendor operations
-	CreateVendorForUser(userID, companyID uint, input *input.CreateVendorInput) (*output.VendorOutput, error)
-	UpdateVendorForUser(id, userID uint, input *input.UpdateVendorInput) (*output.VendorOutput, error)
-	GetVendorByIDAndUser(id, userID uint) (*output.VendorOutput, error)
-	GetVendorsByUser(userID, companyID uint, page, limit int) ([]output.VendorListOutput, int64, error)
-	DeleteVendorForUser(id, userID uint) error
+	CreateVendorForUser(
+		userID uint,
+		companyID uint,
+		input *input.CreateVendorInput,
+	) (*output.VendorOutput, error)
+
+	UpdateVendorForUser(
+		id uint,
+		userID uint,
+		input *input.UpdateVendorInput,
+	) (*output.VendorOutput, error)
+
+	GetVendorByIDAndUser(
+		id uint,
+		userID uint,
+	) (*output.VendorOutput, error)
+
+	GetVendorsByUser(
+		userID uint,
+		companyID uint,
+		page int,
+		limit int,
+	) ([]output.VendorListOutput, int64, error)
+
+	DeleteVendorForUser(
+		id uint,
+		userID uint,
+	) error
+
+	// Company-scoped methods added.
+	GetVendorByIDAndCompany(
+		id uint,
+		companyID uint,
+	) (*output.VendorOutput, error)
+
+	GetVendorsByCompany(
+		companyID uint,
+		page int,
+		limit int,
+	) ([]output.VendorListOutput, int64, error)
+
+	UpdateVendorForCompany(
+		id uint,
+		companyID uint,
+		input *input.UpdateVendorInput,
+	) (*output.VendorOutput, error)
+
+	DeleteVendorForCompany(
+		id uint,
+		companyID uint,
+	) error
 }
 
 type vendorService struct {
@@ -33,20 +78,54 @@ type vendorService struct {
 	companyRepo repo.CompanyRepository
 }
 
-func NewVendorService(repo repo.VendorRepository, companyRepo repo.CompanyRepository) VendorService {
+func NewVendorService(
+	repo repo.VendorRepository,
+	companyRepo repo.CompanyRepository,
+) VendorService {
 	return &vendorService{
 		repo:        repo,
 		companyRepo: companyRepo,
 	}
 }
 
-func (s *vendorService) CreateVendor(input *input.CreateVendorInput) (*output.VendorOutput, error) {
+func vendorListOutputs(
+	vendors []models.Vendor,
+) []output.VendorListOutput {
+	outputs := make([]output.VendorListOutput, 0, len(vendors))
+
+	for _, vendor := range vendors {
+		outputs = append(outputs, output.VendorListOutput{
+			ID:             vendor.ID,
+			DisplayName:    vendor.DisplayName,
+			EmailAddress:   vendor.EmailAddress,
+			WorkPhone:      vendor.WorkPhone,
+			Mobile:         vendor.Mobile,
+			VendorLanguage: vendor.VendorLanguage,
+			CreatedAt:      vendor.CreatedAt,
+			UpdatedAt:      vendor.UpdatedAt,
+		})
+	}
+
+	return outputs
+}
+
+func (s *vendorService) CreateVendor(
+	input *input.CreateVendorInput,
+) (*output.VendorOutput, error) {
+	if input == nil {
+		return nil, errors.New("input cannot be nil")
+	}
+
 	if input.Mobile != "" {
 		existingVendor, err := s.repo.FindByMobile(input.Mobile)
 		if err == nil && existingVendor != nil {
-			return nil, fmt.Errorf("mobile number %s already exists with vendor: %s",
-				input.Mobile, existingVendor.DisplayName)
+			return nil, fmt.Errorf(
+				"mobile number %s already exists with vendor: %s",
+				input.Mobile,
+				existingVendor.DisplayName,
+			)
 		}
+
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
@@ -61,18 +140,33 @@ func (s *vendorService) CreateVendor(input *input.CreateVendorInput) (*output.Ve
 	return s.GetVendorByID(vendor.ID)
 }
 
-func (s *vendorService) UpdateVendor(id uint, input *input.UpdateVendorInput) (*output.VendorOutput, error) {
+func (s *vendorService) UpdateVendor(
+	id uint,
+	input *input.UpdateVendorInput,
+) (*output.VendorOutput, error) {
+	if input == nil {
+		return nil, errors.New("input cannot be nil")
+	}
+
 	vendor, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, errors.New("vendor not found")
 	}
 
-	if input.Mobile != nil && *input.Mobile != "" && *input.Mobile != vendor.Mobile {
+	if input.Mobile != nil &&
+		*input.Mobile != "" &&
+		*input.Mobile != vendor.Mobile {
 		existingVendor, err := s.repo.FindByMobile(*input.Mobile)
-		if err == nil && existingVendor != nil && existingVendor.ID != id {
-			return nil, fmt.Errorf("mobile number %s already exists with vendor: %s",
-				*input.Mobile, existingVendor.DisplayName)
+		if err == nil &&
+			existingVendor != nil &&
+			existingVendor.ID != id {
+			return nil, fmt.Errorf(
+				"mobile number %s already exists with vendor: %s",
+				*input.Mobile,
+				existingVendor.DisplayName,
+			)
 		}
+
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
@@ -87,7 +181,9 @@ func (s *vendorService) UpdateVendor(id uint, input *input.UpdateVendorInput) (*
 	return s.GetVendorByID(vendor.ID)
 }
 
-func (s *vendorService) GetVendorByID(id uint) (*output.VendorOutput, error) {
+func (s *vendorService) GetVendorByID(
+	id uint,
+) (*output.VendorOutput, error) {
 	vendor, err := s.repo.FindByID(id)
 	if err != nil {
 		return nil, err
@@ -96,10 +192,14 @@ func (s *vendorService) GetVendorByID(id uint) (*output.VendorOutput, error) {
 	return helper.MapVendorToOutput(vendor), nil
 }
 
-func (s *vendorService) GetAllVendors(page, limit int) ([]output.VendorListOutput, int64, error) {
+func (s *vendorService) GetAllVendors(
+	page int,
+	limit int,
+) ([]output.VendorListOutput, int64, error) {
 	if page < 1 {
 		page = 1
 	}
+
 	if limit < 1 {
 		limit = 10
 	}
@@ -109,46 +209,51 @@ func (s *vendorService) GetAllVendors(page, limit int) ([]output.VendorListOutpu
 		return nil, 0, err
 	}
 
-	var outputs []output.VendorListOutput
-	for _, vendor := range vendors {
-		outputs = append(outputs, output.VendorListOutput{
-			ID:             vendor.ID,
-			DisplayName:    vendor.DisplayName,
-			EmailAddress:   vendor.EmailAddress,
-			WorkPhone:      vendor.WorkPhone,
-			Mobile:         vendor.Mobile,
-			VendorLanguage: vendor.VendorLanguage,
-			CreatedAt:      vendor.CreatedAt,
-			UpdatedAt:      vendor.UpdatedAt,
-		})
-	}
-
-	return outputs, total, nil
+	return vendorListOutputs(vendors), total, nil
 }
 
-func (s *vendorService) DeleteVendor(id uint) error {
+func (s *vendorService) DeleteVendor(
+	id uint,
+) error {
 	return s.repo.Delete(id)
 }
 
-func (s *vendorService) CreateVendorForUser(userID, companyID uint, input *input.CreateVendorInput) (*output.VendorOutput, error) {
-	// Validate that company exists only if companyID is provided
-	if companyID > 0 {
-		company, err := s.companyRepo.FindByID(companyID)
-		if err != nil {
-			return nil, fmt.Errorf("company not found: %w", err)
-		}
+func (s *vendorService) CreateVendorForUser(
+	userID uint,
+	companyID uint,
+	input *input.CreateVendorInput,
+) (*output.VendorOutput, error) {
+	if input == nil {
+		return nil, errors.New("input cannot be nil")
+	}
 
-		if company == nil {
-			return nil, fmt.Errorf("company with ID %d does not exist", companyID)
-		}
+	if userID == 0 {
+		return nil, errors.New("invalid user")
+	}
+
+	if companyID == 0 {
+		return nil, errors.New("invalid company")
+	}
+
+	company, err := s.companyRepo.FindByID(companyID)
+	if err != nil || company == nil {
+		return nil, errors.New("company not found")
 	}
 
 	if input.Mobile != "" {
-		existingVendor, err := s.repo.FindByMobile(input.Mobile)
+		existingVendor, err := s.repo.FindByMobileAndCompany(
+			input.Mobile,
+			companyID,
+		)
+
 		if err == nil && existingVendor != nil {
-			return nil, fmt.Errorf("mobile number %s already exists with vendor: %s",
-				input.Mobile, existingVendor.DisplayName)
+			return nil, fmt.Errorf(
+				"mobile number %s already exists with vendor: %s",
+				input.Mobile,
+				existingVendor.DisplayName,
+			)
 		}
+
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, err
 		}
@@ -162,10 +267,17 @@ func (s *vendorService) CreateVendorForUser(userID, companyID uint, input *input
 		return nil, err
 	}
 
-	return s.GetVendorByID(vendor.ID)
+	return s.GetVendorByIDAndCompany(
+		vendor.ID,
+		companyID,
+	)
 }
 
-func (s *vendorService) GetVendorByIDAndUser(id, userID uint) (*output.VendorOutput, error) {
+// Existing compatibility method retained.
+func (s *vendorService) GetVendorByIDAndUser(
+	id uint,
+	userID uint,
+) (*output.VendorOutput, error) {
 	vendor, err := s.repo.FindByIDAndUser(id, userID)
 	if err != nil {
 		return nil, fmt.Errorf("vendor not found")
@@ -174,7 +286,83 @@ func (s *vendorService) GetVendorByIDAndUser(id, userID uint) (*output.VendorOut
 	return helper.MapVendorToOutput(vendor), nil
 }
 
-func (s *vendorService) GetVendorsByUser(userID, companyID uint, page, limit int) ([]output.VendorListOutput, int64, error) {
+// Existing compatibility method retained.
+func (s *vendorService) GetVendorsByUser(
+	userID uint,
+	companyID uint,
+	page int,
+	limit int,
+) ([]output.VendorListOutput, int64, error) {
+	_ = userID
+
+	return s.GetVendorsByCompany(
+		companyID,
+		page,
+		limit,
+	)
+}
+
+// Existing compatibility method retained.
+func (s *vendorService) UpdateVendorForUser(
+	id uint,
+	userID uint,
+	input *input.UpdateVendorInput,
+) (*output.VendorOutput, error) {
+	if input == nil {
+		return nil, errors.New("input cannot be nil")
+	}
+
+	vendor, err := s.repo.FindByIDAndUser(id, userID)
+	if err != nil {
+		return nil, fmt.Errorf("vendor not found")
+	}
+
+	helper.ApplyUpdateVendorInput(vendor, input)
+
+	if err := s.repo.Update(vendor); err != nil {
+		return nil, err
+	}
+
+	return helper.MapVendorToOutput(vendor), nil
+}
+
+// Existing compatibility method retained.
+func (s *vendorService) DeleteVendorForUser(
+	id uint,
+	userID uint,
+) error {
+	vendor, err := s.repo.FindByIDAndUser(id, userID)
+	if err != nil {
+		return fmt.Errorf("vendor not found")
+	}
+
+	return s.repo.Delete(vendor.ID)
+}
+
+func (s *vendorService) GetVendorByIDAndCompany(
+	id uint,
+	companyID uint,
+) (*output.VendorOutput, error) {
+	vendor, err := s.repo.FindByIDAndCompany(
+		id,
+		companyID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("vendor not found")
+	}
+
+	return helper.MapVendorToOutput(vendor), nil
+}
+
+func (s *vendorService) GetVendorsByCompany(
+	companyID uint,
+	page int,
+	limit int,
+) ([]output.VendorListOutput, int64, error) {
+	if companyID == 0 {
+		return nil, 0, errors.New("invalid company")
+	}
+
 	if page < 1 {
 		page = 1
 	}
@@ -183,65 +371,83 @@ func (s *vendorService) GetVendorsByUser(userID, companyID uint, page, limit int
 		limit = 10
 	}
 
-	vendors, total, err := s.repo.FindByUserID(userID, companyID, page, limit)
+	if limit > 100 {
+		limit = 100
+	}
+
+	vendors, total, err := s.repo.FindByCompanyID(
+		companyID,
+		page,
+		limit,
+	)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	var outputs []output.VendorListOutput
-	for _, vendor := range vendors {
-		outputs = append(outputs, output.VendorListOutput{
-			ID:             vendor.ID,
-			DisplayName:    vendor.DisplayName,
-			EmailAddress:   vendor.EmailAddress,
-			WorkPhone:      vendor.WorkPhone,
-			Mobile:         vendor.Mobile,
-			VendorLanguage: vendor.VendorLanguage,
-			CreatedAt:      vendor.CreatedAt,
-			UpdatedAt:      vendor.UpdatedAt,
-		})
-	}
-
-	return outputs, total, nil
+	return vendorListOutputs(vendors), total, nil
 }
 
-func (s *vendorService) UpdateVendorForUser(id, userID uint, input *input.UpdateVendorInput) (*output.VendorOutput, error) {
-	vendor, err := s.repo.FindByIDAndUser(id, userID)
+func (s *vendorService) UpdateVendorForCompany(
+	id uint,
+	companyID uint,
+	input *input.UpdateVendorInput,
+) (*output.VendorOutput, error) {
+	if input == nil {
+		return nil, errors.New("input cannot be nil")
+	}
+
+	vendor, err := s.repo.FindByIDAndCompany(
+		id,
+		companyID,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("vendor not found")
 	}
 
-	if input.FirstName != nil {
-		vendor.FirstName = *input.FirstName
-	}
-	if input.LastName != nil {
-		vendor.LastName = *input.LastName
-	}
-	if input.DisplayName != nil {
-		vendor.DisplayName = *input.DisplayName
-	}
-	if input.EmailAddress != nil {
-		vendor.EmailAddress = *input.EmailAddress
-	}
-	if input.Mobile != nil {
-		vendor.Mobile = *input.Mobile
-	}
-	if input.WorkPhone != nil {
-		vendor.WorkPhone = *input.WorkPhone
+	if input.Mobile != nil &&
+		*input.Mobile != "" &&
+		*input.Mobile != vendor.Mobile {
+		existingVendor, err := s.repo.FindByMobileAndCompany(
+			*input.Mobile,
+			companyID,
+		)
+
+		if err == nil &&
+			existingVendor != nil &&
+			existingVendor.ID != id {
+			return nil, fmt.Errorf(
+				"mobile number %s already exists with vendor: %s",
+				*input.Mobile,
+				existingVendor.DisplayName,
+			)
+		}
+
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
 	}
 
-	if err := s.repo.Update(vendor); err != nil {
+	helper.ApplyUpdateVendorInput(vendor, input)
+
+	if err := s.repo.UpdateByCompanyID(
+		vendor,
+		companyID,
+	); err != nil {
 		return nil, err
 	}
 
-	return s.GetVendorByID(vendor.ID)
+	return s.GetVendorByIDAndCompany(
+		vendor.ID,
+		companyID,
+	)
 }
 
-func (s *vendorService) DeleteVendorForUser(id, userID uint) error {
-	vendor, err := s.repo.FindByIDAndUser(id, userID)
-	if err != nil {
-		return fmt.Errorf("vendor not found")
-	}
-
-	return s.repo.Delete(vendor.ID)
+func (s *vendorService) DeleteVendorForCompany(
+	id uint,
+	companyID uint,
+) error {
+	return s.repo.DeleteByIDAndCompany(
+		id,
+		companyID,
+	)
 }

@@ -42,13 +42,45 @@ func (r *userRepository) GetByEmail(email string) (*models.User, error) {
 	}
 	return &user, nil
 }
+func (r *userRepository) ListByCompanyID(
+	companyID uint,
+) ([]models.User, error) {
+	var users []models.User
 
+	err := r.db.
+		Preload("Role").
+		Where("company_id = ?", companyID).
+		Order("id ASC").
+		Find(&users).
+		Error
+
+	return users, err
+}
 func (r *userRepository) GetByPhone(phone string) (*models.User, error) {
 	var user models.User
 	err := r.db.Preload("Role").Where("phone = ?", phone).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
+	return &user, nil
+}
+
+func (r *userRepository) GetByIDAndCompanyID(
+	id uint,
+	companyID uint,
+) (*models.User, error) {
+	var user models.User
+
+	err := r.db.
+		Preload("Role").
+		Where("id = ? AND company_id = ?", id, companyID).
+		First(&user).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &user, nil
 }
 

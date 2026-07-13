@@ -22,6 +22,10 @@ type UserRepository interface {
 	UpdateLastLogin(id uint) error
 	UpdatePasswordChangedAt(id uint) error
 	GetDashboardStats(customerType *string, fromDate, toDate *time.Time) (map[string]interface{}, error)
+	GetByIDAndCompanyID(id uint, companyID uint) (*models.User, error)
+	ListByCompanyID(
+		companyID uint,
+	) ([]models.User, error)
 }
 
 type RoleRepository interface {
@@ -116,27 +120,97 @@ type LocationRepository interface {
 }
 
 type VendorRepository interface {
+	// Existing methods retained.
 	Create(vendor *models.Vendor) error
 	Update(vendor *models.Vendor) error
 	FindByID(id uint) (*models.Vendor, error)
 	FindAll(page, limit int) ([]models.Vendor, int64, error)
-	FindByUserID(userID, companyID uint, page, limit int) ([]models.Vendor, int64, error)
-	FindByIDAndUser(id, userID uint) (*models.Vendor, error)
+	FindByUserID(
+		userID uint,
+		companyID uint,
+		page int,
+		limit int,
+	) ([]models.Vendor, int64, error)
+	FindByIDAndUser(
+		id uint,
+		userID uint,
+	) (*models.Vendor, error)
 	Delete(id uint) error
 	FindByMobile(mobile string) (*models.Vendor, error)
-}
 
+	// Company-scoped methods added.
+	FindByIDAndCompany(
+		id uint,
+		companyID uint,
+	) (*models.Vendor, error)
+
+	FindByCompanyID(
+		companyID uint,
+		page int,
+		limit int,
+	) ([]models.Vendor, int64, error)
+
+	UpdateByCompanyID(
+		vendor *models.Vendor,
+		companyID uint,
+	) error
+
+	DeleteByIDAndCompany(
+		id uint,
+		companyID uint,
+	) error
+
+	FindByMobileAndCompany(
+		mobile string,
+		companyID uint,
+	) (*models.Vendor, error)
+}
 type CustomerRepository interface {
+	// Existing methods retained.
 	Create(customer *models.Customer) error
 	Update(customer *models.Customer) error
 	FindByID(id uint) (*models.Customer, error)
 	FindAll(page, limit int) ([]models.Customer, int64, error)
-	FindByUserID(userID, companyID uint, page, limit int) ([]models.Customer, int64, error)
-	FindByIDAndUser(id, userID uint) (*models.Customer, error)
+	FindByUserID(
+		userID uint,
+		companyID uint,
+		page int,
+		limit int,
+	) ([]models.Customer, int64, error)
+	FindByIDAndUser(
+		id uint,
+		userID uint,
+	) (*models.Customer, error)
 	Delete(customer *models.Customer) error
 	FindByMobile(mobile string) (*models.Customer, error)
-}
 
+	// Company-scoped methods added.
+	FindByIDAndCompany(
+		id uint,
+		companyID uint,
+	) (*models.Customer, error)
+
+	FindByCompanyID(
+		companyID uint,
+		page int,
+		limit int,
+	) ([]models.Customer, int64, error)
+
+	UpdateByCompanyID(
+		customer *models.Customer,
+		companyID uint,
+	) error
+
+	DeleteByIDAndCompany(
+		id uint,
+		companyID uint,
+	) error
+
+	FindByMobileAndCompany(
+		mobile string,
+		companyID uint,
+	) (*models.Customer, error)
+}
 type ItemRepository interface {
 	Create(item *models.Item) error
 	FindByID(id string) (*models.Item, error)
@@ -154,21 +228,71 @@ type ItemRepository interface {
 }
 
 type ProductRepository interface {
+	// Existing methods retained.
 	Create(product *models.Product) error
 	FindByID(id string) (*models.Product, error)
 	FindAll(limit, offset int) ([]models.Product, int64, error)
-	FindByCreatedBy(createdBy string, limit, offset int) ([]models.Product, int64, error)
-	FindByCreatedByAndCompany(createdBy string, companyID uint, limit, offset int) ([]models.Product, int64, error)
+	FindByCreatedBy(
+		createdBy string,
+		limit int,
+		offset int,
+	) ([]models.Product, int64, error)
+	FindByCreatedByAndCompany(
+		createdBy string,
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.Product, int64, error)
 	Update(product *models.Product) error
 	Delete(id string) error
 	DeleteByCreatedBy(id string, createdBy string) error
-	DeductProductVariantStock(productID string, variantSKU string, quantity float64) error
-	CheckProductVariantReorderPoint(productID string, variantSKU string) (*models.ProductVariant, error)
-	GetProductVariantBySKU(sku string) (*models.ProductVariant, error)
-	UpdateProductVariantStock(variantID uint, newQuantity float64) error
-	GetProductVariantsByProductID(productID string) ([]models.ProductVariant, error)
-}
+	DeductProductVariantStock(
+		productID string,
+		variantSKU string,
+		quantity float64,
+	) error
+	CheckProductVariantReorderPoint(
+		productID string,
+		variantSKU string,
+	) (*models.ProductVariant, error)
+	GetProductVariantBySKU(
+		sku string,
+	) (*models.ProductVariant, error)
+	UpdateProductVariantStock(
+		variantID uint,
+		newQuantity float64,
+	) error
+	GetProductVariantsByProductID(
+		productID string,
+	) ([]models.ProductVariant, error)
 
+	// Company-scoped methods added.
+	FindByIDAndCompany(
+		id string,
+		companyID uint,
+	) (*models.Product, error)
+
+	FindByCompany(
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.Product, int64, error)
+
+	UpdateByCompany(
+		product *models.Product,
+		companyID uint,
+	) error
+
+	DeleteByCompany(
+		id string,
+		companyID uint,
+	) error
+
+	GetProductVariantsByProductIDAndCompany(
+		productID string,
+		companyID uint,
+	) ([]models.ProductVariant, error)
+}
 type OpeningStockRepository interface {
 	CreateOrUpdateOpeningStock(itemID string, openingStock, ratePerUnit float64) error
 	GetOpeningStock(itemID string) (*models.OpeningStock, error)
@@ -180,14 +304,59 @@ type OpeningStockRepository interface {
 }
 
 type InvoiceRepository interface {
+	// Existing methods retained.
 	Create(invoice *models.Invoice) error
 	FindByID(id string) (*models.Invoice, error)
 	FindAll(limit, offset int) ([]models.Invoice, int64, error)
 	Update(invoice *models.Invoice) error
 	Delete(id string) error
-	FindByCustomerID(customerID string, limit, offset int) ([]models.Invoice, int64, error)
-	FindByStatus(status string, limit, offset int) ([]models.Invoice, int64, error)
+	FindByCustomerID(
+		customerID string,
+		limit int,
+		offset int,
+	) ([]models.Invoice, int64, error)
+	FindByStatus(
+		status string,
+		limit int,
+		offset int,
+	) ([]models.Invoice, int64, error)
 	GetNextInvoiceNumber() (string, error)
+
+	// Company-scoped methods.
+	FindByIDAndCompany(
+		id string,
+		companyID uint,
+	) (*models.Invoice, error)
+
+	FindAllByCompany(
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.Invoice, int64, error)
+
+	FindByCustomerIDAndCompany(
+		customerID uint,
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.Invoice, int64, error)
+
+	FindByStatusAndCompany(
+		status string,
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.Invoice, int64, error)
+
+	UpdateByCompany(
+		invoice *models.Invoice,
+		companyID uint,
+	) error
+
+	DeleteByCompany(
+		id string,
+		companyID uint,
+	) error
 }
 
 type SalespersonRepository interface {
@@ -284,6 +453,48 @@ type PurchaseOrderRepository interface {
 	Delete(id string) error
 	UpdateStatus(id string, status string) error
 	GetDB() *gorm.DB
+	purchaseOrderPreloads(db *gorm.DB) *gorm.DB
+	FindByIDAndCompany(
+		id string,
+		companyID uint,
+	) (*models.PurchaseOrder, error)
+	FindAllByCompany(
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.PurchaseOrder, int64, error)
+	FindByVendorAndCompany(
+		vendorID uint,
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.PurchaseOrder, int64, error)
+	FindByCustomerAndCompany(
+		customerID uint,
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.PurchaseOrder, int64, error)
+	FindByStatusAndCompany(
+		status string,
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.PurchaseOrder, int64, error)
+	UpdateByCompany(
+		id string,
+		companyID uint,
+		purchaseOrder *models.PurchaseOrder,
+	) (*models.PurchaseOrder, error)
+	DeleteByCompany(
+		id string,
+		companyID uint,
+	) error
+	UpdateStatusByCompany(
+		id string,
+		companyID uint,
+		status string,
+	) error
 }
 
 type SalesOrderRepository interface {
@@ -299,17 +510,81 @@ type SalesOrderRepository interface {
 }
 
 type BillRepository interface {
+	// Existing methods retained.
 	Create(bill *models.Bill) (*models.Bill, error)
 	FindByID(id string) (*models.Bill, error)
 	FindAll(limit, offset int) ([]models.Bill, int64, error)
-	FindByCreatedBy(createdBy string, limit, offset int) ([]models.Bill, int64, error)
-	FindByVendor(vendorID uint, limit, offset int) ([]models.Bill, int64, error)
-	FindByVendorAndCreatedBy(vendorID uint, createdBy string, limit, offset int) ([]models.Bill, int64, error)
-	FindByStatus(status string, limit, offset int) ([]models.Bill, int64, error)
-	FindByStatusAndCreatedBy(status string, createdBy string, limit, offset int) ([]models.Bill, int64, error)
-	Update(id string, bill *models.Bill) (*models.Bill, error)
+	FindByCreatedBy(
+		createdBy string,
+		limit int,
+		offset int,
+	) ([]models.Bill, int64, error)
+	FindByVendor(
+		vendorID uint,
+		limit int,
+		offset int,
+	) ([]models.Bill, int64, error)
+	FindByVendorAndCreatedBy(
+		vendorID uint,
+		createdBy string,
+		limit int,
+		offset int,
+	) ([]models.Bill, int64, error)
+	FindByStatus(
+		status string,
+		limit int,
+		offset int,
+	) ([]models.Bill, int64, error)
+	FindByStatusAndCreatedBy(
+		status string,
+		createdBy string,
+		limit int,
+		offset int,
+	) ([]models.Bill, int64, error)
+	Update(
+		id string,
+		bill *models.Bill,
+	) (*models.Bill, error)
 	Delete(id string) error
 	UpdateStatus(id string, status string) error
+	GetDB() *gorm.DB
+
+	// Company-scoped methods.
+	FindByIDAndCompany(
+		id string,
+		companyID uint,
+	) (*models.Bill, error)
+	FindAllByCompany(
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.Bill, int64, error)
+	FindByVendorAndCompany(
+		vendorID uint,
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.Bill, int64, error)
+	FindByStatusAndCompany(
+		status string,
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.Bill, int64, error)
+	UpdateByCompany(
+		id string,
+		companyID uint,
+		bill *models.Bill,
+	) (*models.Bill, error)
+	DeleteByCompany(
+		id string,
+		companyID uint,
+	) error
+	UpdateStatusByCompany(
+		id string,
+		companyID uint,
+		status string,
+	) error
 }
 
 type PackageRepository interface {
@@ -341,12 +616,43 @@ type ShipmentRepository interface {
 
 type EmployeeRepository interface {
 	Create(employee *models.Employee) error
+
+	// Existing methods retained.
 	GetByID(id uint) (*models.Employee, error)
-	GetByUserID(userID uint, offset, limit int) ([]models.Employee, int64, error)
-	GetByCompany(companyID uint, offset, limit int) ([]models.Employee, int64, error)
-	GetByCompanyAndUser(companyID, userID uint, offset, limit int) ([]models.Employee, int64, error)
+	GetByUserID(
+		userID uint,
+		offset int,
+		limit int,
+	) ([]models.Employee, int64, error)
+	GetByCompany(
+		companyID uint,
+		offset int,
+		limit int,
+	) ([]models.Employee, int64, error)
+	GetByCompanyAndUser(
+		companyID uint,
+		userID uint,
+		offset int,
+		limit int,
+	) ([]models.Employee, int64, error)
 	Update(employee *models.Employee) error
 	Delete(id uint) error
+
+	// Company-safe methods added.
+	GetByIDAndCompanyID(
+		id uint,
+		companyID uint,
+	) (*models.Employee, error)
+
+	UpdateByCompanyID(
+		employee *models.Employee,
+		companyID uint,
+	) error
+
+	DeleteByIDAndCompanyID(
+		id uint,
+		companyID uint,
+	) error
 }
 type EmployeeAttendanceRepository interface {
 	Create(attendance *models.EmployeeAttendance) error
@@ -378,6 +684,29 @@ type ProductStockRepository interface {
 	GetLowStockProductsByUser(userID uint, threshold float64, offset, limit int) ([]models.ProductStock, int64, error)
 	GetDamagedProducts(offset, limit int) ([]models.ProductStock, int64, error)
 	GetDamagedProductsByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error)
+	GetByProductIDAndCompany(
+		productID string,
+		companyID uint,
+		shouldFilter bool,
+	) (*models.ProductStock, error)
+	GetAllByCompanyWithRawFilter(
+		companyID uint,
+		shouldFilter bool,
+		offset int,
+		limit int,
+		includeRaw bool,
+	) ([]models.ProductStock, int64, error)
+	UpdateByCompany(
+		stock *models.ProductStock,
+		companyID uint,
+		shouldFilter bool,
+	) error
+	GetDamagedProductsByCompany(
+		companyID uint,
+		shouldFilter bool,
+		offset int,
+		limit int,
+	) ([]models.ProductStock, int64, error)
 }
 
 // StockLedger repository for tracking all stock movements
@@ -389,6 +718,18 @@ type StockLedgerRepository interface {
 	DeleteByReferenceID(referenceID string) error
 	GetByDateRange(fromDate, toDate time.Time, offset, limit int) ([]models.StockLedger, int64, error)
 	GetProductMovementHistory(productID string, offset, limit int) ([]models.StockLedger, int64, error)
+	CreateForCompany(
+		ledger *models.StockLedger,
+		companyID uint,
+		shouldFilter bool,
+	) error
+	GetProductMovementHistoryByCompany(
+		productID string,
+		companyID uint,
+		shouldFilter bool,
+		offset int,
+		limit int,
+	) ([]models.StockLedger, int64, error)
 }
 
 // VariantStock repository for managing variant-level inventory
@@ -514,6 +855,16 @@ type ProductConversionRepository interface {
 	Update(conversion *models.ProductConversion) error
 	Delete(id string) error
 	GetDB() *gorm.DB
+
+	CreateForCompany(*models.ProductConversion, uint) error
+	GetByIDAndCompany(string, uint) (*models.ProductConversion, error)
+	GetAllByCompany(uint, int, int) ([]models.ProductConversion, int64, error)
+	GetActiveConversionsByCompany(uint, int, int) ([]models.ProductConversion, int64, error)
+	GetByRawProductIDAndCompany(string, uint, int, int) ([]models.ProductConversion, int64, error)
+	GetByFinishedProductIDAndCompany(string, uint, int, int) ([]models.ProductConversion, int64, error)
+	GetByProductPairAndCompany(string, string, uint) (*models.ProductConversion, error)
+	UpdateByCompany(*models.ProductConversion, uint) error
+	DeleteByCompany(string, uint) error
 }
 
 // ProductConversionRecordRepository interface for managing conversion records
@@ -527,26 +878,99 @@ type ProductConversionRecordRepository interface {
 	Update(record *models.ProductConversionRecord) error
 	Delete(id string) error
 	GetDB() *gorm.DB
+
+	CreateForCompany(*models.ProductConversionRecord, uint) error
+	GetByIDAndCompany(string, uint) (*models.ProductConversionRecord, error)
+	GetByConversionIDAndCompany(string, uint, int, int) ([]models.ProductConversionRecord, int64, error)
+	GetAllByCompany(uint, int, int) ([]models.ProductConversionRecord, int64, error)
+	GetByDateRangeAndCompany(time.Time, time.Time, uint, int, int) ([]models.ProductConversionRecord, int64, error)
+	GetByStatusAndCompany(string, uint, int, int) ([]models.ProductConversionRecord, int64, error)
+	UpdateByCompany(*models.ProductConversionRecord, uint) error
+	DeleteByCompany(string, uint) error
 }
 
-// ConversionRecordBagUsageRepository interface for tracking bag usage in conversions
 type ConversionRecordBagUsageRepository interface {
 	Create(bagUsage *models.ConversionRecordBagUsage) error
 	GetByConversionRecordID(recordID string) ([]models.ConversionRecordBagUsage, error)
 	GetByBagID(bagID string) ([]models.ConversionRecordBagUsage, error)
 	GetDB() *gorm.DB
+
+	CreateForCompany(*models.ConversionRecordBagUsage, uint) error
+	GetByConversionRecordIDAndCompany(string, uint) ([]models.ConversionRecordBagUsage, error)
+	GetByBagIDAndCompany(string, uint) ([]models.ConversionRecordBagUsage, error)
+}
+type RawMaterialBagRepository interface {
+	// Existing methods retained.
+	CreateMany(bags []models.RawMaterialBag) error
+	GetAll(
+		limit int,
+		offset int,
+	) ([]models.RawMaterialBag, int64, error)
+	GetByID(
+		id string,
+	) (*models.RawMaterialBag, error)
+	GetByProductID(
+		productID string,
+	) ([]models.RawMaterialBag, error)
+	GetByPurchaseOrderID(
+		purchaseOrderID string,
+	) ([]models.RawMaterialBag, error)
+	Update(
+		bag *models.RawMaterialBag,
+	) error
+
+	// Company-scoped methods.
+	CreateManyForCompany(
+		bags []models.RawMaterialBag,
+		companyID uint,
+	) error
+
+	GetAllByCompany(
+		companyID uint,
+		limit int,
+		offset int,
+	) ([]models.RawMaterialBag, int64, error)
+
+	GetByIDAndCompany(
+		id string,
+		companyID uint,
+	) (*models.RawMaterialBag, error)
+
+	GetByProductIDAndCompany(
+		productID string,
+		companyID uint,
+	) ([]models.RawMaterialBag, error)
+
+	GetByPurchaseOrderIDAndCompany(
+		purchaseOrderID string,
+		companyID uint,
+	) ([]models.RawMaterialBag, error)
+
+	UpdateByCompany(
+		bag *models.RawMaterialBag,
+		companyID uint,
+	) error
 }
 
-type RawMaterialBagRepository interface {
-	CreateMany(bags []models.RawMaterialBag) error
-	GetAll(limit, offset int) ([]models.RawMaterialBag, int64, error)
-	GetByID(id string) (*models.RawMaterialBag, error)
-	GetByProductID(productID string) ([]models.RawMaterialBag, error)
-	GetByPurchaseOrderID(poID string) ([]models.RawMaterialBag, error)
-	Update(bag *models.RawMaterialBag) error
-}
 
 type VendorShortageClaimRepository interface {
-	Create(claim *models.VendorShortageClaim) error
-	FindByPurchaseOrderID(poID string) ([]models.VendorShortageClaim, error)
+	// Existing methods retained.
+	Create(
+		claim *models.VendorShortageClaim,
+	) error
+
+	FindByPurchaseOrderID(
+		purchaseOrderID string,
+	) ([]models.VendorShortageClaim, error)
+
+	// Company-scoped methods.
+	CreateForCompany(
+		claim *models.VendorShortageClaim,
+		companyID uint,
+	) error
+
+	FindByPurchaseOrderIDAndCompany(
+		purchaseOrderID string,
+		companyID uint,
+	) ([]models.VendorShortageClaim, error)
 }

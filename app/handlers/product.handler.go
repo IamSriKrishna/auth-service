@@ -22,27 +22,78 @@ func NewProductHandler(service services.ProductService) *ProductHandler {
 	}
 }
 
-func (h *ProductHandler) CreateProduct(c *fiber.Ctx) error {
-	var input input.CreateProductInput
+func productLocalUint(c *fiber.Ctx, key string) uint {
+	value := c.Locals(key)
 
-	if err := c.BodyParser(&input); err != nil {
+	switch typed := value.(type) {
+	case uint:
+		return typed
+	case uint64:
+		return uint(typed)
+	case int:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case int64:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case float64:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case string:
+		parsed, err := strconv.ParseUint(typed, 10, 64)
+		if err == nil {
+			return uint(parsed)
+		}
+	}
+
+	return 0
+}
+
+func productAuthContext(c *fiber.Ctx) (string, uint, error) {
+	userID := productLocalUint(c, "user_id")
+	companyID := productLocalUint(c, "company_id")
+
+	if userID == 0 {
+		return "", 0, fmt.Errorf("invalid authenticated user")
+	}
+
+	if companyID == 0 {
+		return "", 0, fmt.Errorf("user is not assigned to a company")
+	}
+
+	return strconv.FormatUint(uint64(userID), 10), companyID, nil
+}
+
+func (h *ProductHandler) CreateProduct(c *fiber.Ctx) error {
+	var req input.CreateProductInput
+
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
 	}
 
-	if err := h.validate.Struct(input); err != nil {
+	if err := h.validate.Struct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
 
-	createdBy := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		createdBy = fmt.Sprintf("%v", uid)
+	createdBy, companyID, err := productAuthContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
-	product, err := h.service.CreateProduct(&input, createdBy)
+	product, err := h.service.CreateProductForCompany(
+		&req,
+		createdBy,
+		companyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -55,18 +106,14 @@ func (h *ProductHandler) CreateProduct(c *fiber.Ctx) error {
 func (h *ProductHandler) GetProduct(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	createdBy := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		createdBy = fmt.Sprintf("%v", uid)
-	}
-
-	if createdBy == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized",
+	_, companyID, err := productAuthContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": err.Error(),
 		})
 	}
 
-	product, err := h.service.GetProduct(id, createdBy)
+	product, err := h.service.GetProductByCompany(id, companyID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": err.Error(),
@@ -77,15 +124,32 @@ func (h *ProductHandler) GetProduct(c *fiber.Ctx) error {
 }
 
 func (h *ProductHandler) GetAllProducts(c *fiber.Ctx) error {
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	offset, _ := strconv.Atoi(c.Query("offset", "0"))
-
-	createdBy := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		createdBy = fmt.Sprintf("%v", uid)
+	limit, err := strconv.Atoi(c.Query("limit", "10"))
+	if err != nil || limit < 1 {
+		limit = 10
 	}
 
-	products, err := h.service.GetAllProducts(limit, offset, createdBy)
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset, err := strconv.Atoi(c.Query("offset", "0"))
+	if err != nil || offset < 0 {
+		offset = 0
+	}
+
+	_, companyID, err := productAuthContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	products, err := h.service.GetAllProductsByCompany(
+		limit,
+		offset,
+		companyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -98,22 +162,27 @@ func (h *ProductHandler) GetAllProducts(c *fiber.Ctx) error {
 func (h *ProductHandler) UpdateProduct(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	var input input.UpdateProductInput
-
-	if err := c.BodyParser(&input); err != nil {
+	var req input.UpdateProductInput
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
 	}
 
-	createdBy := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		createdBy = fmt.Sprintf("%v", uid)
+	_, companyID, err := productAuthContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
-	product, err := h.service.UpdateProduct(id, &input, createdBy)
+	product, err := h.service.UpdateProductForCompany(
+		id,
+		&req,
+		companyID,
+	)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
@@ -124,13 +193,18 @@ func (h *ProductHandler) UpdateProduct(c *fiber.Ctx) error {
 func (h *ProductHandler) DeleteProduct(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	createdBy := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		createdBy = fmt.Sprintf("%v", uid)
+	_, companyID, err := productAuthContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
-	if err := h.service.DeleteProduct(id, createdBy); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	if err := h.service.DeleteProductForCompany(
+		id,
+		companyID,
+	); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
@@ -143,9 +217,19 @@ func (h *ProductHandler) DeleteProduct(c *fiber.Ctx) error {
 func (h *ProductHandler) GetProductVariants(c *fiber.Ctx) error {
 	productID := c.Params("id")
 
-	variants, err := h.service.GetProductVariants(productID)
+	_, companyID, err := productAuthContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	variants, err := h.service.GetProductVariantsByCompany(
+		productID,
+		companyID,
+	)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}

@@ -58,6 +58,15 @@ type StockManagementService interface {
 	MarkProductAsDamaged(productID string, quantity float64, reason, userID string) error
 	GetDamagedProducts(offset, limit int) ([]models.ProductStock, int64, error)
 	GetDamagedProductsByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error)
+
+	// Company-scoped methods used by protected stock routes.
+	// Existing methods above remain unchanged for other services.
+	GetProductStockByCompany(productID string, companyID uint, userType string) (*models.ProductStock, error)
+	GetAllProductStockByCompany(companyID uint, userType string, offset, limit int) ([]models.ProductStock, int64, error)
+	GetAllRawMaterialProductStockByCompany(companyID uint, userType string, offset, limit int) ([]models.ProductStock, int64, error)
+	GetProductMovementHistoryByCompany(productID string, companyID uint, userType string, offset, limit int) ([]models.StockLedger, int64, error)
+	MarkProductAsDamagedByCompany(productID string, quantity float64, reason, userID string, companyID uint, userType string) error
+	GetDamagedProductsByCompany(companyID uint, userType string, offset, limit int) ([]models.ProductStock, int64, error)
 }
 
 type stockManagementService struct {
@@ -673,4 +682,180 @@ func (s *stockManagementService) GetDamagedProducts(offset, limit int) ([]models
 // GetDamagedProductsByUser retrieves damaged products for a specific user
 func (s *stockManagementService) GetDamagedProductsByUser(userID uint, offset, limit int) ([]models.ProductStock, int64, error) {
 	return s.productStockRepo.GetDamagedProductsByUser(userID, offset, limit)
+}
+
+
+func shouldUseCompanyStockFilter(userType string, companyID uint) bool {
+	return userType != "superadmin" && companyID > 0
+}
+
+// GetProductStockByCompany is an additive company-scoped version.
+// Existing GetProductStock remains unchanged for internal callers.
+func (s *stockManagementService) GetProductStockByCompany(
+	productID string,
+	companyID uint,
+	userType string,
+) (*models.ProductStock, error) {
+	stock, err := s.productStockRepo.GetByProductIDAndCompany(
+		productID,
+		companyID,
+		shouldUseCompanyStockFilter(userType, companyID),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("product stock not found in company: %s", productID)
+	}
+	return stock, nil
+}
+
+func (s *stockManagementService) GetAllProductStockByCompany(
+	companyID uint,
+	userType string,
+	offset int,
+	limit int,
+) ([]models.ProductStock, int64, error) {
+	return s.productStockRepo.GetAllByCompanyWithRawFilter(
+		companyID,
+		shouldUseCompanyStockFilter(userType, companyID),
+		offset,
+		limit,
+		false,
+	)
+}
+
+func (s *stockManagementService) GetAllRawMaterialProductStockByCompany(
+	companyID uint,
+	userType string,
+	offset int,
+	limit int,
+) ([]models.ProductStock, int64, error) {
+	return s.productStockRepo.GetAllByCompanyWithRawFilter(
+		companyID,
+		shouldUseCompanyStockFilter(userType, companyID),
+		offset,
+		limit,
+		true,
+	)
+}
+
+func (s *stockManagementService) GetProductMovementHistoryByCompany(
+	productID string,
+	companyID uint,
+	userType string,
+	offset int,
+	limit int,
+) ([]models.StockLedger, int64, error) {
+	// Validate the product belongs to this company before exposing its ledger.
+	if _, err := s.GetProductStockByCompany(productID, companyID, userType); err != nil {
+		return nil, 0, err
+	}
+
+	return s.stockLedgerRepo.GetProductMovementHistoryByCompany(
+		productID,
+		companyID,
+		shouldUseCompanyStockFilter(userType, companyID),
+		offset,
+		limit,
+	)
+}
+
+func (s *stockManagementService) MarkProductAsDamagedByCompany(
+	productID string,
+	quantity float64,
+	reason string,
+	userID string,
+	companyID uint,
+	userType string,
+) error {
+	if quantity <= 0 {
+		return errors.New("damage quantity must be positive")
+	}
+	if reason == "" {
+		return errors.New("damage reason is required")
+	}
+
+	shouldFilter := shouldUseCompanyStockFilter(userType, companyID)
+
+	stock, err := s.productStockRepo.GetByProductIDAndCompany(
+		productID,
+		companyID,
+		shouldFilter,
+	)
+	if err != nil {
+		return fmt.Errorf("product stock not found in your company: %s", productID)
+	}
+
+	if stock.AvailableStock < quantity {
+		return fmt.Errorf(
+			"insufficient available stock: have %.2f, trying to mark %.2f as damaged",
+			stock.AvailableStock,
+			quantity,
+		)
+	}
+
+	now := time.Now()
+	previousDamagedStock := stock.DamagedStock
+
+	stock.DamagedStock += quantity
+	stock.AvailableStock -= quantity
+	stock.DamageReason = reason
+	stock.DamagedAt = &now
+	stock.DamagedBy = userID
+	stock.UpdatedAt = now
+
+	if err := s.productStockRepo.UpdateByCompany(
+		stock,
+		companyID,
+		shouldFilter,
+	); err != nil {
+		return fmt.Errorf("failed to update product stock with damage: %w", err)
+	}
+
+	ledger := &models.StockLedger{
+		ProductID:        productID,
+		MovementType:     "DAMAGE",
+		Quantity:         -quantity,
+		Rate:             stock.AverageCost,
+		Amount:           -(quantity * stock.AverageCost),
+		ReferenceType:    "damage_record",
+		ReferenceID:      uuid.New().String(),
+		ReferenceNumber:  fmt.Sprintf("DMG-%d", now.Unix()),
+		BalanceBeforeQty: stock.AvailableStock + quantity,
+		BalanceAfterQty:  stock.AvailableStock,
+		CostBeforeAmount: (stock.AvailableStock + quantity) * stock.AverageCost,
+		CostAfterAmount:  stock.AvailableStock * stock.AverageCost,
+		Notes:            fmt.Sprintf("Damage reason: %s", reason),
+		CreatedAt:        now,
+		CreatedBy:        userID,
+	}
+
+	if err := s.stockLedgerRepo.CreateForCompany(
+		ledger,
+		companyID,
+		shouldFilter,
+	); err != nil {
+		log.Printf("[DAMAGE_TRACKING] Warning: failed to create ledger entry: %v", err)
+	}
+
+	log.Printf(
+		"[DAMAGE_TRACKING] Company=%d damaged stock updated from %.2f to %.2f",
+		companyID,
+		previousDamagedStock,
+		stock.DamagedStock,
+	)
+
+	return nil
+}
+
+func (s *stockManagementService) GetDamagedProductsByCompany(
+	companyID uint,
+	userType string,
+	offset int,
+	limit int,
+) ([]models.ProductStock, int64, error) {
+	return s.productStockRepo.GetDamagedProductsByCompany(
+		companyID,
+		shouldUseCompanyStockFilter(userType, companyID),
+		offset,
+		limit,
+	)
 }

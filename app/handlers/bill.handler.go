@@ -20,58 +20,131 @@ type UserInfo struct {
 }
 
 type BillHandler struct {
-	service services.BillService
+	service  services.BillService
+	validate *validator.Validate
 }
 
-// Helper function to extract user information from context
-func extractUserInfo(c *fiber.Ctx) UserInfo {
-	userInfo := UserInfo{}
+func NewBillHandler(service services.BillService) *BillHandler {
+	return &BillHandler{
+		service:  service,
+		validate: validator.New(),
+	}
+}
 
-	if uid := c.Locals("user_id"); uid != nil {
-		userInfo.UserID = fmt.Sprintf("%v", uid)
+func billLocalUint(c *fiber.Ctx, key string) uint {
+	value := c.Locals(key)
+
+	switch typed := value.(type) {
+	case uint:
+		return typed
+	case uint64:
+		return uint(typed)
+	case int:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case int64:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case float64:
+		if typed > 0 {
+			return uint(typed)
+		}
+	case string:
+		parsed, err := strconv.ParseUint(typed, 10, 64)
+		if err == nil {
+			return uint(parsed)
+		}
+	}
+
+	return 0
+}
+
+func extractUserInfo(c *fiber.Ctx) UserInfo {
+	userInfo := UserInfo{
+		UserID:    "",
+		UserName:  "",
+		CompanyID: billLocalUint(c, "company_id"),
+	}
+
+	if userID := billLocalUint(c, "user_id"); userID > 0 {
+		userInfo.UserID = strconv.FormatUint(uint64(userID), 10)
 	}
 
 	if email := c.Locals("user_email"); email != nil {
 		userInfo.UserName = fmt.Sprintf("%v", email)
 	}
 
-	if compID := c.Locals("company_id"); compID != nil {
-		if cid, ok := compID.(uint); ok {
-			userInfo.CompanyID = cid
-		}
-	}
-
 	return userInfo
 }
 
-func NewBillHandler(service services.BillService) *BillHandler {
-	return &BillHandler{service: service}
+func billAuthContext(c *fiber.Ctx) (UserInfo, error) {
+	userInfo := extractUserInfo(c)
+
+	if userInfo.UserID == "" {
+		return UserInfo{}, fmt.Errorf("invalid authenticated user")
+	}
+
+	if userInfo.CompanyID == 0 {
+		return UserInfo{}, fmt.Errorf("user is not assigned to a company")
+	}
+
+	return userInfo, nil
+}
+
+func billContextError(c *fiber.Ctx, err error) error {
+	return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+		"error":   err.Error(),
+		"success": false,
+	})
+}
+
+func billPagination(c *fiber.Ctx) (int, int) {
+	limit, err := strconv.Atoi(c.Query("limit", "10"))
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset, err := strconv.Atoi(c.Query("offset", "0"))
+	if err != nil || offset < 0 {
+		offset = 0
+	}
+
+	return limit, offset
 }
 
 func (h *BillHandler) CreateBill(c *fiber.Ctx) error {
-	var billInput input.CreateBillInput
+	var req input.CreateBillInput
 
-	if err := c.BodyParser(&billInput); err != nil {
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid request body",
 			"success": false,
 		})
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(billInput); err != nil {
+	if err := h.validate.Struct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   err.Error(),
 			"success": false,
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	userInfo, err := billAuthContext(c)
+	if err != nil {
+		return billContextError(c, err)
 	}
 
-	bill, err := h.service.CreateBill(&billInput, userID)
+	bill, err := h.service.CreateBillForCompany(
+		&req,
+		userInfo.UserID,
+		userInfo.CompanyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   err.Error(),
@@ -89,7 +162,15 @@ func (h *BillHandler) CreateBill(c *fiber.Ctx) error {
 func (h *BillHandler) GetBill(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	bill, err := h.service.GetBill(id)
+	userInfo, err := billAuthContext(c)
+	if err != nil {
+		return billContextError(c, err)
+	}
+
+	bill, err := h.service.GetBillByCompany(
+		id,
+		userInfo.CompanyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   "Bill not found",
@@ -104,27 +185,18 @@ func (h *BillHandler) GetBill(c *fiber.Ctx) error {
 }
 
 func (h *BillHandler) GetAllBills(c *fiber.Ctx) error {
-	limit := 10
-	offset := 0
+	limit, offset := billPagination(c)
 
-	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
+	userInfo, err := billAuthContext(c)
+	if err != nil {
+		return billContextError(c, err)
 	}
 
-	if o := c.Query("offset"); o != "" {
-		if parsed, err := strconv.Atoi(o); err == nil {
-			offset = parsed
-		}
-	}
-
-	createdBy := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		createdBy = fmt.Sprintf("%v", uid)
-	}
-
-	bills, total, err := h.service.GetAllBills(limit, offset, createdBy)
+	bills, total, err := h.service.GetAllBillsByCompany(
+		userInfo.CompanyID,
+		limit,
+		offset,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to get bills",
@@ -142,37 +214,34 @@ func (h *BillHandler) GetAllBills(c *fiber.Ctx) error {
 }
 
 func (h *BillHandler) GetBillsByVendor(c *fiber.Ctx) error {
-	vendorID := c.Params("vendorId")
-	vendorIDUint := uint(0)
-
-	if vid, err := strconv.ParseUint(vendorID, 10, 32); err == nil {
-		vendorIDUint = uint(vid)
+	vendorID64, err := strconv.ParseUint(
+		c.Params("vendorId"),
+		10,
+		32,
+	)
+	if err != nil || vendorID64 == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid vendor ID",
+			"success": false,
+		})
 	}
 
-	limit := 10
-	offset := 0
+	limit, offset := billPagination(c)
 
-	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
+	userInfo, err := billAuthContext(c)
+	if err != nil {
+		return billContextError(c, err)
 	}
 
-	if o := c.Query("offset"); o != "" {
-		if parsed, err := strconv.Atoi(o); err == nil {
-			offset = parsed
-		}
-	}
-
-	createdBy := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		createdBy = fmt.Sprintf("%v", uid)
-	}
-
-	bills, total, err := h.service.GetBillsByVendor(vendorIDUint, limit, offset, createdBy)
+	bills, total, err := h.service.GetBillsByVendorAndCompany(
+		uint(vendorID64),
+		userInfo.CompanyID,
+		limit,
+		offset,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Failed to get bills for vendor",
+			"error":   err.Error(),
 			"success": false,
 		})
 	}
@@ -188,28 +257,19 @@ func (h *BillHandler) GetBillsByVendor(c *fiber.Ctx) error {
 
 func (h *BillHandler) GetBillsByStatus(c *fiber.Ctx) error {
 	status := c.Params("status")
+	limit, offset := billPagination(c)
 
-	limit := 10
-	offset := 0
-
-	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
+	userInfo, err := billAuthContext(c)
+	if err != nil {
+		return billContextError(c, err)
 	}
 
-	if o := c.Query("offset"); o != "" {
-		if parsed, err := strconv.Atoi(o); err == nil {
-			offset = parsed
-		}
-	}
-
-	createdBy := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		createdBy = fmt.Sprintf("%v", uid)
-	}
-
-	bills, total, err := h.service.GetBillsByStatus(status, limit, offset, createdBy)
+	bills, total, err := h.service.GetBillsByStatusAndCompany(
+		status,
+		userInfo.CompanyID,
+		limit,
+		offset,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to get bills by status",
@@ -228,29 +288,33 @@ func (h *BillHandler) GetBillsByStatus(c *fiber.Ctx) error {
 
 func (h *BillHandler) UpdateBill(c *fiber.Ctx) error {
 	id := c.Params("id")
-	var billInput input.UpdateBillInput
 
-	if err := c.BodyParser(&billInput); err != nil {
+	var req input.UpdateBillInput
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid request body",
 			"success": false,
 		})
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(billInput); err != nil {
+	if err := h.validate.Struct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   err.Error(),
 			"success": false,
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	userInfo, err := billAuthContext(c)
+	if err != nil {
+		return billContextError(c, err)
 	}
 
-	bill, err := h.service.UpdateBill(id, &billInput, userID)
+	bill, err := h.service.UpdateBillForCompany(
+		id,
+		&req,
+		userInfo.UserID,
+		userInfo.CompanyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   err.Error(),
@@ -267,29 +331,33 @@ func (h *BillHandler) UpdateBill(c *fiber.Ctx) error {
 
 func (h *BillHandler) UpdateBillStatus(c *fiber.Ctx) error {
 	id := c.Params("id")
-	var statusInput input.UpdateBillStatusInput
 
-	if err := c.BodyParser(&statusInput); err != nil {
+	var req input.UpdateBillStatusInput
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid request body",
 			"success": false,
 		})
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(statusInput); err != nil {
+	if err := h.validate.Struct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   err.Error(),
 			"success": false,
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	userInfo, err := billAuthContext(c)
+	if err != nil {
+		return billContextError(c, err)
 	}
 
-	bill, err := h.service.UpdateBillStatus(id, statusInput.Status, userID)
+	bill, err := h.service.UpdateBillStatusForCompany(
+		id,
+		req.Status,
+		userInfo.UserID,
+		userInfo.CompanyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   err.Error(),
@@ -307,15 +375,17 @@ func (h *BillHandler) UpdateBillStatus(c *fiber.Ctx) error {
 func (h *BillHandler) DeleteBill(c *fiber.Ctx) error {
 	id := c.Params("id")
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	userInfo, err := billAuthContext(c)
+	if err != nil {
+		return billContextError(c, err)
 	}
 
-	err := h.service.DeleteBill(id, userID)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Failed to delete bill",
+	if err := h.service.DeleteBillForCompany(
+		id,
+		userInfo.CompanyID,
+	); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   err.Error(),
 			"success": false,
 		})
 	}
@@ -326,46 +396,61 @@ func (h *BillHandler) DeleteBill(c *fiber.Ctx) error {
 	})
 }
 
-// CreateBillFromVariants creates a bill from purchase order variants
+// This endpoint only builds a preview response.
+// Company validation is still applied to vendor and products.
 func (h *BillHandler) CreateBillFromVariants(c *fiber.Ctx) error {
-	var billInput input.CreateBillInput
+	var req input.CreateBillInput
 
-	if err := c.BodyParser(&billInput); err != nil {
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid request body",
 			"success": false,
 		})
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(billInput); err != nil {
+	if err := h.validate.Struct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   err.Error(),
 			"success": false,
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	userInfo, err := billAuthContext(c)
+	if err != nil {
+		return billContextError(c, err)
 	}
 
-	// Generate bill number (or use provided one)
-	billNo := billInput.BillNumber
-	if billNo == "" {
-		importTime := time.Now()
-		billNo = fmt.Sprintf("BILL-%d-%05d", importTime.Year(), c.Locals("request_id"))
+	if err := h.service.ValidateBillInputForCompany(
+		&req,
+		userInfo.CompanyID,
+	); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   err.Error(),
+			"success": false,
+		})
 	}
 
-	// Build line items
-	var subTotal float64
-	lineItems := make([]output.BillLineItemOutput, len(billInput.LineItems))
+	billNumber := req.BillNumber
+	if billNumber == "" {
+		billNumber = fmt.Sprintf(
+			"BILL-%d-%d",
+			time.Now().Year(),
+			time.Now().UnixNano(),
+		)
+	}
 
-	for i, item := range billInput.LineItems {
+	lineItems := make(
+		[]output.BillLineItemOutput,
+		len(req.LineItems),
+	)
+
+	subTotal := 0.0
+
+	for index, item := range req.LineItems {
 		amount := item.Quantity * item.Rate
 		subTotal += amount
 
-		lineItems[i] = output.BillLineItemOutput{
+		lineItems[index] = output.BillLineItemOutput{
 			VariantSKU:  &item.SKU,
 			Description: item.ProductName,
 			Account:     item.Account,
@@ -375,22 +460,20 @@ func (h *BillHandler) CreateBillFromVariants(c *fiber.Ctx) error {
 		}
 	}
 
-	// Calculate totals
-	total := subTotal + billInput.Discount + billInput.Adjustment
+	total := subTotal - req.Discount + req.Adjustment
 
-	// Create bill output
 	billOutput := output.CreateBillVariantOutput(
-		billNo,
-		billInput.PurchaseOrderID,
-		billInput.VendorID,
-		"", // Fetch vendor name from DB
+		billNumber,
+		req.PurchaseOrderID,
+		req.VendorID,
+		"",
 		lineItems,
 		subTotal,
-		0, // totalTax
+		0,
 		total,
 	)
 
-	billOutput.UserName = userID
+	billOutput.UserName = userInfo.UserID
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"success": true,
