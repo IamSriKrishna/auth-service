@@ -148,7 +148,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	employeeService := services.NewEmployeeService(employeeRepo, userRepo, cloudinaryClient)
 	attendanceService := services.NewEmployeeAttendanceService(attendanceRepo, employeeRepo)
 	salaryService := services.NewSalaryService(salaryRepo, employeeRepo, attendanceRepo)
-	customerPricingService := services.NewCustomerPricingService(customerPricingRepo)
+	customerPricingService := services.NewCustomerPricingServiceWithDependencies(customerPricingRepo, customerRepo, productRepo, userRepo)
 	productConversionService := services.NewProductConversionService(
 		productConversionRepo, productConversionRecordRepo, conversionRecordBagUsageRepo, productRepo,
 		stockManagementService, variantStockManagementService, rawBagService, userRepo)
@@ -409,13 +409,13 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		adminGroup.Get("/customer-payments/customer/:customerId", customerPaymentHandler.GetCustomerPaymentsByCustomer)
 
 		// Sales Order Routes
-		adminGroup.Post("/sales-orders", salesOrderHandler.CreateSalesOrder)
-		adminGroup.Get("/sales-orders", salesOrderHandler.GetAllSalesOrders)
-		adminGroup.Get("/sales-orders/:id", salesOrderHandler.GetSalesOrder)
-		adminGroup.Put("/sales-orders/:id", salesOrderHandler.UpdateSalesOrder)
-		adminGroup.Delete("/sales-orders/:id", salesOrderHandler.DeleteSalesOrder)
-		adminGroup.Patch("/sales-orders/:id/status", salesOrderHandler.UpdateSalesOrderStatus)
-		adminGroup.Get("/sales-orders/customer/:customerId", salesOrderHandler.GetSalesOrdersByCustomer)
+		adminGroup.Post("/sales-orders", middleware.AdminMiddleware(), salesOrderHandler.CreateSalesOrder)
+		adminGroup.Get("/sales-orders", middleware.AdminMiddleware(), salesOrderHandler.GetAllSalesOrders)
+		adminGroup.Get("/sales-orders/:id", middleware.AdminMiddleware(), salesOrderHandler.GetSalesOrder)
+		adminGroup.Put("/sales-orders/:id", middleware.AdminMiddleware(), salesOrderHandler.UpdateSalesOrder)
+		adminGroup.Delete("/sales-orders/:id", middleware.AdminMiddleware(), salesOrderHandler.DeleteSalesOrder)
+		adminGroup.Patch("/sales-orders/:id/status", middleware.AdminMiddleware(), salesOrderHandler.UpdateSalesOrderStatus)
+		adminGroup.Get("/sales-orders/customer/:customerId", middleware.AdminMiddleware(), salesOrderHandler.GetSalesOrdersByCustomer)
 
 		// Package Routes
 		adminGroup.Post("/packages", packageHandler.CreatePackage)
@@ -778,14 +778,14 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	dashboardRoutes := app.Group("/dashboard")
 	dashboardRoutes.Use(middleware.AuthMiddleware())
 	{
-		dashboardRoutes.Get("/", dashboardHandler.GetDashboard)
-		dashboardRoutes.Get("/activity", dashboardHandler.GetActivitySummary)
-		dashboardRoutes.Get("/stock", dashboardHandler.GetStockSummary)
-		dashboardRoutes.Get("/trends/:entity_type", dashboardHandler.GetEntityTrends)
-		dashboardRoutes.Get("/shipment/:shipment_id/tracking", dashboardHandler.GetShipmentTracking)
-		dashboardRoutes.Post("/shipment/:shipment_id/tracking", dashboardHandler.AddShipmentTracking)
-		dashboardRoutes.Post("/refresh", dashboardHandler.RefreshMetrics)
-		dashboardRoutes.Get("/diagnose", dashboardHandler.GetDiagnosticReport)
+		dashboardRoutes.Get("/", middleware.AdminMiddleware(), dashboardHandler.GetDashboard)
+		dashboardRoutes.Get("/activity", middleware.AdminMiddleware(), dashboardHandler.GetActivitySummary)
+		dashboardRoutes.Get("/stock", middleware.AdminMiddleware(), dashboardHandler.GetStockSummary)
+		dashboardRoutes.Get("/trends/:entity_type", middleware.AdminMiddleware(), dashboardHandler.GetEntityTrends)
+		dashboardRoutes.Get("/shipment/:shipment_id/tracking", middleware.AdminMiddleware(), dashboardHandler.GetShipmentTracking)
+		dashboardRoutes.Post("/shipment/:shipment_id/tracking", middleware.AdminMiddleware(), dashboardHandler.AddShipmentTracking)
+		dashboardRoutes.Post("/refresh", middleware.AdminMiddleware(), dashboardHandler.RefreshMetrics)
+		dashboardRoutes.Get("/diagnose", middleware.AdminMiddleware(), dashboardHandler.GetDiagnosticReport)
 	}
 
 	// Public routes for live status (no authentication required)

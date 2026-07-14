@@ -27,6 +27,16 @@ type SalesOrderService interface {
 	// Update SO status and manage inventory reservations when customer commits to purchase
 	UpdateSalesOrderStatus(id string, status string, userID string) (*output.SalesOrderOutput, error)
 	DeleteSalesOrder(id string) error
+
+	// Company-scoped operations used by authenticated routes.
+	CreateSalesOrderForCompany(soInput *input.CreateSalesOrderInput, userID string, companyID uint) (*output.SalesOrderOutput, error)
+	GetSalesOrderForCompany(id string, companyID uint) (*output.SalesOrderOutput, error)
+	GetAllSalesOrdersForCompany(companyID uint, limit, offset int) ([]output.SalesOrderOutput, int64, error)
+	GetSalesOrdersByCustomerForCompany(customerID, companyID uint, limit, offset int) ([]output.SalesOrderOutput, int64, error)
+	GetSalesOrdersByStatusForCompany(status string, companyID uint, limit, offset int) ([]output.SalesOrderOutput, int64, error)
+	UpdateSalesOrderForCompany(id string, soInput *input.UpdateSalesOrderInput, userID string, companyID uint) (*output.SalesOrderOutput, error)
+	UpdateSalesOrderStatusForCompany(id, status, userID string, companyID uint) (*output.SalesOrderOutput, error)
+	DeleteSalesOrderForCompany(id string, companyID uint) error
 }
 
 type salesOrderService struct {
@@ -404,4 +414,200 @@ func (s *salesOrderService) generateSOSequence() int {
 
 	log.Printf("[SO_SEQUENCE] Generated SO sequence number %d for year %s", sequence, year)
 	return sequence
+}
+
+func (s *salesOrderService) validateSalesOrderCompanyInput(
+	soInput *input.CreateSalesOrderInput,
+	companyID uint,
+) error {
+	if soInput == nil {
+		return errors.New("input cannot be nil")
+	}
+	if companyID == 0 {
+		return errors.New("invalid company")
+	}
+
+	if _, err := s.customerRepo.FindByIDAndCompany(soInput.CustomerID, companyID); err != nil {
+		return errors.New("customer not found in your company")
+	}
+
+	for _, lineItem := range soInput.LineItems {
+		if lineItem.ManufacturerID == "" {
+			return errors.New("manufacturer_id is required for each line item")
+		}
+
+		var count int64
+		if err := s.soRepo.GetDB().Model(&models.Manufacturer{}).
+			Where("id = ? AND company_id = ?", lineItem.ManufacturerID, companyID).
+			Count(&count).Error; err != nil {
+			return fmt.Errorf("failed to validate manufacturer %s: %w", lineItem.ManufacturerID, err)
+		}
+		if count == 0 {
+			return fmt.Errorf("manufacturer %s not found in your company", lineItem.ManufacturerID)
+		}
+	}
+
+	if soInput.SalespersonID != nil {
+		var count int64
+		query := s.soRepo.GetDB().Model(&models.Salesperson{}).Where("id = ?", *soInput.SalespersonID)
+		// Apply company filter only when the salespersons table has company_id.
+		if s.soRepo.GetDB().Migrator().HasColumn(&models.Salesperson{}, "company_id") {
+			query = query.Where("company_id = ?", companyID)
+		}
+		if err := query.Count(&count).Error; err != nil {
+			return fmt.Errorf("failed to validate salesperson: %w", err)
+		}
+		if count == 0 {
+			return errors.New("salesperson not found in your company")
+		}
+	}
+
+	return nil
+}
+
+func (s *salesOrderService) validateSalesOrderCompanyUpdate(
+	soInput *input.UpdateSalesOrderInput,
+	companyID uint,
+) error {
+	if soInput == nil {
+		return errors.New("input cannot be nil")
+	}
+
+	if soInput.CustomerID != nil {
+		if _, err := s.customerRepo.FindByIDAndCompany(*soInput.CustomerID, companyID); err != nil {
+			return errors.New("customer not found in your company")
+		}
+	}
+
+	for _, lineItem := range soInput.LineItems {
+		if lineItem.ManufacturerID == "" {
+			return errors.New("manufacturer_id is required for each line item")
+		}
+
+		var count int64
+		if err := s.soRepo.GetDB().Model(&models.Manufacturer{}).
+			Where("id = ? AND company_id = ?", lineItem.ManufacturerID, companyID).
+			Count(&count).Error; err != nil {
+			return fmt.Errorf("failed to validate manufacturer %s: %w", lineItem.ManufacturerID, err)
+		}
+		if count == 0 {
+			return fmt.Errorf("manufacturer %s not found in your company", lineItem.ManufacturerID)
+		}
+	}
+
+	return nil
+}
+
+func (s *salesOrderService) CreateSalesOrderForCompany(
+	soInput *input.CreateSalesOrderInput,
+	userID string,
+	companyID uint,
+) (*output.SalesOrderOutput, error) {
+	if err := s.validateSalesOrderCompanyInput(soInput, companyID); err != nil {
+		return nil, err
+	}
+	return s.CreateSalesOrder(soInput, userID)
+}
+
+func (s *salesOrderService) GetSalesOrderForCompany(
+	id string,
+	companyID uint,
+) (*output.SalesOrderOutput, error) {
+	so, err := s.soRepo.FindByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, errors.New("sales order not found")
+	}
+	return output.ToSalesOrderOutput(so)
+}
+
+func (s *salesOrderService) GetAllSalesOrdersForCompany(
+	companyID uint,
+	limit, offset int,
+) ([]output.SalesOrderOutput, int64, error) {
+	sos, total, err := s.soRepo.FindAllByCompany(companyID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	return salesOrdersToOutput(sos, total)
+}
+
+func (s *salesOrderService) GetSalesOrdersByCustomerForCompany(
+	customerID, companyID uint,
+	limit, offset int,
+) ([]output.SalesOrderOutput, int64, error) {
+	if _, err := s.customerRepo.FindByIDAndCompany(customerID, companyID); err != nil {
+		return nil, 0, errors.New("customer not found in your company")
+	}
+
+	sos, total, err := s.soRepo.FindByCustomerAndCompany(customerID, companyID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	return salesOrdersToOutput(sos, total)
+}
+
+func (s *salesOrderService) GetSalesOrdersByStatusForCompany(
+	status string,
+	companyID uint,
+	limit, offset int,
+) ([]output.SalesOrderOutput, int64, error) {
+	sos, total, err := s.soRepo.FindByStatusAndCompany(status, companyID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	return salesOrdersToOutput(sos, total)
+}
+
+func (s *salesOrderService) UpdateSalesOrderForCompany(
+	id string,
+	soInput *input.UpdateSalesOrderInput,
+	userID string,
+	companyID uint,
+) (*output.SalesOrderOutput, error) {
+	if _, err := s.soRepo.FindByIDAndCompany(id, companyID); err != nil {
+		return nil, errors.New("sales order not found")
+	}
+	if err := s.validateSalesOrderCompanyUpdate(soInput, companyID); err != nil {
+		return nil, err
+	}
+
+	// Existing update logic is retained after the company ownership check.
+	return s.UpdateSalesOrder(id, soInput, userID)
+}
+
+func (s *salesOrderService) UpdateSalesOrderStatusForCompany(
+	id, status, userID string,
+	companyID uint,
+) (*output.SalesOrderOutput, error) {
+	if _, err := s.soRepo.FindByIDAndCompany(id, companyID); err != nil {
+		return nil, errors.New("sales order not found")
+	}
+
+	// Existing status and stock deduction logic is retained.
+	return s.UpdateSalesOrderStatus(id, status, userID)
+}
+
+func (s *salesOrderService) DeleteSalesOrderForCompany(
+	id string,
+	companyID uint,
+) error {
+	if _, err := s.soRepo.FindByIDAndCompany(id, companyID); err != nil {
+		return errors.New("sales order not found")
+	}
+	return s.soRepo.DeleteByCompany(id, companyID)
+}
+
+func salesOrdersToOutput(
+	salesOrders []models.SalesOrder,
+	total int64,
+) ([]output.SalesOrderOutput, int64, error) {
+	outputs := make([]output.SalesOrderOutput, len(salesOrders))
+	for i := range salesOrders {
+		out, err := output.ToSalesOrderOutput(&salesOrders[i])
+		if err != nil {
+			return nil, 0, err
+		}
+		outputs[i] = *out
+	}
+	return outputs, total, nil
 }

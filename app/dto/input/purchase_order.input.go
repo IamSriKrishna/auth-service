@@ -31,8 +31,9 @@ type PurchaseOrderLineItemInput struct {
 	Account     string  `json:"account" validate:"required"`
 
 	Quantity     float64 `json:"quantity" validate:"omitempty,gt=0"` // 50
-	PurchaseUnit string  `json:"purchase_unit,omitempty"` // kg
+	PurchaseUnit string  `json:"purchase_unit,omitempty"`            // kg
 	Rate         float64 `json:"rate" validate:"required,gt=0"`
+	Amount       float64 `json:"amount" validate:"omitempty,gte=0"` // Pre-calculated amount for raw materials
 
 	IsRawMaterial   bool    `json:"is_raw_material,omitempty"`
 	RawMaterialUnit string  `json:"raw_material_unit,omitempty"`

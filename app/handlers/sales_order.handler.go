@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -11,42 +12,65 @@ import (
 )
 
 type SalesOrderHandler struct {
-	service services.SalesOrderService
+	service  services.SalesOrderService
+	validate *validator.Validate
 }
 
 func NewSalesOrderHandler(service services.SalesOrderService) *SalesOrderHandler {
-	return &SalesOrderHandler{service: service}
+	return &SalesOrderHandler{
+		service:  service,
+		validate: validator.New(),
+	}
+}
+
+func salesOrderContext(c *fiber.Ctx) (uint, uint, string, error) {
+	userID, err := salesOrderLocalToUint(c.Locals("user_id"))
+	if err != nil || userID == 0 {
+		return 0, 0, "", fiber.NewError(fiber.StatusUnauthorized, "invalid authenticated user")
+	}
+
+	companyID, err := salesOrderLocalToUint(c.Locals("company_id"))
+	if err != nil || companyID == 0 {
+		return 0, 0, "", fiber.NewError(fiber.StatusForbidden, "invalid authenticated company")
+	}
+
+	return userID, companyID, strconv.FormatUint(uint64(userID), 10), nil
+}
+
+func salesOrderPagination(c *fiber.Ctx) (int, int) {
+	limit, err := strconv.Atoi(c.Query("limit", "10"))
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset, err := strconv.Atoi(c.Query("offset", "0"))
+	if err != nil || offset < 0 {
+		offset = 0
+	}
+
+	return limit, offset
 }
 
 func (h *SalesOrderHandler) CreateSalesOrder(c *fiber.Ctx) error {
 	var soInput input.CreateSalesOrderInput
-
 	if err := c.BodyParser(&soInput); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid request body",
-			"success": false,
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body", "success": false})
+	}
+	if err := h.validate.Struct(soInput); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error(), "success": false})
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(soInput); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
-	}
-
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
-	}
-
-	so, err := h.service.CreateSalesOrder(&soInput, userID)
+	_, companyID, userID, err := salesOrderContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return err
+	}
+
+	so, err := h.service.CreateSalesOrderForCompany(&soInput, userID, companyID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error(), "success": false})
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
@@ -58,46 +82,36 @@ func (h *SalesOrderHandler) CreateSalesOrder(c *fiber.Ctx) error {
 
 func (h *SalesOrderHandler) GetSalesOrder(c *fiber.Ctx) error {
 	id := c.Params("id")
-
-	so, err := h.service.GetSalesOrder(id)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "Sales order not found",
-			"success": false,
-		})
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Sales order ID is required", "success": false})
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data":    so,
-	})
+	_, companyID, _, err := salesOrderContext(c)
+	if err != nil {
+		return err
+	}
+
+	so, err := h.service.GetSalesOrderForCompany(id, companyID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error(), "success": false})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "data": so})
 }
 
 func (h *SalesOrderHandler) GetAllSalesOrders(c *fiber.Ctx) error {
-	limit := 10
-	offset := 0
+	limit, offset := salesOrderPagination(c)
 
-	if l := c.Query("limit"); l != "" {
-		if val, err := strconv.Atoi(l); err == nil {
-			limit = val
-		}
-	}
-
-	if o := c.Query("offset"); o != "" {
-		if val, err := strconv.Atoi(o); err == nil {
-			offset = val
-		}
-	}
-
-	sos, total, err := h.service.GetAllSalesOrders(limit, offset)
+	_, companyID, _, err := salesOrderContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return err
 	}
 
-	// Calculate total amount from all sales orders
+	sos, total, err := h.service.GetAllSalesOrdersForCompany(companyID, limit, offset)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error(), "success": false})
+	}
+
 	totalAmount := 0.0
 	for _, so := range sos {
 		totalAmount += so.Total
@@ -112,39 +126,22 @@ func (h *SalesOrderHandler) GetAllSalesOrders(c *fiber.Ctx) error {
 }
 
 func (h *SalesOrderHandler) GetSalesOrdersByCustomer(c *fiber.Ctx) error {
-	customerID := c.Params("customerId")
-	id, err := strconv.ParseUint(customerID, 10, 32)
+	customerID, err := strconv.ParseUint(c.Params("customerId"), 10, 32)
+	if err != nil || customerID == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid customer ID", "success": false})
+	}
+
+	limit, offset := salesOrderPagination(c)
+	_, companyID, _, err := salesOrderContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid customer ID",
-			"success": false,
-		})
+		return err
 	}
 
-	limit := 10
-	offset := 0
-
-	if l := c.Query("limit"); l != "" {
-		if val, err := strconv.Atoi(l); err == nil {
-			limit = val
-		}
-	}
-
-	if o := c.Query("offset"); o != "" {
-		if val, err := strconv.Atoi(o); err == nil {
-			offset = val
-		}
-	}
-
-	sos, total, err := h.service.GetSalesOrdersByCustomer(uint(id), limit, offset)
+	sos, total, err := h.service.GetSalesOrdersByCustomerForCompany(uint(customerID), companyID, limit, offset)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error(), "success": false})
 	}
 
-	// Calculate total amount from all sales orders
 	totalAmount := 0.0
 	for _, so := range sos {
 		totalAmount += so.Total
@@ -160,31 +157,21 @@ func (h *SalesOrderHandler) GetSalesOrdersByCustomer(c *fiber.Ctx) error {
 
 func (h *SalesOrderHandler) GetSalesOrdersByStatus(c *fiber.Ctx) error {
 	status := c.Params("status")
-
-	limit := 10
-	offset := 0
-
-	if l := c.Query("limit"); l != "" {
-		if val, err := strconv.Atoi(l); err == nil {
-			limit = val
-		}
+	if status == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Status is required", "success": false})
 	}
 
-	if o := c.Query("offset"); o != "" {
-		if val, err := strconv.Atoi(o); err == nil {
-			offset = val
-		}
-	}
-
-	sos, total, err := h.service.GetSalesOrdersByStatus(status, limit, offset)
+	limit, offset := salesOrderPagination(c)
+	_, companyID, _, err := salesOrderContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return err
 	}
 
-	// Calculate total amount from all sales orders
+	sos, total, err := h.service.GetSalesOrdersByStatusForCompany(status, companyID, limit, offset)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error(), "success": false})
+	}
+
 	totalAmount := 0.0
 	for _, so := range sos {
 		totalAmount += so.Total
@@ -200,86 +187,135 @@ func (h *SalesOrderHandler) GetSalesOrdersByStatus(c *fiber.Ctx) error {
 
 func (h *SalesOrderHandler) UpdateSalesOrder(c *fiber.Ctx) error {
 	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Sales order ID is required", "success": false})
+	}
 
 	var soInput input.UpdateSalesOrderInput
 	if err := c.BodyParser(&soInput); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid request body",
-			"success": false,
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body", "success": false})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
-	}
-
-	so, err := h.service.UpdateSalesOrder(id, &soInput, userID)
+	_, companyID, userID, err := salesOrderContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return err
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "Sales order updated successfully",
-		"data":    so,
-	})
+	so, err := h.service.UpdateSalesOrderForCompany(id, &soInput, userID, companyID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error(), "success": false})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "Sales order updated successfully", "data": so})
 }
 
 func (h *SalesOrderHandler) UpdateSalesOrderStatus(c *fiber.Ctx) error {
 	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Sales order ID is required", "success": false})
+	}
 
 	var statusInput input.UpdateSalesOrderStatusInput
 	if err := c.BodyParser(&statusInput); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid request body",
-			"success": false,
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body", "success": false})
+	}
+	if err := h.validate.Struct(statusInput); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error(), "success": false})
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(statusInput); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
-	}
-
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
-	}
-
-	so, err := h.service.UpdateSalesOrderStatus(id, statusInput.Status, userID)
+	_, companyID, userID, err := salesOrderContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+		return err
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "Sales order status updated successfully",
-		"data":    so,
-	})
+	so, err := h.service.UpdateSalesOrderStatusForCompany(id, statusInput.Status, userID, companyID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error(), "success": false})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "Sales order status updated successfully", "data": so})
 }
 
 func (h *SalesOrderHandler) DeleteSalesOrder(c *fiber.Ctx) error {
 	id := c.Params("id")
-
-	if err := h.service.DeleteSalesOrder(id); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Sales order ID is required", "success": false})
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "Sales order deleted successfully",
-	})
+	_, companyID, _, err := salesOrderContext(c)
+	if err != nil {
+		return err
+	}
+
+	if err := h.service.DeleteSalesOrderForCompany(id, companyID); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error(), "success": false})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "Sales order deleted successfully"})
+}
+
+func salesOrderLocalToUint(value interface{}) (uint, error) {
+	if value == nil {
+		return 0, fmt.Errorf("value is missing")
+	}
+
+	switch v := value.(type) {
+	case uint:
+		return v, nil
+	case uint8:
+		return uint(v), nil
+	case uint16:
+		return uint(v), nil
+	case uint32:
+		return uint(v), nil
+	case uint64:
+		return uint(v), nil
+	case int:
+		if v <= 0 {
+			return 0, fmt.Errorf("value must be positive")
+		}
+		return uint(v), nil
+	case int8:
+		if v <= 0 {
+			return 0, fmt.Errorf("value must be positive")
+		}
+		return uint(v), nil
+	case int16:
+		if v <= 0 {
+			return 0, fmt.Errorf("value must be positive")
+		}
+		return uint(v), nil
+	case int32:
+		if v <= 0 {
+			return 0, fmt.Errorf("value must be positive")
+		}
+		return uint(v), nil
+	case int64:
+		if v <= 0 {
+			return 0, fmt.Errorf("value must be positive")
+		}
+		return uint(v), nil
+	case float32:
+		if v <= 0 {
+			return 0, fmt.Errorf("value must be positive")
+		}
+		return uint(v), nil
+	case float64:
+		if v <= 0 {
+			return 0, fmt.Errorf("value must be positive")
+		}
+		return uint(v), nil
+	case json.Number:
+		parsed, err := strconv.ParseUint(v.String(), 10, 64)
+		return uint(parsed), err
+	case string:
+		parsed, err := strconv.ParseUint(v, 10, 64)
+		return uint(parsed), err
+	default:
+		parsed, err := strconv.ParseUint(fmt.Sprintf("%v", v), 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("unsupported numeric type %T with value %v", value, value)
+		}
+		return uint(parsed), nil
+	}
 }

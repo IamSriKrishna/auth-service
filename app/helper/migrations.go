@@ -220,6 +220,9 @@ func RunMigrations(db *gorm.DB) error {
 		&models.PackageItem{},
 
 		&models.Shipment{},
+		&models.ShipmentTracking{},
+		&models.DashboardMetrics{},
+		&models.EntityCountHistory{},
 
 		&models.Bill{},
 		&models.BillLineItem{},

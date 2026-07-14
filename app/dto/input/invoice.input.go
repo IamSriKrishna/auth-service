@@ -1,6 +1,8 @@
 package input
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/bbapp-org/auth-service/app/domain"
@@ -32,11 +34,47 @@ type CreateInvoiceInput struct {
 
 type InvoiceLineItemInput struct {
 	ProductID   *string `json:"product_id" validate:"required"`
-	ProductName string  `json:"product_name" validate:"required"`
+	ProductName string  `json:"product_name"`
 	SKU         string  `json:"sku"`
 	Account     string  `json:"account"`
 	Quantity    float64 `json:"quantity" validate:"required,gt=0"`
 	Rate        float64 `json:"rate" validate:"required,gt=0"`
+}
+
+func (i *InvoiceLineItemInput) UnmarshalJSON(data []byte) error {
+	type invoiceLineItemAlias struct {
+		ProductID   json.RawMessage `json:"product_id"`
+		ProductName string          `json:"product_name"`
+		SKU         string          `json:"sku"`
+		Account     string          `json:"account"`
+		Quantity    float64         `json:"quantity"`
+		Rate        float64         `json:"rate"`
+	}
+
+	var raw invoiceLineItemAlias
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	productID, err := parseStringOrNumber(raw.ProductID)
+	if err != nil {
+		return fmt.Errorf("invalid product_id: %w", err)
+	}
+
+	if productID == "" {
+		i.ProductID = nil
+	} else {
+		productIDValue := productID
+		i.ProductID = &productIDValue
+	}
+
+	i.ProductName = raw.ProductName
+	i.SKU = raw.SKU
+	i.Account = raw.Account
+	i.Quantity = raw.Quantity
+	i.Rate = raw.Rate
+
+	return nil
 }
 
 type UpdateInvoiceInput struct {

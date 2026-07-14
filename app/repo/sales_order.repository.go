@@ -1,6 +1,8 @@
 package repo
 
 import (
+	"errors"
+
 	"github.com/bbapp-org/auth-service/app/models"
 	"gorm.io/gorm"
 )
@@ -13,161 +15,304 @@ func NewSalesOrderRepository(db *gorm.DB) SalesOrderRepository {
 	return &salesOrderRepository{db: db}
 }
 
+func (r *salesOrderRepository) GetDB() *gorm.DB {
+	return r.db
+}
+
+func (r *salesOrderRepository) salesOrderPreloads(db *gorm.DB) *gorm.DB {
+	return db.
+		Preload("Customer").
+		Preload("Salesperson").
+		Preload("LineItems").
+		Preload("LineItems.Manufacturer")
+}
+
 func (r *salesOrderRepository) Create(so *models.SalesOrder) (*models.SalesOrder, error) {
-	if err := r.db.Create(so).Error; err != nil {
+	if so == nil {
+		return nil, errors.New("sales order cannot be nil")
+	}
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Omit("Customer", "Salesperson", "LineItems.Manufacturer").Create(so).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-	// Reload the sales order with all relationships to ensure everything is populated
+
 	return r.FindByID(so.ID)
 }
 
 func (r *salesOrderRepository) FindByID(id string) (*models.SalesOrder, error) {
 	var so models.SalesOrder
-	if err := r.db.
-		Preload("Customer").
-		Preload("Salesperson").
-		Preload("LineItems").
-		Where("id = ?", id).
-		First(&so).Error; err != nil {
+	err := r.salesOrderPreloads(r.db).
+		Where("sales_orders.id = ?", id).
+		First(&so).Error
+	if err != nil {
 		return nil, err
 	}
 	return &so, nil
 }
 
 func (r *salesOrderRepository) FindAll(limit, offset int) ([]models.SalesOrder, int64, error) {
-	var sos []models.SalesOrder
+	var salesOrders []models.SalesOrder
 	var total int64
 
-	query := r.db.
-		Preload("Customer").
-		Preload("Salesperson").
-		Preload("LineItems")
-
-	if err := query.Model(&models.SalesOrder{}).Count(&total).Error; err != nil {
+	query := r.db.Model(&models.SalesOrder{})
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	if err := query.
-		Order("created_at DESC").
+	err := r.salesOrderPreloads(r.db).
+		Order("sales_orders.created_at DESC").
 		Limit(limit).
 		Offset(offset).
-		Find(&sos).Error; err != nil {
+		Find(&salesOrders).Error
+	if err != nil {
 		return nil, 0, err
 	}
 
-	return sos, total, nil
+	return salesOrders, total, nil
 }
 
 func (r *salesOrderRepository) FindByCustomer(customerID uint, limit, offset int) ([]models.SalesOrder, int64, error) {
-	var sos []models.SalesOrder
+	var salesOrders []models.SalesOrder
 	var total int64
 
-	query := r.db.
-		Where("customer_id = ?", customerID).
-		Preload("Customer").
-		Preload("Salesperson").
-		Preload("LineItems")
+	query := r.db.Model(&models.SalesOrder{}).
+		Where("sales_orders.customer_id = ?", customerID)
 
-	if err := query.Model(&models.SalesOrder{}).Count(&total).Error; err != nil {
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	if err := query.
-		Order("created_at DESC").
+	err := r.salesOrderPreloads(query).
+		Order("sales_orders.created_at DESC").
 		Limit(limit).
 		Offset(offset).
-		Find(&sos).Error; err != nil {
+		Find(&salesOrders).Error
+	if err != nil {
 		return nil, 0, err
 	}
 
-	return sos, total, nil
+	return salesOrders, total, nil
 }
 
 func (r *salesOrderRepository) FindByStatus(status string, limit, offset int) ([]models.SalesOrder, int64, error) {
-	var sos []models.SalesOrder
+	var salesOrders []models.SalesOrder
 	var total int64
 
-	query := r.db.
-		Where("status = ?", status).
-		Preload("Customer").
-		Preload("Salesperson").
-		Preload("LineItems")
+	query := r.db.Model(&models.SalesOrder{}).
+		Where("sales_orders.status = ?", status)
 
-	if err := query.Model(&models.SalesOrder{}).Count(&total).Error; err != nil {
+	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	if err := query.
-		Order("created_at DESC").
+	err := r.salesOrderPreloads(query).
+		Order("sales_orders.created_at DESC").
 		Limit(limit).
 		Offset(offset).
-		Find(&sos).Error; err != nil {
+		Find(&salesOrders).Error
+	if err != nil {
 		return nil, 0, err
 	}
 
-	return sos, total, nil
+	return salesOrders, total, nil
 }
 
 func (r *salesOrderRepository) Update(id string, so *models.SalesOrder) (*models.SalesOrder, error) {
-	if err := r.db.Model(&models.SalesOrder{}).Where("id = ?", id).
-		Updates(so).Error; err != nil {
+	if so == nil {
+		return nil, errors.New("sales order cannot be nil")
+	}
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		var existing models.SalesOrder
+		if err := tx.Where("id = ?", id).First(&existing).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(&existing).
+			Omit("Customer", "Salesperson", "LineItems").
+			Updates(so).Error; err != nil {
+			return err
+		}
+
+		if so.LineItems != nil {
+			if err := tx.Where("sales_order_id = ?", id).
+				Delete(&models.SalesOrderLineItem{}).Error; err != nil {
+				return err
+			}
+
+			for i := range so.LineItems {
+				so.LineItems[i].ID = 0
+				so.LineItems[i].SalesOrderID = id
+			}
+
+			if len(so.LineItems) > 0 {
+				if err := tx.Omit("Manufacturer").Create(&so.LineItems).Error; err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
+
 	return r.FindByID(id)
 }
 
 func (r *salesOrderRepository) Delete(id string) error {
-	// Start transaction
-	tx := r.db.Begin()
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("sales_order_id = ?", id).
+			Delete(&models.SalesOrderLineItem{}).Error; err != nil {
+			return err
+		}
 
-	// First, delete all shipments related to packages of this sales order
-	if err := tx.Where("sales_order_id = ?", id).Delete(&models.Shipment{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	// Then, delete all packages for this sales order
-	if err := tx.Where("sales_order_id = ?", id).Delete(&models.Package{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	// Finally, delete the sales order itself
-	if err := tx.Where("id = ?", id).Delete(&models.SalesOrder{}).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	// Commit transaction
-	return tx.Commit().Error
+		result := tx.Where("id = ?", id).Delete(&models.SalesOrder{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
 }
 
 func (r *salesOrderRepository) UpdateStatus(id string, status string) error {
-	return r.db.Model(&models.SalesOrder{}).Where("id = ?", id).Update("status", status).Error
+	result := r.db.Model(&models.SalesOrder{}).
+		Where("id = ?", id).
+		Update("status", status)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
-func (r *salesOrderRepository) GetDB() *gorm.DB {
-	return r.db
+// Company ownership is derived from the linked customer. This avoids requiring
+// a company_id column on sales_orders while still isolating tenant data.
+func (r *salesOrderRepository) companyQuery(companyID uint) *gorm.DB {
+	return r.db.Model(&models.SalesOrder{}).
+		Joins("JOIN customers ON customers.id = sales_orders.customer_id").
+		Where("customers.company_id = ?", companyID)
 }
 
 func (r *salesOrderRepository) FindByIDAndCompany(id string, companyID uint) (*models.SalesOrder, error) {
 	var so models.SalesOrder
-	if err := r.db.
-		Where("id = ? AND company_id = ?", id, companyID).
-		Preload("Customer").
-		Preload("Salesperson").
-		Preload("LineItems").
-		First(&so).Error; err != nil {
+
+	err := r.salesOrderPreloads(r.db).
+		Joins("JOIN customers ON customers.id = sales_orders.customer_id").
+		Where("sales_orders.id = ? AND customers.company_id = ?", id, companyID).
+		First(&so).Error
+	if err != nil {
 		return nil, err
 	}
+
 	return &so, nil
 }
 
-func (r *salesOrderRepository) UpdateByCompany(id string, companyID uint, salesOrder *models.SalesOrder) (*models.SalesOrder, error) {
-	if err := r.db.Model(&models.SalesOrder{}).
-		Where("id = ? AND company_id = ?", id, companyID).
-		Updates(salesOrder).Error; err != nil {
+func (r *salesOrderRepository) FindAllByCompany(companyID uint, limit, offset int) ([]models.SalesOrder, int64, error) {
+	var salesOrders []models.SalesOrder
+	var total int64
+
+	query := r.companyQuery(companyID)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := r.salesOrderPreloads(query).
+		Select("sales_orders.*").
+		Order("sales_orders.created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&salesOrders).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return salesOrders, total, nil
+}
+
+func (r *salesOrderRepository) FindByCustomerAndCompany(customerID, companyID uint, limit, offset int) ([]models.SalesOrder, int64, error) {
+	var salesOrders []models.SalesOrder
+	var total int64
+
+	query := r.companyQuery(companyID).
+		Where("sales_orders.customer_id = ?", customerID)
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := r.salesOrderPreloads(query).
+		Select("sales_orders.*").
+		Order("sales_orders.created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&salesOrders).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return salesOrders, total, nil
+}
+
+func (r *salesOrderRepository) FindByStatusAndCompany(status string, companyID uint, limit, offset int) ([]models.SalesOrder, int64, error) {
+	var salesOrders []models.SalesOrder
+	var total int64
+
+	query := r.companyQuery(companyID).
+		Where("sales_orders.status = ?", status)
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	err := r.salesOrderPreloads(query).
+		Select("sales_orders.*").
+		Order("sales_orders.created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&salesOrders).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return salesOrders, total, nil
+}
+
+func (r *salesOrderRepository) UpdateByCompany(id string, companyID uint, so *models.SalesOrder) (*models.SalesOrder, error) {
+	if _, err := r.FindByIDAndCompany(id, companyID); err != nil {
 		return nil, err
 	}
-	return r.FindByIDAndCompany(id, companyID)
+
+	updated, err := r.Update(id, so)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.FindByIDAndCompany(updated.ID, companyID)
+}
+
+func (r *salesOrderRepository) DeleteByCompany(id string, companyID uint) error {
+	if _, err := r.FindByIDAndCompany(id, companyID); err != nil {
+		return err
+	}
+	return r.Delete(id)
+}
+
+func (r *salesOrderRepository) UpdateStatusByCompany(id string, companyID uint, status string) error {
+	if _, err := r.FindByIDAndCompany(id, companyID); err != nil {
+		return err
+	}
+	return r.UpdateStatus(id, status)
 }

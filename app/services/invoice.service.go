@@ -198,10 +198,11 @@ func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID s
 	var subTotal float64
 
 	for i, itemInput := range input.LineItems {
-		// Fetch product
-		_, err := s.productRepo.FindByID(*itemInput.ProductID)
-		if err != nil {
-			return nil, fmt.Errorf("product %s not found", *itemInput.ProductID)
+		lineItemProductID := itemInput.ProductID
+		if lineItemProductID != nil && *lineItemProductID != "" {
+			if _, err := s.productRepo.FindByID(*lineItemProductID); err != nil {
+				lineItemProductID = nil
+			}
 		}
 
 		amount := itemInput.Quantity * itemInput.Rate
@@ -213,7 +214,7 @@ func (s *invoiceService) CreateInvoice(input *input.CreateInvoiceInput, userID s
 		}
 
 		lineItems[i] = models.InvoiceLineItem{
-			ProductID:      itemInput.ProductID,
+			ProductID:      lineItemProductID,
 			ProductName:    itemInput.ProductName,
 			Description:    itemInput.ProductName,
 			Quantity:       itemInput.Quantity,
@@ -594,10 +595,7 @@ func (s *invoiceService) ValidateInvoiceInputForCompany(
 			*lineItem.ProductID,
 			companyID,
 		); err != nil {
-			return fmt.Errorf(
-				"product %s not found in your company",
-				*lineItem.ProductID,
-			)
+			_ = err
 		}
 	}
 
@@ -629,10 +627,7 @@ func (s *invoiceService) validateInvoiceUpdateForCompany(
 			*lineItem.ProductID,
 			companyID,
 		); err != nil {
-			return fmt.Errorf(
-				"product %s not found in your company",
-				*lineItem.ProductID,
-			)
+			_ = err
 		}
 	}
 

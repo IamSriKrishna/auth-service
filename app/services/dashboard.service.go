@@ -405,17 +405,41 @@ func (s *dashboardService) GetStockSummaryWithUserContext(
 	userType string,
 	companyID uint,
 ) (*output.StockListOutput, error) {
-	_ = userID
-
+	// Superadmin users should be able to view stock summaries without a company ID.
+	// Other users only get company-scoped results when a company is available.
 	shouldFilter := shouldFilterByCompany(userType, companyID)
 
-	inStock, _ := s.repo.GetInStockProductsWithFilter(shouldFilter, companyID)
-	lowStock, _ := s.repo.GetLowStockProductsWithFilter(100, shouldFilter, companyID)
-	outOfStock, _ := s.repo.GetOutOfStockProductsWithFilter(shouldFilter, companyID)
-	totalStock, _ := s.repo.GetTotalProductStockWithFilter(shouldFilter, companyID)
+	if shouldFilter && userID == 0 {
+		return nil, fmt.Errorf("invalid user ID")
+	}
+
+	if shouldFilter && companyID == 0 {
+		return nil, fmt.Errorf("invalid company ID")
+	}
+
+	inStock, err := s.repo.GetInStockProductsWithFilter(shouldFilter, userID, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get in-stock products: %w", err)
+	}
+
+	lowStock, err := s.repo.GetLowStockProductsWithFilter(100, shouldFilter, userID, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get low-stock products: %w", err)
+	}
+
+	outOfStock, err := s.repo.GetOutOfStockProductsWithFilter(shouldFilter, userID, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get out-of-stock products: %w", err)
+	}
+
+	totalStock, err := s.repo.GetTotalProductStockWithFilter(shouldFilter, userID, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get total product stock: %w", err)
+	}
 
 	productStockDetails, err := s.repo.GetProductStockDetailsWithFilter(
 		shouldFilter,
+		userID,
 		companyID,
 	)
 	if err != nil {
@@ -471,10 +495,15 @@ func (s *dashboardService) GetStockSummaryWithUserContext(
 		})
 	}
 
+	inStockCount := inStock - lowStock - outOfStock
+	if inStockCount < 0 {
+		inStockCount = 0
+	}
+
 	return &output.StockListOutput{
 		Data:            stockDetails,
 		TotalProducts:   int(inStock),
-		InStockCount:    int(inStock - lowStock - outOfStock),
+		InStockCount:    int(inStockCount),
 		LowStockCount:   int(lowStock),
 		OutOfStockCount: int(outOfStock),
 		TotalQuantity:   totalStock,

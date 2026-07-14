@@ -524,6 +524,27 @@ func (s *customerPaymentService) validateCustomerPaymentUserCompany(
 	return nil
 }
 
+func (s *customerPaymentService) FindSalesOrderForCompany(
+	salesOrderID string,
+	companyID uint,
+) (*models.SalesOrder, error) {
+	salesOrder, err := s.soRepo.FindByID(salesOrderID)
+	if err != nil {
+		return nil, errors.New("sales order not found")
+	}
+
+	if _, err := s.customerRepo.FindByIDAndCompany(
+		salesOrder.CustomerID,
+		companyID,
+	); err != nil {
+		return nil, errors.New(
+			"sales order not found in your company",
+		)
+	}
+
+	return salesOrder, nil
+}
+
 func (s *customerPaymentService) CreateCustomerPaymentForCompany(
 	paymentInput *input.CreateCustomerPaymentInput,
 	userID string,
@@ -542,15 +563,12 @@ func (s *customerPaymentService) CreateCustomerPaymentForCompany(
 		return nil, err
 	}
 
-	salesOrder, err :=
-		s.soRepo.FindByIDAndCompany(
-			paymentInput.SalesOrderID,
-			companyID,
-		)
+	salesOrder, err := s.FindSalesOrderForCompany(
+		paymentInput.SalesOrderID,
+		companyID,
+	)
 	if err != nil {
-		return nil, errors.New(
-			"sales order not found in your company",
-		)
+		return nil, err
 	}
 
 	customer, err :=
@@ -666,13 +684,11 @@ func (s *customerPaymentService) GetCustomerPaymentsBySalesOrderAndCompany(
 	limit int,
 	offset int,
 ) ([]output.CustomerPaymentOutput, int64, error) {
-	if _, err := s.soRepo.FindByIDAndCompany(
+	if _, err := s.FindSalesOrderForCompany(
 		salesOrderID,
 		companyID,
 	); err != nil {
-		return nil, 0, errors.New(
-			"sales order not found in your company",
-		)
+		return nil, 0, err
 	}
 
 	payments, total, err :=
@@ -840,15 +856,12 @@ func (s *customerPaymentService) RecordPaymentForCompany(
 		)
 	}
 
-	salesOrder, err :=
-		s.soRepo.FindByIDAndCompany(
-			payment.SalesOrderID,
-			companyID,
-		)
+	salesOrder, err := s.FindSalesOrderForCompany(
+		payment.SalesOrderID,
+		companyID,
+	)
 	if err != nil {
-		return nil, errors.New(
-			"sales order not found in your company",
-		)
+		return nil, err
 	}
 
 	if _, err := s.customerRepo.FindByIDAndCompany(
@@ -909,9 +922,8 @@ func (s *customerPaymentService) RecordPaymentForCompany(
 			}
 
 			if _, updateErr :=
-				s.soRepo.UpdateByCompany(
+				s.soRepo.Update(
 					salesOrder.ID,
-					companyID,
 					salesOrder,
 				); updateErr != nil {
 				return nil, fmt.Errorf(

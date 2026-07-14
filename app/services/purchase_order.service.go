@@ -254,7 +254,16 @@ func (s *purchaseOrderService) CreatePurchaseOrder(poInput *input.CreatePurchase
 			stockQuantity, stockUnit = helper.ConvertToBaseUnit(quantity, purchaseUnit, product)
 		}
 
-		amount := quantity * itemInput.Rate
+		// For raw materials, the amount is pre-calculated by the frontend based on production quantity
+		// For regular products, calculate amount from purchase quantity and rate
+		var amount float64
+		if isRawMaterial && itemInput.Amount > 0 {
+			// Use the amount provided by the frontend for raw materials
+			amount = itemInput.Amount
+		} else {
+			// Calculate amount for regular products
+			amount = quantity * itemInput.Rate
+		}
 		subTotal += amount
 
 		lineItem := models.PurchaseOrderLineItem{
@@ -475,7 +484,16 @@ func (s *purchaseOrderService) UpdatePurchaseOrder(id string, poInput *input.Upd
 				quantity = itemInput.NumberOfPacks * itemInput.QuantityPerPack
 			}
 
-			amount := quantity * itemInput.Rate
+			// For raw materials, the amount is pre-calculated by the frontend based on production quantity
+			// For regular products, calculate amount from purchase quantity and rate
+			var amount float64
+			if isRawMaterial && itemInput.Amount > 0 {
+				// Use the amount provided by the frontend for raw materials
+				amount = itemInput.Amount
+			} else {
+				// Calculate amount for regular products
+				amount = quantity * itemInput.Rate
+			}
 			subTotal += amount
 
 			lineItem := models.PurchaseOrderLineItem{

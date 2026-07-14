@@ -57,6 +57,7 @@ func (ShipmentTracking) TableName() string {
 type EntityCountHistory struct {
 	ID           string    `json:"id" gorm:"primaryKey;type:varchar(255)"`
 	EntityType   string    `json:"entity_type" gorm:"index"`
+	CompanyID    uint      `json:"company_id,omitempty" gorm:"index"`
 	Date         time.Time `json:"date" gorm:"index;type:date"`
 	Count        int       `json:"count"`
 	ActiveCount  int       `json:"active_count"`

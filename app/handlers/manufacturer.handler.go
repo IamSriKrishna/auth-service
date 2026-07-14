@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -292,8 +293,22 @@ func (h *ManufacturerHandler) DeleteManufacturer(
 		userID,
 		companyID,
 	); err != nil {
+		if errors.Is(err, services.ErrManufacturerInUse) {
+			return fiber.NewError(
+				fiber.StatusConflict,
+				err.Error(),
+			)
+		}
+
+		if err.Error() == "manufacturer not found" {
+			return fiber.NewError(
+				fiber.StatusNotFound,
+				err.Error(),
+			)
+		}
+
 		return fiber.NewError(
-			fiber.StatusNotFound,
+			fiber.StatusBadRequest,
 			err.Error(),
 		)
 	}

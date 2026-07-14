@@ -83,8 +83,11 @@ func (h *DashboardHandler) extractUserContext(
 		userType = string(selectedUser.UserType)
 
 		if selectedUser.CompanyID == nil || *selectedUser.CompanyID == 0 {
-			return 0, "", "", 0, fmt.Errorf("selected user is not assigned to a company")
+			return 0, "", "", 0, fmt.Errorf(
+				"selected user is not assigned to a company",
+			)
 		}
+
 		companyID = *selectedUser.CompanyID
 
 		if selectedUser.Email != nil {
@@ -108,10 +111,6 @@ func (h *DashboardHandler) extractUserContext(
 
 	userID = selectedUser.ID
 	userType = string(selectedUser.UserType)
-
-	if selectedUser.CompanyID == nil || *selectedUser.CompanyID != companyID {
-		return 0, "", "", 0, fmt.Errorf("user does not belong to your company")
-	}
 
 	if selectedUser.Email != nil {
 		email = *selectedUser.Email

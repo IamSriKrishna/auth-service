@@ -13,6 +13,8 @@ import (
 	"github.com/google/uuid"
 )
 
+var ErrManufacturerInUse = errors.New("manufacturer is currently used in sales orders and cannot be deleted")
+
 type ManufacturerService interface {
 	// Existing methods retained for internal/backward compatibility.
 	Create(
@@ -480,7 +482,33 @@ func (s *manufacturerService) Update(
 func (s *manufacturerService) Delete(
 	id string,
 ) error {
+	if err := s.validateDeleteConstraints(id); err != nil {
+		return err
+	}
+
 	return s.manufacturerRepo.DeleteByStringID(id)
+}
+
+func (s *manufacturerService) validateDeleteConstraints(
+	id string,
+) error {
+	if id == "" {
+		return errors.New("invalid manufacturer id")
+	}
+
+	if s.manufacturerRepo == nil {
+		return errors.New("manufacturer repository is required")
+	}
+
+	inUse, err := s.manufacturerRepo.HasSalesOrderLineItems(id)
+	if err != nil {
+		return err
+	}
+	if inUse {
+		return ErrManufacturerInUse
+	}
+
+	return nil
 }
 
 func (s *manufacturerService) validateCompanyScopedComponentProduct(
@@ -765,6 +793,10 @@ func (s *manufacturerService) DeleteForCompany(
 			companyID,
 		); err != nil {
 		return errors.New("manufacturer not found")
+	}
+
+	if err := s.validateDeleteConstraints(id); err != nil {
+		return err
 	}
 
 	// This preserves the existing behavior and does not restore stock.

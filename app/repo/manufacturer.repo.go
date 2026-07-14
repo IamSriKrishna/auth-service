@@ -269,6 +269,23 @@ func (r *manufacturerRepository) DeleteByStringID(
 	return nil
 }
 
+func (r *manufacturerRepository) HasSalesOrderLineItems(
+	id string,
+) (bool, error) {
+	var count int64
+
+	result := r.db.
+		Model(&models.SalesOrderLineItem{}).
+		Where("manufacturer_id = ?", id).
+		Count(&count)
+
+	if result.Error != nil {
+		return false, result.Error
+	}
+
+	return count > 0, nil
+}
+
 func (r *manufacturerRepository) DeleteByStringIDAndCompany(
 	id string,
 	companyID uint,

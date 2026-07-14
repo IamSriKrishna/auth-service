@@ -404,6 +404,7 @@ type ManufacturerRepository interface {
 	Update(manufacturer *models.Manufacturer) error
 	Delete(id uint) error
 	DeleteByStringID(id string) error
+	HasSalesOrderLineItems(id string) (bool, error)
 
 	// Company-scoped methods.
 	FindByStringIDAndCompany(id string, companyID uint) (*models.Manufacturer, error)
@@ -492,6 +493,7 @@ type PurchaseOrderRepository interface {
 	UpdateStatusByCompany(id string, companyID uint, status string) error
 }
 type SalesOrderRepository interface {
+	// Existing methods retained.
 	Create(so *models.SalesOrder) (*models.SalesOrder, error)
 	FindByID(id string) (*models.SalesOrder, error)
 	FindAll(limit, offset int) ([]models.SalesOrder, int64, error)
@@ -501,18 +503,16 @@ type SalesOrderRepository interface {
 	Delete(id string) error
 	UpdateStatus(id string, status string) error
 	GetDB() *gorm.DB
-	FindByIDAndCompany(
-		id string,
-		companyID uint,
-	) (*models.SalesOrder, error)
 
-	UpdateByCompany(
-		id string,
-		companyID uint,
-		salesOrder *models.SalesOrder,
-	) (*models.SalesOrder, error)
+	// Company-scoped methods.
+	FindByIDAndCompany(id string, companyID uint) (*models.SalesOrder, error)
+	FindAllByCompany(companyID uint, limit, offset int) ([]models.SalesOrder, int64, error)
+	FindByCustomerAndCompany(customerID, companyID uint, limit, offset int) ([]models.SalesOrder, int64, error)
+	FindByStatusAndCompany(status string, companyID uint, limit, offset int) ([]models.SalesOrder, int64, error)
+	UpdateByCompany(id string, companyID uint, so *models.SalesOrder) (*models.SalesOrder, error)
+	DeleteByCompany(id string, companyID uint) error
+	UpdateStatusByCompany(id string, companyID uint, status string) error
 }
-
 type BillRepository interface {
 	// Existing methods retained.
 	Create(bill *models.Bill) (*models.Bill, error)
@@ -713,7 +713,6 @@ type ProductStockRepository interface {
 	) ([]models.ProductStock, int64, error)
 }
 
-// StockLedger repository for tracking all stock movements
 type StockLedgerRepository interface {
 	Create(ledger *models.StockLedger) error
 	GetByID(id uint) (*models.StockLedger, error)
