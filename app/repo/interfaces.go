@@ -602,6 +602,15 @@ type PackageRepository interface {
 	Delete(id string) error
 	UpdateStatus(id string, status string) error
 	GetNextPackageSlipNo() (string, error)
+
+	FindByIDAndCompany(id string, companyID uint) (*models.Package, error)
+	FindAllByCompany(companyID uint, limit, offset int) ([]models.Package, int64, error)
+	FindBySalesOrderAndCompany(salesOrderID string, companyID uint, limit, offset int) ([]models.Package, int64, error)
+	FindByCustomerAndCompany(customerID, companyID uint, limit, offset int) ([]models.Package, int64, error)
+	FindByStatusAndCompany(status string, companyID uint, limit, offset int) ([]models.Package, int64, error)
+	UpdateByCompany(id string, companyID uint, pkg *models.Package) (*models.Package, error)
+	DeleteByCompany(id string, companyID uint) error
+	UpdateStatusByCompany(id string, companyID uint, status string) error
 }
 
 type ShipmentRepository interface {

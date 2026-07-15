@@ -15,7 +15,6 @@ import (
 )
 
 type PackageService interface {
-	// Basic CRUD Operations
 	CreatePackage(pkgInput *input.CreatePackageInput, userID string) (*output.PackageOutput, error)
 	GetPackage(id string) (*output.PackageOutput, error)
 	GetAllPackages(limit, offset int) ([]output.PackageOutput, int64, error)
@@ -23,126 +22,69 @@ type PackageService interface {
 	GetPackagesBySalesOrder(salesOrderID string, limit, offset int) ([]output.PackageOutput, int64, error)
 	GetPackagesByStatus(status string, limit, offset int) ([]output.PackageOutput, int64, error)
 	UpdatePackage(id string, pkgInput *input.UpdatePackageInput, userID string) (*output.PackageOutput, error)
-
-	// Step 4: Selling to Customers - Package Prep
-	// Prepare items for shipping and update package status
 	UpdatePackageStatus(id string, status string, userID string) (*output.PackageOutput, error)
 	DeletePackage(id string) error
+
+	CreatePackageForCompany(pkgInput *input.CreatePackageInput, userID string, companyID uint) (*output.PackageOutput, error)
+	GetPackageForCompany(id string, companyID uint) (*output.PackageOutput, error)
+	GetAllPackagesForCompany(companyID uint, limit, offset int) ([]output.PackageOutput, int64, error)
+	GetPackagesByCustomerForCompany(customerID, companyID uint, limit, offset int) ([]output.PackageOutput, int64, error)
+	GetPackagesBySalesOrderForCompany(salesOrderID string, companyID uint, limit, offset int) ([]output.PackageOutput, int64, error)
+	GetPackagesByStatusForCompany(status string, companyID uint, limit, offset int) ([]output.PackageOutput, int64, error)
+	UpdatePackageForCompany(id string, pkgInput *input.UpdatePackageInput, userID string, companyID uint) (*output.PackageOutput, error)
+	UpdatePackageStatusForCompany(id, status, userID string, companyID uint) (*output.PackageOutput, error)
+	DeletePackageForCompany(id string, companyID uint) error
 }
 
 type packageService struct {
-	pkgRepo          repo.PackageRepository
-	soRepo           repo.SalesOrderRepository
-	customerRepo     repo.CustomerRepository
-	itemRepo         repo.ItemRepository
-	stockMovementSvc StockMovementService
+	pkgRepo            repo.PackageRepository
+	soRepo             repo.SalesOrderRepository
+	customerRepo       repo.CustomerRepository
+	productRepo        repo.ProductRepository
+	stockManagementSvc StockManagementService
 }
 
 func NewPackageService(
 	pkgRepo repo.PackageRepository,
 	soRepo repo.SalesOrderRepository,
 	customerRepo repo.CustomerRepository,
-	itemRepo repo.ItemRepository,
-	stockMovementSvc StockMovementService,
+	productRepo repo.ProductRepository,
+	stockManagementSvc StockManagementService,
 ) PackageService {
 	return &packageService{
-		pkgRepo:          pkgRepo,
-		soRepo:           soRepo,
-		customerRepo:     customerRepo,
-		itemRepo:         itemRepo,
-		stockMovementSvc: stockMovementSvc,
+		pkgRepo:            pkgRepo,
+		soRepo:             soRepo,
+		customerRepo:       customerRepo,
+		productRepo:        productRepo,
+		stockManagementSvc: stockManagementSvc,
 	}
 }
 
-func (s *packageService) CreatePackage(pkgInput *input.CreatePackageInput, userID string) (*output.PackageOutput, error) {
-	if pkgInput == nil {
+func packagesToOutput(packages []models.Package) ([]output.PackageOutput, error) {
+	result := make([]output.PackageOutput, 0, len(packages))
+	for i := range packages {
+		out, err := output.ToPackageOutput(&packages[i])
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, *out)
+	}
+	return result, nil
+}
+
+func (s *packageService) CreatePackage(req *input.CreatePackageInput, userID string) (*output.PackageOutput, error) {
+	if req == nil {
 		return nil, errors.New("package input cannot be nil")
 	}
-
-	// Fetch and validate sales order
-	so, err := s.soRepo.FindByID(pkgInput.SalesOrderID)
+	so, err := s.soRepo.FindByID(req.SalesOrderID)
 	if err != nil {
 		return nil, fmt.Errorf("sales order not found: %w", err)
 	}
-
-	// Fetch and validate customer
-	customer, err := s.customerRepo.FindByID(pkgInput.CustomerID)
+	customer, err := s.customerRepo.FindByID(req.CustomerID)
 	if err != nil {
 		return nil, fmt.Errorf("customer not found: %w", err)
 	}
-
-	// Verify customer matches sales order
-	if so.CustomerID != pkgInput.CustomerID {
-		return nil, errors.New("customer does not match sales order")
-	}
-
-	// Generate or use provided package slip number
-	var slipNo string
-	if pkgInput.PackageSlipNo != nil && *pkgInput.PackageSlipNo != "" {
-		slipNo = *pkgInput.PackageSlipNo
-	} else {
-		generatedSlip, err := s.pkgRepo.GetNextPackageSlipNo()
-		if err != nil {
-			return nil, fmt.Errorf("failed to generate package slip number: %w", err)
-		}
-		slipNo = generatedSlip
-	}
-
-	// Build a map of input items for quick lookup by SalesOrderItemID
-	inputItemsMap := make(map[uint]*input.PackageLineItemInput)
-	if len(pkgInput.Items) > 0 {
-		for i := range pkgInput.Items {
-			inputItemsMap[pkgInput.Items[i].SalesOrderItemID] = &pkgInput.Items[i]
-		}
-	}
-
-	// Populate package items from sales order line items
-	var packageItems []models.PackageItem
-	for _, soLineItem := range so.LineItems {
-		// Check if this item is in the input items map
-		var packedQty float64 = 0
-		if inputItem, exists := inputItemsMap[soLineItem.ID]; exists {
-			packedQty = inputItem.PackedQty
-		} else if len(pkgInput.Items) == 0 {
-			// If no items specified in input, default packed qty to 0 (user will fill it manually)
-			packedQty = 0
-		} else {
-			// If items were specified but this one wasn't, skip it
-			continue
-		}
-
-		packageItem := models.PackageItem{
-			SalesOrderItemID: soLineItem.ID,
-			OrderedQty:       soLineItem.Quantity,
-			PackedQty:        packedQty,
-		}
-
-		packageItems = append(packageItems, packageItem)
-	}
-
-	// Create package model
-	pkg := &models.Package{
-		ID:            uuid.New().String(),
-		PackageSlipNo: slipNo,
-		SalesOrderID:  pkgInput.SalesOrderID,
-		CustomerID:    pkgInput.CustomerID,
-		PackageDate:   pkgInput.PackageDate,
-		Status:        domain.PackageStatusCreated,
-		InternalNotes: pkgInput.InternalNotes,
-		Items:         packageItems,
-		SalesOrder:    so,
-		Customer:      customer,
-		CreatedBy:     userID,
-		UpdatedBy:     userID,
-	}
-
-	// Save to repository
-	createdPkg, err := s.pkgRepo.Create(pkg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create package: %w", err)
-	}
-
-	return output.ToPackageOutput(createdPkg)
+	return s.createPackage(req, userID, so, customer)
 }
 
 func (s *packageService) GetPackage(id string) (*output.PackageOutput, error) {
@@ -150,7 +92,6 @@ func (s *packageService) GetPackage(id string) (*output.PackageOutput, error) {
 	if err != nil {
 		return nil, fmt.Errorf("package not found: %w", err)
 	}
-
 	return output.ToPackageOutput(pkg)
 }
 
@@ -159,15 +100,8 @@ func (s *packageService) GetAllPackages(limit, offset int) ([]output.PackageOutp
 	if err != nil {
 		return nil, 0, err
 	}
-
-	outputs := make([]output.PackageOutput, 0)
-	for _, pkg := range packages {
-		if out, err := output.ToPackageOutput(&pkg); err == nil {
-			outputs = append(outputs, *out)
-		}
-	}
-
-	return outputs, total, nil
+	out, err := packagesToOutput(packages)
+	return out, total, err
 }
 
 func (s *packageService) GetPackagesByCustomer(customerID uint, limit, offset int) ([]output.PackageOutput, int64, error) {
@@ -175,15 +109,8 @@ func (s *packageService) GetPackagesByCustomer(customerID uint, limit, offset in
 	if err != nil {
 		return nil, 0, err
 	}
-
-	outputs := make([]output.PackageOutput, 0)
-	for _, pkg := range packages {
-		if out, err := output.ToPackageOutput(&pkg); err == nil {
-			outputs = append(outputs, *out)
-		}
-	}
-
-	return outputs, total, nil
+	out, err := packagesToOutput(packages)
+	return out, total, err
 }
 
 func (s *packageService) GetPackagesBySalesOrder(salesOrderID string, limit, offset int) ([]output.PackageOutput, int64, error) {
@@ -191,15 +118,8 @@ func (s *packageService) GetPackagesBySalesOrder(salesOrderID string, limit, off
 	if err != nil {
 		return nil, 0, err
 	}
-
-	outputs := make([]output.PackageOutput, 0)
-	for _, pkg := range packages {
-		if out, err := output.ToPackageOutput(&pkg); err == nil {
-			outputs = append(outputs, *out)
-		}
-	}
-
-	return outputs, total, nil
+	out, err := packagesToOutput(packages)
+	return out, total, err
 }
 
 func (s *packageService) GetPackagesByStatus(status string, limit, offset int) ([]output.PackageOutput, int64, error) {
@@ -207,100 +127,285 @@ func (s *packageService) GetPackagesByStatus(status string, limit, offset int) (
 	if err != nil {
 		return nil, 0, err
 	}
-
-	outputs := make([]output.PackageOutput, 0)
-	for _, pkg := range packages {
-		if out, err := output.ToPackageOutput(&pkg); err == nil {
-			outputs = append(outputs, *out)
-		}
-	}
-
-	return outputs, total, nil
+	out, err := packagesToOutput(packages)
+	return out, total, err
 }
 
-func (s *packageService) UpdatePackage(id string, pkgInput *input.UpdatePackageInput, userID string) (*output.PackageOutput, error) {
-	if pkgInput == nil {
+func (s *packageService) UpdatePackage(id string, req *input.UpdatePackageInput, userID string) (*output.PackageOutput, error) {
+	if req == nil {
 		return nil, errors.New("package input cannot be nil")
 	}
-
 	pkg, err := s.pkgRepo.FindByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("package not found: %w", err)
 	}
-
-	if pkgInput.PackageDate != nil {
-		pkg.PackageDate = *pkgInput.PackageDate
-	}
-
-	if pkgInput.InternalNotes != nil {
-		pkg.InternalNotes = *pkgInput.InternalNotes
-	}
-
-	if pkgInput.Status != nil {
-		pkg.Status = domain.PackageStatus(*pkgInput.Status)
-	}
-
-	// Update packed quantities for specified items
-	if len(pkgInput.Items) > 0 {
-		// Build a map of input items for quick lookup
-		inputItemsMap := make(map[uint]float64)
-		for _, itemInput := range pkgInput.Items {
-			inputItemsMap[itemInput.SalesOrderItemID] = itemInput.PackedQty
-		}
-
-		// Update existing package items
-		for i := range pkg.Items {
-			if packedQty, exists := inputItemsMap[pkg.Items[i].SalesOrderItemID]; exists {
-				pkg.Items[i].PackedQty = packedQty
-			}
-		}
-	}
-
-	pkg.UpdatedBy = userID
-	pkg.UpdatedAt = time.Now()
-
-	updatedPkg, err := s.pkgRepo.Update(id, pkg)
+	s.applyUpdate(pkg, req, userID)
+	updated, err := s.pkgRepo.Update(id, pkg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update package: %w", err)
 	}
-
-	return output.ToPackageOutput(updatedPkg)
+	return output.ToPackageOutput(updated)
 }
 
-func (s *packageService) UpdatePackageStatus(id string, status string, userID string) (*output.PackageOutput, error) {
+func (s *packageService) UpdatePackageStatus(id, status, userID string) (*output.PackageOutput, error) {
+	pkg, err := s.pkgRepo.FindByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("package not found: %w", err)
+	}
+	return s.updateStatus(pkg, status, userID, func(p *models.Package) (*models.Package, error) {
+		return s.pkgRepo.Update(id, p)
+	})
+}
+
+func (s *packageService) DeletePackage(id string) error {
+	return s.pkgRepo.Delete(id)
+}
+
+func (s *packageService) CreatePackageForCompany(req *input.CreatePackageInput, userID string, companyID uint) (*output.PackageOutput, error) {
+	if req == nil {
+		return nil, errors.New("package input cannot be nil")
+	}
+	if companyID == 0 {
+		return nil, errors.New("invalid company")
+	}
+	so, err := s.soRepo.FindByIDAndCompany(req.SalesOrderID, companyID)
+	if err != nil {
+		return nil, errors.New("sales order not found in your company")
+	}
+	customer, err := s.customerRepo.FindByIDAndCompany(req.CustomerID, companyID)
+	if err != nil {
+		return nil, errors.New("customer not found in your company")
+	}
+	return s.createPackage(req, userID, so, customer)
+}
+
+func (s *packageService) GetPackageForCompany(id string, companyID uint) (*output.PackageOutput, error) {
+	pkg, err := s.pkgRepo.FindByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, errors.New("package not found")
+	}
+	return output.ToPackageOutput(pkg)
+}
+
+func (s *packageService) GetAllPackagesForCompany(companyID uint, limit, offset int) ([]output.PackageOutput, int64, error) {
+	packages, total, err := s.pkgRepo.FindAllByCompany(companyID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	out, err := packagesToOutput(packages)
+	return out, total, err
+}
+
+func (s *packageService) GetPackagesByCustomerForCompany(customerID, companyID uint, limit, offset int) ([]output.PackageOutput, int64, error) {
+	if _, err := s.customerRepo.FindByIDAndCompany(customerID, companyID); err != nil {
+		return nil, 0, errors.New("customer not found in your company")
+	}
+	packages, total, err := s.pkgRepo.FindByCustomerAndCompany(customerID, companyID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	out, err := packagesToOutput(packages)
+	return out, total, err
+}
+
+func (s *packageService) GetPackagesBySalesOrderForCompany(salesOrderID string, companyID uint, limit, offset int) ([]output.PackageOutput, int64, error) {
+	if _, err := s.soRepo.FindByIDAndCompany(salesOrderID, companyID); err != nil {
+		return nil, 0, errors.New("sales order not found in your company")
+	}
+	packages, total, err := s.pkgRepo.FindBySalesOrderAndCompany(salesOrderID, companyID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	out, err := packagesToOutput(packages)
+	return out, total, err
+}
+
+func (s *packageService) GetPackagesByStatusForCompany(status string, companyID uint, limit, offset int) ([]output.PackageOutput, int64, error) {
+	packages, total, err := s.pkgRepo.FindByStatusAndCompany(status, companyID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	out, err := packagesToOutput(packages)
+	return out, total, err
+}
+
+func (s *packageService) UpdatePackageForCompany(id string, req *input.UpdatePackageInput, userID string, companyID uint) (*output.PackageOutput, error) {
+	if req == nil {
+		return nil, errors.New("package input cannot be nil")
+	}
+	pkg, err := s.pkgRepo.FindByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, errors.New("package not found")
+	}
+	s.applyUpdate(pkg, req, userID)
+	updated, err := s.pkgRepo.UpdateByCompany(id, companyID, pkg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update package: %w", err)
+	}
+	return output.ToPackageOutput(updated)
+}
+
+func (s *packageService) UpdatePackageStatusForCompany(id, status, userID string, companyID uint) (*output.PackageOutput, error) {
+	pkg, err := s.pkgRepo.FindByIDAndCompany(id, companyID)
+	if err != nil {
+		return nil, errors.New("package not found")
+	}
+	return s.updateStatus(pkg, status, userID, func(p *models.Package) (*models.Package, error) {
+		return s.pkgRepo.UpdateByCompany(id, companyID, p)
+	})
+}
+
+func (s *packageService) DeletePackageForCompany(id string, companyID uint) error {
+	if _, err := s.pkgRepo.FindByIDAndCompany(id, companyID); err != nil {
+		return errors.New("package not found")
+	}
+	return s.pkgRepo.DeleteByCompany(id, companyID)
+}
+
+func (s *packageService) createPackage(req *input.CreatePackageInput, userID string, so *models.SalesOrder, customer *models.Customer) (*output.PackageOutput, error) {
+	if so == nil || customer == nil {
+		return nil, errors.New("sales order and customer are required")
+	}
+	if so.CustomerID != req.CustomerID {
+		return nil, errors.New("customer does not match sales order")
+	}
+
+	slipNo := ""
+	if req.PackageSlipNo != nil && *req.PackageSlipNo != "" {
+		slipNo = *req.PackageSlipNo
+	} else {
+		var err error
+		slipNo, err = s.pkgRepo.GetNextPackageSlipNo()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate package slip number: %w", err)
+		}
+	}
+
+	inputMap := make(map[uint]*input.PackageLineItemInput)
+	for i := range req.Items {
+		inputMap[req.Items[i].SalesOrderItemID] = &req.Items[i]
+	}
+
+	items := make([]models.PackageItem, 0)
+	for _, soItem := range so.LineItems {
+		packed := 0.0
+		inputItem, exists := inputMap[soItem.ID]
+		if exists {
+			packed = inputItem.PackedQty
+		} else if len(req.Items) > 0 {
+			continue
+		}
+		if packed < 0 || packed > soItem.Quantity {
+			return nil, fmt.Errorf("invalid packed quantity for sales order item %d", soItem.ID)
+		}
+		items = append(items, models.PackageItem{
+			SalesOrderItemID: soItem.ID,
+			OrderedQty:       soItem.Quantity,
+			PackedQty:        packed,
+		})
+	}
+	if len(items) == 0 {
+		return nil, errors.New("package must contain at least one sales order item")
+	}
+
+	pkg := &models.Package{
+		ID:            uuid.New().String(),
+		PackageSlipNo: slipNo,
+		SalesOrderID:  req.SalesOrderID,
+		SalesOrder:    so,
+		CustomerID:    req.CustomerID,
+		Customer:      customer,
+		PackageDate:   req.PackageDate,
+		Items:         items,
+		Status:        domain.PackageStatusCreated,
+		InternalNotes: req.InternalNotes,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+		CreatedBy:     userID,
+		UpdatedBy:     userID,
+	}
+
+	created, err := s.pkgRepo.Create(pkg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create package: %w", err)
+	}
+	return output.ToPackageOutput(created)
+}
+
+func (s *packageService) applyUpdate(pkg *models.Package, req *input.UpdatePackageInput, userID string) {
+	if req.PackageDate != nil {
+		pkg.PackageDate = *req.PackageDate
+	}
+	if req.InternalNotes != nil {
+		pkg.InternalNotes = *req.InternalNotes
+	}
+	if req.Status != nil {
+		pkg.Status = domain.PackageStatus(*req.Status)
+	}
+	if len(req.Items) > 0 {
+		updates := make(map[uint]float64)
+		for _, item := range req.Items {
+			updates[item.SalesOrderItemID] = item.PackedQty
+		}
+		for i := range pkg.Items {
+			if packed, ok := updates[pkg.Items[i].SalesOrderItemID]; ok {
+				pkg.Items[i].PackedQty = packed
+			}
+		}
+	}
+	pkg.UpdatedBy = userID
+	pkg.UpdatedAt = time.Now()
+}
+
+func (s *packageService) updateStatus(
+	pkg *models.Package,
+	status string,
+	userID string,
+	save func(*models.Package) (*models.Package, error),
+) (*output.PackageOutput, error) {
 	switch status {
 	case "created", "packed", "shipped", "delivered", "cancelled":
 	default:
 		return nil, fmt.Errorf("invalid status: %s", status)
 	}
 
-	pkg, err := s.pkgRepo.FindByID(id)
-	if err != nil {
-		return nil, fmt.Errorf("package not found: %w", err)
-	}
-
-	// Record package items info on status change
 	if status == "packed" && pkg.Status != domain.PackageStatus("packed") {
-		// Record items as packed for tracking - only if ItemID is provided
 		for _, item := range pkg.Items {
-			if item.ItemID == nil {
-				continue // Skip inventory tracking for product-only items
+			if item.ProductID == nil || *item.ProductID == "" || item.PackedQty <= 0 {
+				continue
 			}
-			movement := &StockMovementRequest{
-				ItemID:       *item.ItemID, // Dereference the pointer
-				VariantSKU:   item.VariantSKU,
-				Quantity:     item.PackedQty,
-				MovementType: StockMovementAdjustmentOut,
-				ReferenceID:  pkg.ID,
-				ReferenceNo:  pkg.PackageSlipNo,
-				Notes:        fmt.Sprintf("Items packed for shipment - Package: %s", pkg.PackageSlipNo),
-				CreatedBy:    userID,
-				SourceType:   "package",
-				SourceID:     pkg.ID,
-				Status:       status,
+			if s.productRepo != nil {
+				if _, err := s.productRepo.FindByID(*item.ProductID); err != nil {
+					return nil, fmt.Errorf("product %s not found: %w", *item.ProductID, err)
+				}
 			}
-			if _, err := s.stockMovementSvc.RecordOutboundMovement(movement); err != nil {
-				log.Printf("[PACKAGE] Error recording stock movement: %v", err)
+
+			var err error
+			if item.VariantSKU != nil && *item.VariantSKU != "" {
+				err = s.stockManagementSvc.RecordOutboundMovementWithVariant(
+					*item.ProductID,
+					*item.VariantSKU,
+					"package",
+					pkg.ID,
+					pkg.PackageSlipNo,
+					item.PackedQty,
+					fmt.Sprintf("Product variant packed for package %s", pkg.PackageSlipNo),
+					userID,
+				)
+			} else {
+				err = s.stockManagementSvc.RecordOutboundMovement(
+					*item.ProductID,
+					"package",
+					pkg.ID,
+					pkg.PackageSlipNo,
+					item.PackedQty,
+					fmt.Sprintf("Product packed for package %s", pkg.PackageSlipNo),
+					userID,
+				)
+			}
+			if err != nil {
+				log.Printf("[PACKAGE] stock deduction failed for product %s: %v", *item.ProductID, err)
+				return nil, err
 			}
 		}
 	}
@@ -309,14 +414,9 @@ func (s *packageService) UpdatePackageStatus(id string, status string, userID st
 	pkg.UpdatedBy = userID
 	pkg.UpdatedAt = time.Now()
 
-	updatedPkg, err := s.pkgRepo.Update(id, pkg)
+	updated, err := save(pkg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update package status: %w", err)
 	}
-
-	return output.ToPackageOutput(updatedPkg)
-}
-
-func (s *packageService) DeletePackage(id string) error {
-	return s.pkgRepo.Delete(id)
+	return output.ToPackageOutput(updated)
 }
