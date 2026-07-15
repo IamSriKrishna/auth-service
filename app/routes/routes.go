@@ -82,6 +82,8 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	productConversionRepo := repo.NewProductConversionRepository(db)
 	productConversionRecordRepo := repo.NewProductConversionRecordRepository(db)
 	conversionRecordBagUsageRepo := repo.NewConversionRecordBagUsageRepository(db)
+	purchaseClaimRepo := repo.NewPurchaseClaimRepository(db)
+	purchaseDispenseRepo := repo.NewPurchaseDispenseRepository(db)
 
 	authService := services.NewAuthService(userRepo, roleRepo, refreshTokenRepo, sessionRepo, companyRepo)
 	adminService := services.NewAdminService(userRepo, roleRepo, companyRepo)
@@ -95,6 +97,16 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		companyRepo,
 	)
 
+	purchaseClaimService := services.NewPurchaseClaimService(
+		purchaseClaimRepo,
+		purchaseOrderRepo,
+		productRepo,
+	)
+	purchaseDispenseService := services.NewPurchaseDispenseService(
+		purchaseDispenseRepo,
+		purchaseClaimRepo,
+		purchaseClaimService,
+	)
 	roleService := services.NewRoleService(roleRepo)
 	supportService := services.NewSupportService(supportRepo)
 	businessTypeService := services.NewBusinessTypeService(businessTypeRepo)
@@ -190,6 +202,12 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	stockManagementHandler := handlers.NewStockManagementHandlerWithUserRepo(stockManagementService, variantStockManagementService, userRepo, productRepo)
 	customerPricingHandler := handlers.NewCustomerPricingHandler(customerPricingService)
 	productConversionHandler := handlers.NewProductConversionHandler(productConversionService)
+	purchaseClaimHandler := handlers.NewPurchaseClaimHandler(
+		purchaseClaimService,
+	)
+	purchaseDispenseHandler := handlers.NewPurchaseDispenseHandler(
+		purchaseDispenseService,
+	)
 
 	// Swagger documentation endpoint
 	app.Get("/docs/*", swagger.HandlerDefault)
@@ -261,6 +279,82 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		vendorGroup.Post("/", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), vendorHandler.CreateVendor)
 		vendorGroup.Put("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), vendorHandler.UpdateVendor)
 		vendorGroup.Delete("/:id", middleware.AuthMiddleware(), middleware.SuperAdminMiddleware(), vendorHandler.DeleteVendor)
+	}
+
+	purchaseClaimGroup := app.Group("/purchase-claims")
+	{
+		purchaseClaimGroup.Get(
+			"/purchase-orders/:purchaseOrderId/items",
+			middleware.AuthMiddleware(),
+			middleware.AdminMiddleware(),
+			purchaseClaimHandler.GetPurchaseOrderClaimSource,
+		)
+
+		purchaseClaimGroup.Get(
+			"/purchase-orders/:purchaseOrderId",
+			middleware.AuthMiddleware(),
+			middleware.AdminMiddleware(),
+			purchaseClaimHandler.GetClaimsByPurchaseOrder,
+		)
+
+		purchaseClaimGroup.Get(
+			"/items/:itemId/replacement-receipts",
+			middleware.AuthMiddleware(),
+			middleware.AdminMiddleware(),
+			purchaseClaimHandler.GetReplacementReceipts,
+		)
+
+		purchaseClaimGroup.Get(
+			"/:id",
+			middleware.AuthMiddleware(),
+			middleware.AdminMiddleware(),
+			purchaseClaimHandler.GetClaimByID,
+		)
+
+		purchaseClaimGroup.Post(
+			"/",
+			middleware.AuthMiddleware(),
+			middleware.AdminMiddleware(),
+			purchaseClaimHandler.CreateClaim,
+		)
+
+		purchaseClaimGroup.Post(
+			"/:id/receive-replacement",
+			middleware.AuthMiddleware(),
+			middleware.AdminMiddleware(),
+			purchaseClaimHandler.ReceiveReplacement,
+		)
+	}
+
+	purchaseDispenseGroup := app.Group("/purchase-dispenses")
+	{
+		purchaseDispenseGroup.Post(
+			"/claims/:claimId",
+			middleware.AuthMiddleware(),
+			middleware.AdminMiddleware(),
+			purchaseDispenseHandler.CreateDispense,
+		)
+
+		purchaseDispenseGroup.Get(
+			"/claims/:claimId",
+			middleware.AuthMiddleware(),
+			middleware.AdminMiddleware(),
+			purchaseDispenseHandler.GetDispensesByClaim,
+		)
+
+		purchaseDispenseGroup.Get(
+			"/claim-items/:itemId",
+			middleware.AuthMiddleware(),
+			middleware.AdminMiddleware(),
+			purchaseDispenseHandler.GetDispensesByClaimItem,
+		)
+
+		purchaseDispenseGroup.Get(
+			"/:id",
+			middleware.AuthMiddleware(),
+			middleware.AdminMiddleware(),
+			purchaseDispenseHandler.GetDispenseByID,
+		)
 	}
 
 	rawMaterialBagGroup := app.Group("/raw-material-bags")

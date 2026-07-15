@@ -227,6 +227,11 @@ func RunMigrations(db *gorm.DB) error {
 		&models.Bill{},
 		&models.BillLineItem{},
 
+		&models.PurchaseClaim{},
+		&models.PurchaseClaimItem{},
+		&models.PurchaseClaimReceipt{},
+		&models.PurchaseDispense{},
+
 		&models.CustomerPricing{},
 		&models.SalaryCalculation{},
 		&models.ProductConversion{},
