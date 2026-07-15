@@ -1,53 +1,96 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/bbapp-org/auth-service/app/dto/input"
-	"github.com/bbapp-org/auth-service/app/dto/output"
 	"github.com/bbapp-org/auth-service/app/services"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 )
 
 type ShipmentHandler struct {
-	service services.ShipmentService
+	service  services.ShipmentService
+	validate *validator.Validate
 }
 
 func NewShipmentHandler(service services.ShipmentService) *ShipmentHandler {
-	return &ShipmentHandler{service: service}
+	return &ShipmentHandler{
+		service:  service,
+		validate: validator.New(),
+	}
+}
+
+func shipmentContext(c *fiber.Ctx) (uint, string, error) {
+	userID, err := shipmentLocalToUint(c.Locals("user_id"))
+	if err != nil || userID == 0 {
+		return 0, "", fiber.NewError(
+			fiber.StatusUnauthorized,
+			"invalid authenticated user",
+		)
+	}
+
+	companyID, err := shipmentLocalToUint(c.Locals("company_id"))
+	if err != nil || companyID == 0 {
+		return 0, "", fiber.NewError(
+			fiber.StatusForbidden,
+			"invalid authenticated company",
+		)
+	}
+
+	return companyID, strconv.FormatUint(uint64(userID), 10), nil
+}
+
+func shipmentPagination(c *fiber.Ctx) (int, int) {
+	limit, err := strconv.Atoi(c.Query("limit", "10"))
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset, err := strconv.Atoi(c.Query("offset", "0"))
+	if err != nil || offset < 0 {
+		offset = 0
+	}
+
+	return limit, offset
 }
 
 func (h *ShipmentHandler) CreateShipment(c *fiber.Ctx) error {
-	var shipInput input.CreateShipmentInput
+	var req input.CreateShipmentInput
 
-	if err := c.BodyParser(&shipInput); err != nil {
+	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
 			"error":   "Invalid request body",
-			"success": false,
 		})
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(shipInput); err != nil {
+	if err := h.validate.Struct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
 			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	companyID, userID, err := shipmentContext(c)
+	if err != nil {
+		return err
 	}
 
-	shipment, err := h.service.CreateShipment(&shipInput, userID)
+	shipment, err := h.service.CreateShipmentForCompany(
+		&req,
+		userID,
+		companyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
 			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
@@ -60,12 +103,23 @@ func (h *ShipmentHandler) CreateShipment(c *fiber.Ctx) error {
 
 func (h *ShipmentHandler) GetShipment(c *fiber.Ctx) error {
 	id := c.Params("id")
+	if id == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Shipment ID is required",
+		})
+	}
 
-	shipment, err := h.service.GetShipment(id)
+	companyID, _, err := shipmentContext(c)
+	if err != nil {
+		return err
+	}
+
+	shipment, err := h.service.GetShipmentForCompany(id, companyID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error":   "Shipment not found",
 			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
@@ -76,26 +130,22 @@ func (h *ShipmentHandler) GetShipment(c *fiber.Ctx) error {
 }
 
 func (h *ShipmentHandler) GetAllShipments(c *fiber.Ctx) error {
-	limit := 10
-	offset := 0
+	limit, offset := shipmentPagination(c)
 
-	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
+	companyID, _, err := shipmentContext(c)
+	if err != nil {
+		return err
 	}
 
-	if o := c.Query("offset"); o != "" {
-		if parsed, err := strconv.Atoi(o); err == nil {
-			offset = parsed
-		}
-	}
-
-	shipments, total, err := h.service.GetAllShipments(limit, offset)
+	shipments, total, err := h.service.GetAllShipmentsForCompany(
+		companyID,
+		limit,
+		offset,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   err.Error(),
 			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
@@ -107,34 +157,36 @@ func (h *ShipmentHandler) GetAllShipments(c *fiber.Ctx) error {
 }
 
 func (h *ShipmentHandler) GetShipmentsByCustomer(c *fiber.Ctx) error {
-	customerID, err := strconv.ParseUint(c.Params("customer_id"), 10, 32)
-	if err != nil {
+	customerID, err := strconv.ParseUint(
+		c.Params("customer_id"),
+		10,
+		32,
+	)
+	if err != nil || customerID == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid customer ID",
 			"success": false,
+			"error":   "Invalid customer ID",
 		})
 	}
 
-	limit := 10
-	offset := 0
+	limit, offset := shipmentPagination(c)
 
-	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
+	companyID, _, err := shipmentContext(c)
+	if err != nil {
+		return err
 	}
 
-	if o := c.Query("offset"); o != "" {
-		if parsed, err := strconv.Atoi(o); err == nil {
-			offset = parsed
-		}
-	}
-
-	shipments, total, err := h.service.GetShipmentsByCustomer(uint(customerID), limit, offset)
+	shipments, total, err :=
+		h.service.GetShipmentsByCustomerForCompany(
+			uint(customerID),
+			companyID,
+			limit,
+			offset,
+		)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   err.Error(),
 			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
@@ -147,27 +199,31 @@ func (h *ShipmentHandler) GetShipmentsByCustomer(c *fiber.Ctx) error {
 
 func (h *ShipmentHandler) GetShipmentsByPackage(c *fiber.Ctx) error {
 	packageID := c.Params("package_id")
-
-	limit := 10
-	offset := 0
-
-	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
+	if packageID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Package ID is required",
+		})
 	}
 
-	if o := c.Query("offset"); o != "" {
-		if parsed, err := strconv.Atoi(o); err == nil {
-			offset = parsed
-		}
+	limit, offset := shipmentPagination(c)
+
+	companyID, _, err := shipmentContext(c)
+	if err != nil {
+		return err
 	}
 
-	shipments, total, err := h.service.GetShipmentsByPackage(packageID, limit, offset)
+	shipments, total, err :=
+		h.service.GetShipmentsByPackageForCompany(
+			packageID,
+			companyID,
+			limit,
+			offset,
+		)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   err.Error(),
 			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
@@ -180,27 +236,31 @@ func (h *ShipmentHandler) GetShipmentsByPackage(c *fiber.Ctx) error {
 
 func (h *ShipmentHandler) GetShipmentsBySalesOrder(c *fiber.Ctx) error {
 	salesOrderID := c.Params("sales_order_id")
-
-	limit := 10
-	offset := 0
-
-	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
+	if salesOrderID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Sales order ID is required",
+		})
 	}
 
-	if o := c.Query("offset"); o != "" {
-		if parsed, err := strconv.Atoi(o); err == nil {
-			offset = parsed
-		}
+	limit, offset := shipmentPagination(c)
+
+	companyID, _, err := shipmentContext(c)
+	if err != nil {
+		return err
 	}
 
-	shipments, total, err := h.service.GetShipmentsBySalesOrder(salesOrderID, limit, offset)
+	shipments, total, err :=
+		h.service.GetShipmentsBySalesOrderForCompany(
+			salesOrderID,
+			companyID,
+			limit,
+			offset,
+		)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   err.Error(),
 			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
@@ -213,27 +273,31 @@ func (h *ShipmentHandler) GetShipmentsBySalesOrder(c *fiber.Ctx) error {
 
 func (h *ShipmentHandler) GetShipmentsByStatus(c *fiber.Ctx) error {
 	status := c.Params("status")
-
-	limit := 10
-	offset := 0
-
-	if l := c.Query("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
+	if status == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Shipment status is required",
+		})
 	}
 
-	if o := c.Query("offset"); o != "" {
-		if parsed, err := strconv.Atoi(o); err == nil {
-			offset = parsed
-		}
+	limit, offset := shipmentPagination(c)
+
+	companyID, _, err := shipmentContext(c)
+	if err != nil {
+		return err
 	}
 
-	shipments, total, err := h.service.GetShipmentsByStatus(status, limit, offset)
+	shipments, total, err :=
+		h.service.GetShipmentsByStatusForCompany(
+			status,
+			companyID,
+			limit,
+			offset,
+		)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   err.Error(),
 			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
@@ -246,33 +310,43 @@ func (h *ShipmentHandler) GetShipmentsByStatus(c *fiber.Ctx) error {
 
 func (h *ShipmentHandler) UpdateShipment(c *fiber.Ctx) error {
 	id := c.Params("id")
-	var shipInput input.UpdateShipmentInput
-
-	if err := c.BodyParser(&shipInput); err != nil {
+	if id == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Shipment ID is required",
+		})
+	}
+
+	var req input.UpdateShipmentInput
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
 			"error":   "Invalid request body",
-			"success": false,
 		})
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(shipInput); err != nil {
+	if err := h.validate.Struct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
 			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	companyID, userID, err := shipmentContext(c)
+	if err != nil {
+		return err
 	}
 
-	shipment, err := h.service.UpdateShipment(id, &shipInput, userID)
+	shipment, err := h.service.UpdateShipmentForCompany(
+		id,
+		&req,
+		userID,
+		companyID,
+	)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
 			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
@@ -285,33 +359,44 @@ func (h *ShipmentHandler) UpdateShipment(c *fiber.Ctx) error {
 
 func (h *ShipmentHandler) UpdateShipmentStatus(c *fiber.Ctx) error {
 	id := c.Params("id")
-	var statusInput input.UpdateShipmentStatusInput
-
-	if err := c.BodyParser(&statusInput); err != nil {
+	if id == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   "Shipment ID is required",
+		})
+	}
+
+	var req input.UpdateShipmentStatusInput
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
 			"error":   "Invalid request body",
-			"success": false,
 		})
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(statusInput); err != nil {
+	if err := h.validate.Struct(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
 			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
+	companyID, userID, err := shipmentContext(c)
+	if err != nil {
+		return err
 	}
 
-	shipment, err := h.service.UpdateShipmentStatus(id, statusInput.Status, userID)
+	shipment, err :=
+		h.service.UpdateShipmentStatusForCompany(
+			id,
+			req.Status,
+			userID,
+			companyID,
+		)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
 			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
@@ -324,12 +409,25 @@ func (h *ShipmentHandler) UpdateShipmentStatus(c *fiber.Ctx) error {
 
 func (h *ShipmentHandler) DeleteShipment(c *fiber.Ctx) error {
 	id := c.Params("id")
-
-	err := h.service.DeleteShipment(id)
-	if err != nil {
+	if id == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
 			"success": false,
+			"error":   "Shipment ID is required",
+		})
+	}
+
+	companyID, _, err := shipmentContext(c)
+	if err != nil {
+		return err
+	}
+
+	if err := h.service.DeleteShipmentForCompany(
+		id,
+		companyID,
+	); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"error":   err.Error(),
 		})
 	}
 
@@ -339,65 +437,78 @@ func (h *ShipmentHandler) DeleteShipment(c *fiber.Ctx) error {
 	})
 }
 
-// CreateShipmentWithVariants creates a shipment for product variants with stock deduction
-func (h *ShipmentHandler) CreateShipmentWithVariants(c *fiber.Ctx) error {
-	var shipInput input.CreateShipmentInput
+// Retained route/function name.
+// It now creates the actual company-scoped shipment instead of returning
+// a temporary response that is not saved in the database.
+func (h *ShipmentHandler) CreateShipmentWithVariants(
+	c *fiber.Ctx,
+) error {
+	return h.CreateShipment(c)
+}
 
-	if err := c.BodyParser(&shipInput); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid request body",
-			"success": false,
-		})
+func shipmentLocalToUint(value interface{}) (uint, error) {
+	if value == nil {
+		return 0, fmt.Errorf("value is missing")
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(shipInput); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   err.Error(),
-			"success": false,
-		})
-	}
-
-	userID := ""
-	if uid := c.Locals("user_id"); uid != nil {
-		userID = fmt.Sprintf("%v", uid)
-	}
-
-	importTime := time.Now()
-	shipmentNo := fmt.Sprintf("SHIP-%d-%05d", importTime.Year(), c.Locals("request_id"))
-
-	// Calculate totals and build line items
-	var totalItems float64
-	lineItems := make([]output.ShipmentLineItemOutput, len(shipInput.LineItems))
-
-	for i, item := range shipInput.LineItems {
-		totalItems += item.Quantity
-		lineItems[i] = output.ShipmentLineItemOutput{
-			VariantSKU:      item.VariantSKU,
-			QuantityShipped: item.Quantity,
-			ProductName:     item.ProductID,
+	switch v := value.(type) {
+	case uint:
+		return v, nil
+	case uint8:
+		return uint(v), nil
+	case uint16:
+		return uint(v), nil
+	case uint32:
+		return uint(v), nil
+	case uint64:
+		return uint(v), nil
+	case int:
+		if v <= 0 {
+			return 0, fmt.Errorf("invalid value")
 		}
+		return uint(v), nil
+	case int8:
+		if v <= 0 {
+			return 0, fmt.Errorf("invalid value")
+		}
+		return uint(v), nil
+	case int16:
+		if v <= 0 {
+			return 0, fmt.Errorf("invalid value")
+		}
+		return uint(v), nil
+	case int32:
+		if v <= 0 {
+			return 0, fmt.Errorf("invalid value")
+		}
+		return uint(v), nil
+	case int64:
+		if v <= 0 {
+			return 0, fmt.Errorf("invalid value")
+		}
+		return uint(v), nil
+	case float32:
+		if v <= 0 {
+			return 0, fmt.Errorf("invalid value")
+		}
+		return uint(v), nil
+	case float64:
+		if v <= 0 {
+			return 0, fmt.Errorf("invalid value")
+		}
+		return uint(v), nil
+	case json.Number:
+		n, err := strconv.ParseUint(v.String(), 10, 64)
+		return uint(n), err
+	case string:
+		n, err := strconv.ParseUint(v, 10, 64)
+		return uint(n), err
+	default:
+		n, err := strconv.ParseUint(
+			fmt.Sprintf("%v", v),
+			10,
+			64,
+		)
+		return uint(n), err
 	}
-
-	// Create shipment output
-	shipmentOutput := output.CreateShipmentVariantOutput(
-		shipmentNo,
-		shipInput.SalesOrderID,
-		shipInput.SalesOrderID, // Ideally fetch SO number from DB
-		shipInput.CustomerID,
-		"", // Fetch customer name from DB
-		lineItems,
-		totalItems,
-		shipInput.AutoDeductStock,
-		"Shipment created and stock deducted successfully",
-	)
-
-	shipmentOutput.CreatedBy = userID
-	shipmentOutput.UpdatedBy = userID
-
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"success": true,
-		"data":    shipmentOutput,
-		"message": "Shipment created successfully with variant stock deduction",
-	})
 }

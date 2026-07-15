@@ -146,7 +146,7 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 	customerPaymentService := services.NewCustomerPaymentService(customerPaymentRepo, salesOrderRepo, customerRepo, userRepo)
 	salesOrderService := services.NewSalesOrderService(salesOrderRepo, customerRepo, itemRepo, taxRepo, salespersonRepo, inventoryBalanceRepo, stockMovementService, productStockRepo, stockLedgerRepo, variantStockManagementService, stockManagementService, productGroupInventoryService)
 	packageService := services.NewPackageService(packageRepo, salesOrderRepo, customerRepo, productRepo, stockManagementService)
-	shipmentService := services.NewShipmentService(shipmentRepo, packageRepo, salesOrderRepo, customerRepo, inventoryBalanceRepo, stockMovementService)
+	shipmentService := services.NewShipmentService(shipmentRepo, packageRepo, salesOrderRepo, customerRepo)
 	billService := services.NewBillService(billRepo, vendorRepo, productRepo, taxRepo, userRepo)
 	bankService := services.NewBankService(bankRepo)
 	itemGroupService := services.NewItemGroupService(itemGroupRepo, itemRepo)
