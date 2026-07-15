@@ -102,11 +102,14 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 		purchaseOrderRepo,
 		productRepo,
 	)
-	purchaseDispenseService := services.NewPurchaseDispenseService(
-		purchaseDispenseRepo,
-		purchaseClaimRepo,
-		purchaseClaimService,
-	)
+	purchaseDispenseService :=
+		services.NewPurchaseDispenseService(
+			purchaseDispenseRepo,
+			purchaseClaimRepo,
+			purchaseOrderRepo,
+			rawBagRepo,
+		)
+
 	roleService := services.NewRoleService(roleRepo)
 	supportService := services.NewSupportService(supportRepo)
 	businessTypeService := services.NewBusinessTypeService(businessTypeRepo)

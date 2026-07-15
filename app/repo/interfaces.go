@@ -927,26 +927,31 @@ type ConversionRecordBagUsageRepository interface {
 	GetByBagIDAndCompany(string, uint) ([]models.ConversionRecordBagUsage, error)
 }
 type RawMaterialBagRepository interface {
-	// Existing methods retained.
-	CreateMany(bags []models.RawMaterialBag) error
+	CreateMany(
+		bags []models.RawMaterialBag,
+	) error
+
 	GetAll(
 		limit int,
 		offset int,
 	) ([]models.RawMaterialBag, int64, error)
+
 	GetByID(
 		id string,
 	) (*models.RawMaterialBag, error)
+
 	GetByProductID(
 		productID string,
 	) ([]models.RawMaterialBag, error)
+
 	GetByPurchaseOrderID(
 		purchaseOrderID string,
 	) ([]models.RawMaterialBag, error)
+
 	Update(
 		bag *models.RawMaterialBag,
 	) error
 
-	// Company-scoped methods.
 	CreateManyForCompany(
 		bags []models.RawMaterialBag,
 		companyID uint,
@@ -977,8 +982,21 @@ type RawMaterialBagRepository interface {
 		bag *models.RawMaterialBag,
 		companyID uint,
 	) error
-}
 
+	GetShortageBagsForUpdateTx(
+		tx *gorm.DB,
+		purchaseOrderID string,
+		productID string,
+		companyID uint,
+	) ([]models.RawMaterialBag, error)
+
+	UpdateReplacementBagTx(
+		tx *gorm.DB,
+		bag *models.RawMaterialBag,
+	) error
+
+	GetDB() *gorm.DB
+}
 type VendorShortageClaimRepository interface {
 	// Existing methods retained.
 	Create(

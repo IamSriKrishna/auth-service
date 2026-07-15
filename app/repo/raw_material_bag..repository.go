@@ -1,10 +1,13 @@
 package repo
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/bbapp-org/auth-service/app/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
-
 
 type rawMaterialBagRepository struct {
 	db *gorm.DB
@@ -21,8 +24,9 @@ func NewRawMaterialBagRepository(
 // Raw-material bag company ownership is resolved through:
 //
 // raw_material_bags.created_by
-//     -> users.id
-//     -> users.company_id
+//
+//	-> users.id
+//	-> users.company_id
 //
 // No new company column is required in raw_material_bags.
 func rawMaterialBagCompanyQuery(
@@ -301,4 +305,104 @@ func (r *rawMaterialBagRepository) UpdateByCompany(
 	}
 
 	return nil
+}
+func (r *rawMaterialBagRepository) GetShortageBagsForUpdateTx(
+	tx *gorm.DB,
+	purchaseOrderID string,
+	productID string,
+	companyID uint,
+) ([]models.RawMaterialBag, error) {
+	if tx == nil {
+		tx = r.db
+	}
+
+	if strings.TrimSpace(purchaseOrderID) == "" {
+		return nil, errors.New(
+			"purchase order ID is required",
+		)
+	}
+
+	if strings.TrimSpace(productID) == "" {
+		return nil, errors.New(
+			"product ID is required",
+		)
+	}
+
+	if companyID == 0 {
+		return nil, errors.New(
+			"company ID is required",
+		)
+	}
+
+	var bags []models.RawMaterialBag
+
+	query := rawMaterialBagCompanyQuery(
+		tx.Model(&models.RawMaterialBag{}),
+		companyID,
+	)
+
+	err := query.
+		Select("raw_material_bags.*").
+		Clauses(clause.Locking{
+			Strength: "UPDATE",
+		}).
+		Where(
+			"raw_material_bags.purchase_order_id = ?",
+			purchaseOrderID,
+		).
+		Where(
+			"raw_material_bags.product_id = ?",
+			productID,
+		).
+		Where(
+			"raw_material_bags.actual_kg < raw_material_bags.expected_kg",
+		).
+		Order(
+			"raw_material_bags.bag_number ASC",
+		).
+		Find(&bags).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return bags, nil
+}
+
+func (r *rawMaterialBagRepository) UpdateReplacementBagTx(
+	tx *gorm.DB,
+	bag *models.RawMaterialBag,
+) error {
+	if tx == nil {
+		tx = r.db
+	}
+
+	if bag == nil {
+		return gorm.ErrInvalidData
+	}
+
+	result := tx.
+		Model(&models.RawMaterialBag{}).
+		Where("id = ?", bag.ID).
+		Updates(map[string]interface{}{
+			"actual_kg":    bag.ActualKg,
+			"remaining_kg": bag.RemainingKg,
+			"status":       bag.Status,
+			"updated_at":   bag.UpdatedAt,
+		})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
+}
+
+func (r *rawMaterialBagRepository) GetDB() *gorm.DB {
+	return r.db
 }
