@@ -373,8 +373,8 @@ func SetupRoutes(app *fiber.App, cfg *config.Config) {
 
 	customerGroup := app.Group("/customers")
 	{
-		customerGroup.Get("/", customerHandler.GetAllCustomers)
-		customerGroup.Get("/:id", customerHandler.GetCustomerByID)
+		customerGroup.Get("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), customerHandler.GetAllCustomers)
+		customerGroup.Get("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), customerHandler.GetCustomerByID)
 		customerGroup.Post("/", middleware.AuthMiddleware(), middleware.AdminMiddleware(), customerHandler.CreateCustomer)
 		customerGroup.Put("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), customerHandler.UpdateCustomer)
 		customerGroup.Delete("/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), customerHandler.DeleteCustomer)
